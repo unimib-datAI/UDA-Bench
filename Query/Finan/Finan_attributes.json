@@ -18,7 +18,7 @@
     },
     "exchange_code": {
       "value_type": "multi_str",
-      "usage": "general",
+      "usage": "categorical",
       "modality": "text",
       "is_nullable": false,
       "description": "The code of the stock exchange where the company is listed (e.g., ASX, SUN).",

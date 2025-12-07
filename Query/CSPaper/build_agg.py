@@ -311,7 +311,7 @@ if __name__ == "__main__":
         attributes=attributes,
         table="CSPaper",
         output_dir=output_path,
-        num_queries=8,
+        num_queries=10,
         num_group_by=1,
         num_agg_funcs=1
     )

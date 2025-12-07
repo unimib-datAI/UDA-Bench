@@ -22,3 +22,9 @@ SELECT color, MAX(age) AS max_age FROM art GROUP BY color;
 -- Query 8: aggregation (art)
 SELECT birth_continent, SUM(age) AS sum_age FROM art GROUP BY birth_continent;
 
+-- Query 9: aggregation (art)
+SELECT birth_continent, MIN(age) AS min_age FROM art GROUP BY birth_continent;
+
+-- Query 10: aggregation (art)
+SELECT color, MIN(age) AS min_age FROM art GROUP BY color;
+

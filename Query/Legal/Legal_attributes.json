@@ -26,7 +26,7 @@
     },
     "hearing_year": {
       "value_type": "str",
-      "usage": "general",
+      "usage": "categorical",
       "modality": "text",
       "is_nullable": false,
       "description": "year when the hearing began; use format YYYY (e.g., 2009)",
@@ -34,7 +34,7 @@
     },
     "judgment_year": {
       "value_type": "str",
-      "usage": "general",
+      "usage": "categorical",
       "modality": "text",
       "is_nullable": false,
       "description": "year when the judgment was delivered; use format YYYY (e.g., 2009)",
@@ -130,7 +130,7 @@
     },
     "defendant_current_status": {
       "value_type": "str",
-      "usage": "general",
+      "usage": "categorical",
       "modality": "text",
       "is_nullable": false,
       "description": "current occupation or type of the defendant (rules same as for plaintiff; e.g., government)",
@@ -138,15 +138,15 @@
     },
     "evidence": {
       "value_type": "int",
-      "usage": "general",
+      "usage": "numerical",
       "modality": "text",
       "is_nullable": false,
       "description": "whether evidence was provided (1 if yes, 0 if none; e.g., 1)",
       "is_fixed": false
     },
     "first_judge": {
-      "value_type": "int",
-      "usage": "general",
+      "value_type": "str",
+      "usage": "categorical",
       "modality": "text",
       "is_nullable": false,
       "description": "whether it was the first judgment (1 if yes, 0 if none; e.g., 1)",

@@ -276,8 +276,8 @@ if __name__ == "__main__":
     from utils import load_attributes_from_json
     
     # Configuration
-    base_path = "/data2/jproject/OpenQuestProject/UDA-Bench/Query/Finan"
-    attributes_path = f"{base_path}/Finan_attributes.json"
+    base_path = "/data2/jproject/OpenQuestProject/UDA-Bench/Query/CSPaper"
+    attributes_path = f"{base_path}/CSPaper_attributes.json"
     output_path = f"{base_path}/Agg"
     
     # Create output directory
@@ -309,9 +309,9 @@ if __name__ == "__main__":
     
     queries = generate_and_save_agg_queries(
         attributes=attributes,
-        table="finance",
+        table="CSPaper",
         output_dir=output_path,
-        num_queries=10,
+        num_queries=8,
         num_group_by=1,
         num_agg_funcs=1
     )
