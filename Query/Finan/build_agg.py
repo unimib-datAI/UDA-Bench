@@ -309,9 +309,9 @@ if __name__ == "__main__":
     
     queries = generate_and_save_agg_queries(
         attributes=attributes,
-        table="Finan",
+        table="finance",
         output_dir=output_path,
-        num_queries=8,
+        num_queries=10,
         num_group_by=1,
         num_agg_funcs=1
     )

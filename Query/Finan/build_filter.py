@@ -423,9 +423,9 @@ if __name__ == "__main__":
     from utils import load_attributes_from_json, DataStatistics
     
     # Configuration
-    base_path = "/data/dengqiyan/UDA-Bench/Query/Player"
-    attributes_path = f"{base_path}/Player_attributes.json"
-    gt_data_path = f"{base_path}/Player.csv"
+    base_path = "/data2/jproject/OpenQuestProject/UDA-Bench/Query/Finan"
+    attributes_path = f"{base_path}/Finan_attributes.json"
+    gt_data_path = f"{base_path}/Finan.csv"
 
     output_path = f"{base_path}/Filter"
     
@@ -443,7 +443,7 @@ if __name__ == "__main__":
     
     queries = generate_and_save_filter_queries(
         attributes=attributes,
-        table="Player",
+        table="Finan",
         output_dir=output_path,
         num_queries_per_subcategory=10,
         select_attr_num=3,

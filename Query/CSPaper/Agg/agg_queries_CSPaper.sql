@@ -22,3 +22,9 @@ SELECT topic, MAX(baseline_amount) AS max_baseline_amount FROM cspaper GROUP BY 
 -- Query 8: aggregation (cspaper)
 SELECT reasoning_depth, SUM(baseline_amount) AS sum_baseline_amount FROM cspaper GROUP BY reasoning_depth;
 
+-- Query 9: aggregation (cspaper)
+SELECT topic, COUNT(uses_reranker) AS count_uses_reranker FROM cspaper GROUP BY topic;
+
+-- Query 10: aggregation (cspaper)
+SELECT topic, COUNT(evaluation_metric) AS count_evaluation_metric FROM cspaper GROUP BY topic;
+
