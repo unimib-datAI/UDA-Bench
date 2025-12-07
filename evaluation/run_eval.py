@@ -178,6 +178,11 @@ def main():
     parser = SqlParser()
     manifest = QueryManifest.from_files(sql_file=sql_file, attributes_file=paths.resolve_attributes(), parser=parser)
 
+    if manifest.added_aliases:
+        logger.info("Added default aliases for join columns: %s", ", ".join(manifest.added_aliases))
+    if manifest.original_sql != manifest.sql:
+        logger.debug("Canonicalized SQL for execution: %s", manifest.sql)
+
     gt_runner = GtRunner(gt_dir=paths.resolve_gt_dir(), attributes=manifest.attributes)
     gt_sql = _inject_id_columns(manifest, logger)
     gold_df = gt_runner.run(gt_sql)

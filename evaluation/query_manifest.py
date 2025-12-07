@@ -3,10 +3,11 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, Mapping, Optional
+from typing import Dict, List, Mapping, Optional
 
 from .config import load_json
 from .sql_parser import ParsedQuery, SqlParser
+from .sql_aliaser import add_missing_aliases_for_join
 from .utils import standardize_column_name
 
 
@@ -21,18 +22,28 @@ class QueryManifest:
     Bundle SQL text, parsed query info, and attribute metadata for downstream evaluators.
     """
 
-    def __init__(self, sql: str, parsed: ParsedQuery, attributes: Mapping[str, Mapping[str, Mapping]]) -> None:
+    def __init__(
+        self,
+        sql: str,
+        parsed: ParsedQuery,
+        attributes: Mapping[str, Mapping[str, Mapping]],
+        original_sql: Optional[str] = None,
+        added_aliases: Optional[List[str]] = None,
+    ) -> None:
         self.sql = sql
         self.parsed = parsed
         self.attributes = attributes
+        self.original_sql = original_sql or sql
+        self.added_aliases = added_aliases or []
 
     @classmethod
     def from_files(cls, sql_file: Path, attributes_file: Path, parser: Optional[SqlParser] = None) -> "QueryManifest":
         sql_text = cls._load_sql(sql_file)
         parser = parser or SqlParser()
-        parsed = parser.parse(sql_text)
+        patched_sql, added_aliases = add_missing_aliases_for_join(sql_text)
+        parsed = parser.parse(patched_sql)
         attributes = load_json(Path(attributes_file))
-        return cls(sql_text, parsed, attributes)
+        return cls(patched_sql, parsed, attributes, original_sql=sql_text, added_aliases=added_aliases)
 
     @staticmethod
     def _load_sql(sql_file: Path) -> str:
