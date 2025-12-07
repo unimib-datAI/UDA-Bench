@@ -25,6 +25,13 @@ python3 -m evaluation.run_eval \
   --sql-file evaluation/demo_acc_result/Player/Agg/agg_queries/2/sql.json \
   --result-csv evaluation/demo_acc_result/Player/Agg/agg_queries/2/result.csv
 
+# Player Join
+python3 -m evaluation.run_eval \
+  --dataset Player \
+  --task Join \
+  --sql-file evaluation/demo_acc_result/Player/Join/join_queries/2/sql.json \
+  --result-csv evaluation/demo_acc_result/Player/Join/join_queries/2/join_player_2.csv
+
 常用参数：
 - --dataset：数据集名称，对应 Query/{dataset} 下的 GT CSV 和 attributes。
 - --task：任务名（Select/Filter/Agg/Join/Mixed），仅用于默认路径推断。
