@@ -52,8 +52,8 @@ class SqlParser:
         select_items = [self._parse_select_item(item) for item in expr.selects]
         group_by = self._collect_group_by(expr)
         join_keys = self._collect_join_keys(expr)
-        stop_columns = self._detect_stop_columns(select_items, tables)
         query_type = self._detect_query_type(group_by, select_items, tables)
+        stop_columns = self._detect_stop_columns(select_items, tables, query_type)
         primary_keys = self._infer_primary_keys(query_type, group_by, tables, join_keys)
         return ParsedQuery(
             sql=sql,
@@ -100,22 +100,31 @@ class SqlParser:
                     keys.append(self._column_identifier(right))
         return sorted(set(keys))
 
-    def _detect_stop_columns(self, items: Sequence[SelectItem], tables: Sequence[str]) -> List[str]:
-        stop_cols: List[str] = []
+    def _detect_stop_columns(
+        self, items: Sequence[SelectItem], tables: Sequence[str], query_type: str
+    ) -> List[str]:
+        """
+        Identify columns that should be excluded from metric calculation and optionally
+        injected for alignment. Only id-like columns are treated as stop columns.
+        """
+        stop_cols = set()
         for item in items:
             name = item.output_name.lower()
             source = (item.source_name or "").lower()
-            if name == "id" or source.endswith(".id"):
-                stop_cols.append(item.output_name)
-            if source.endswith(".id") and item.output_name not in stop_cols:
-                stop_cols.append(item.output_name)
-        for table in tables:
-            candidate = f"{table}.id"
-            if candidate not in stop_cols:
-                stop_cols.append(candidate)
-        if "id" not in stop_cols:
-            stop_cols.append("id")
-        return sorted(set(stop_cols))
+            if name == "id" or name.endswith(".id") or source.endswith(".id"):
+                stop_cols.add(item.output_name)
+
+        if query_type == "aggregation":
+            return sorted(stop_cols)
+
+        if query_type == "join":
+            for table in tables:
+                stop_cols.add(f"{table}.id")
+            return sorted(stop_cols)
+
+        # select/filter without join/aggregation: only need bare id
+        stop_cols.add("id")
+        return sorted(stop_cols)
 
     def _detect_query_type(self, group_by: Sequence[str], items: Sequence[SelectItem], tables: Sequence[str]) -> str:
         if group_by or any(i.is_agg for i in items):

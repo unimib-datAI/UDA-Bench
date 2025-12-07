@@ -92,7 +92,8 @@ def build_arg_parser() -> argparse.ArgumentParser:
 def _inject_id_columns(manifest: QueryManifest, logger) -> str:
     """
     Ensure non-aggregation GT SQL always returns id columns for alignment.
-    For joins we add {table}.id, otherwise add id, unless already selected.
+    For joins we add {table}.id for each participating table; for single-table
+    non-aggregation queries we add bare id. Aggregations are left untouched.
     """
     parsed = manifest.parsed
     if parsed.query_type == "aggregation":
@@ -105,12 +106,16 @@ def _inject_id_columns(manifest: QueryManifest, logger) -> str:
         if item.source_name:
             existing.add(standardize_column_name(item.source_name).lower())
 
-    required: list[str] = []
-    for col in parsed.stop_columns:
+    if parsed.query_type == "join":
+        candidates = [f"{table}.id" for table in parsed.tables]
+    else:
+        candidates = ["id"]
+
+    required = []
+    for col in candidates:
         normalized = standardize_column_name(col).lower()
-        if normalized == "id" or normalized.endswith(".id"):
-            if normalized not in existing:
-                required.append(col)
+        if normalized not in existing:
+            required.append(col)
 
     if not required:
         return manifest.sql
