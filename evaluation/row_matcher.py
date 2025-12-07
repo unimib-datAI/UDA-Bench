@@ -3,6 +3,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import List, Mapping, Optional, Sequence, Tuple
 
+try:  # tqdm is optional; fall back to plain iteration if missing.
+    from tqdm import tqdm
+except ImportError:  # pragma: no cover - optional dependency
+    def tqdm(iterable, *args, **kwargs):
+        return iterable
+
 import pandas as pd
 
 from .comparators import LlmClient
@@ -56,6 +62,7 @@ class RowMatcher:
         matched_pred_parts: List[pd.DataFrame] = []
         used_gold: set[int] = set()
         used_pred: set[int] = set()
+        allow_llm = bool(self.llm_client and self.llm_client.can_use_llm and self._needs_llm_matching(keys, query_type))
 
         common_keys = sorted(set(gold_norm["__key"]) & set(pred_norm["__key"]))
         for key in common_keys:
@@ -69,23 +76,26 @@ class RowMatcher:
 
         desc_map = self._build_description_map(attr_descriptions)
         key_context = self._build_key_context(keys, desc_map)
-        for idx, g_row in gold_norm.iterrows():
-            if idx in used_gold:
-                continue
-            best_pred = self._find_llm_match(
-                g_row,
-                pred_norm,
-                keys,
-                used_pred=used_pred,
-                desc_map=desc_map,
-                key_context=key_context,
-                query_type=query_type,
-            )
-            if best_pred is not None:
-                matched_gold_parts.append(g_row.to_frame().T.drop(columns="__key"))
-                matched_pred_parts.append(pred_norm.loc[[best_pred]].drop(columns="__key"))
-                used_gold.add(idx)
-                used_pred.add(best_pred)
+        remaining_gold = [idx for idx in gold_norm.index if idx not in used_gold]
+        if allow_llm and remaining_gold:
+            print("LLM key matching progress (aligning unmatched gold rows):")
+            gold_iterator = tqdm(remaining_gold, desc="LLM key match", unit="row")
+            for idx in gold_iterator:
+                g_row = gold_norm.loc[idx]
+                best_pred = self._find_llm_match(
+                    g_row,
+                    pred_norm,
+                    keys,
+                    used_pred=used_pred,
+                    desc_map=desc_map,
+                    key_context=key_context,
+                    query_type=query_type,
+                )
+                if best_pred is not None:
+                    matched_gold_parts.append(g_row.to_frame().T.drop(columns="__key"))
+                    matched_pred_parts.append(pred_norm.loc[[best_pred]].drop(columns="__key"))
+                    used_gold.add(idx)
+                    used_pred.add(best_pred)
 
         matched_gold = pd.concat(matched_gold_parts, ignore_index=True) if matched_gold_parts else gold_df.head(0)
         matched_pred = pd.concat(matched_pred_parts, ignore_index=True) if matched_pred_parts else pred_df.head(0)
@@ -124,6 +134,17 @@ class RowMatcher:
             raise KeyError(f"Gold result missing key columns: {missing_gold}")
         if missing_pred:
             raise KeyError(f"Prediction missing key columns: {missing_pred}")
+
+    def _needs_llm_matching(self, keys: Sequence[str], query_type: Optional[str]) -> bool:
+        """
+        Only enable LLM matching when keys contain non-id columns (e.g., group-by strings or
+        secondary string keys). Pure id-based keys are deterministic and use exact matching only.
+        """
+        return any(not self._is_definite_id_key(k) for k in keys)
+
+    def _is_definite_id_key(self, key: str) -> bool:
+        key_lower = str(key).lower()
+        return key_lower == "id" or key_lower.endswith(".id")
 
     def _collect_warnings(self, gold_df: pd.DataFrame, pred_df: pd.DataFrame, keys: Sequence[str]) -> List[str]:
         warnings: List[str] = []

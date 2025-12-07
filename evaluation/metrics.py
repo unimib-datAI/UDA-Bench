@@ -2,6 +2,12 @@ from __future__ import annotations
 
 from typing import Dict, List, Optional
 
+try:  # tqdm is optional; fall back to plain iteration if missing.
+    from tqdm import tqdm
+except ImportError:  # pragma: no cover - optional dependency
+    def tqdm(iterable, *args, **kwargs):
+        return iterable
+
 import pandas as pd
 
 from .comparators import (
@@ -45,10 +51,16 @@ class MetricCalculator:
                 self.logger.warning("Skipping column %s because it is missing in aligned data", col_name)
                 continue
             comparator = self._pick_comparator(item)
+            uses_llm = self._uses_llm(comparator)
             meta = self.manifest.get_column_meta(col_name)
             precision_sum = 0.0
             recall_sum = 0.0
-            for pred_cell, gold_cell in zip(pred_df[col_name], gold_df[col_name]):
+            row_iter = zip(pred_df[col_name], gold_df[col_name])
+            if uses_llm:
+                total_cells = min(len(pred_df[col_name]), len(gold_df[col_name]))
+                print(f"LLM cell matching progress for column '{col_name}':")
+                row_iter = tqdm(row_iter, total=total_cells, desc=f"LLM cells: {col_name}", unit="cell")
+            for pred_cell, gold_cell in row_iter:
                 score = comparator.compare(pred_cell, gold_cell, description=meta.description if meta else None)
                 precision_sum += score.precision
                 recall_sum += score.recall
@@ -86,6 +98,14 @@ class MetricCalculator:
         if meta and meta.value_type == "multi-str":
             return self.multi
         return self.string
+
+    def _uses_llm(self, comparator: CellComparator) -> bool:
+        if isinstance(comparator, StringLLMComparator):
+            return comparator.llm_client.can_use_llm
+        if isinstance(comparator, MultiValueComparator):
+            llm_client = comparator.llm_comparator.llm_client
+            return bool(llm_client and llm_client.can_use_llm)
+        return False
 
     def _macro_average(self, metrics: Dict[str, Dict[str, float]]) -> Dict[str, float]:
         if not metrics:
