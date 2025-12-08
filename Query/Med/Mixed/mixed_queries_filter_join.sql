@@ -1,36 +1,36 @@
 -- Query 1: filter1_join1 (disease, drug)
-SELECT disease.epidemiology, drug.brand_name, disease.risk_factors, drug.recommended_usage FROM disease JOIN drug ON disease.disease_name = drug.disease_name WHERE drug.manufacturer != 'GSK';
+SELECT Med_disease.epidemiology, Med_drug.brand_name, Med_disease.risk_factors, Med_drug.recommended_usage FROM disease JOIN drug ON disease.disease_name = drug.disease_name WHERE Med_drug.manufacturer != 'GSK';
 
--- Query 2: filter2_join2 (disease, drug, institution)
-SELECT institution.key_achievements, drug.manufacturer, institution.funding_sources, disease.disease_type FROM disease JOIN drug ON disease.disease_name = drug.disease_name JOIN institution ON disease.disease_name = institution.research_diseases WHERE disease.pathogenesis = 'congenital' AND institution.institution_country >= 'Egypt';
+-- Query 2: filter1_join2 (disease, drug, institution)
+SELECT Med_institution.key_achievements, Med_drug.manufacturer, Med_institution.funding_sources, Med_disease.disease_type FROM disease JOIN institution ON disease.disease_name = institution.research_diseases JOIN drug ON disease.disease_name = drug.disease_name WHERE Med_disease.pathogenesis = 'congenital';
 
--- Query 3: filter3_join1 (disease, drug)
-SELECT disease.drugs, drug.disease_name, disease.treatments, drug.unsuitable_population FROM disease JOIN drug ON disease.disease_name = drug.disease_name WHERE drug.brand_name = 'REQUIP XL' OR drug.activation_conditions != 'before meals';
+-- Query 3: filter2_join1 (disease, drug)
+SELECT Med_disease.drugs, Med_drug.disease_name, Med_disease.treatments, Med_drug.unsuitable_population FROM disease JOIN drug ON disease.disease_name = drug.disease_name WHERE Med_drug.brand_name = 'REQUIP XL' AND Med_drug.activation_conditions != 'before meals';
 
--- Query 4: filter4_join2 (disease, drug, institution)
-SELECT drug.side_effects, disease.treatments, institution.key_technologies, drug.mechanism_of_action FROM disease JOIN drug ON disease.disease_name = drug.disease_name JOIN institution ON disease.disease_name = institution.research_diseases WHERE disease.treatment_challenges != 'only_one_drug_available' AND disease.drugs != 'diuretics' AND drug.administration_route = 'injection';
+-- Query 4: filter2_join2 (disease, drug, institution)
+SELECT Med_drug.side_effects, Med_disease.treatments, Med_institution.key_technologies, Med_drug.mechanism_of_action FROM disease JOIN institution ON disease.disease_name = institution.research_diseases JOIN drug ON disease.disease_name = drug.disease_name WHERE Med_disease.treatment_challenges != 'only_one_drug_available' AND Med_disease.drugs != 'diuretics';
 
--- Query 5: filter5_join1 (disease, drug)
-SELECT disease.disease_type, disease.diagnosis_challenges, drug.prescription_status, drug.unsuitable_population FROM disease JOIN drug ON disease.disease_name = drug.disease_name WHERE drug.activation_conditions != 'no special condition' OR drug.dosage_frequency >= 'once or twice a day' OR disease.pathogenesis = 'endocrine_disorder';
+-- Query 5: filter3_join1 (disease, drug)
+SELECT Med_disease.disease_type, Med_disease.diagnosis_challenges, Med_drug.prescription_status, Med_drug.unsuitable_population FROM disease JOIN drug ON disease.disease_name = drug.disease_name WHERE Med_drug.activation_conditions != 'no special condition' OR Med_drug.dosage_frequency = 'once or twice a day';
 
--- Query 6: filter6_join2 (disease, drug, institution)
-SELECT institution.institution_country, drug.manufacturer, drug.indication, disease.risk_factors FROM disease JOIN drug ON disease.disease_name = drug.disease_name JOIN institution ON disease.disease_name = institution.research_diseases WHERE (drug.single_dose != 'adults 10 mg' AND drug.active_ingredients = 'Roflumilast') OR (drug.storage_conditions != 'do not freeze liquid forms' AND institution.research_fields != 'cardiology');
+-- Query 6: filter3_join2 (disease, drug, institution)
+SELECT Med_institution.institution_country, Med_drug.manufacturer, Med_drug.indication, Med_disease.risk_factors FROM disease JOIN institution ON disease.disease_name = institution.research_diseases JOIN drug ON disease.disease_name = drug.disease_name WHERE Med_drug.single_dose != 'adults 10 mg' OR Med_drug.active_ingredients = 'Roflumilast';
 
--- Query 7: filter1_join1 (disease, drug)
-SELECT disease.drugs, drug.disease_name, drug.indication, disease.prognosis FROM disease JOIN drug ON disease.disease_name = drug.disease_name WHERE drug.brand_name = 'Nucala';
+-- Query 7: filter4_join1 (disease, drug)
+SELECT Med_disease.drugs, Med_drug.disease_name, Med_drug.indication, Med_disease.prognosis FROM disease JOIN drug ON disease.disease_name = drug.disease_name WHERE Med_drug.brand_name = 'Nucala' AND Med_disease.diagnostic_methods = 'genetic_testing' AND Med_drug.activation_conditions = 'requires co-administration with other drugs';
 
--- Query 8: filter2_join2 (disease, drug, institution)
-SELECT disease.common_symptoms, drug.pharmaceutical_form, institution.funding_sources, drug.dosage_frequency FROM disease JOIN drug ON disease.disease_name = drug.disease_name JOIN institution ON disease.disease_name = institution.research_diseases WHERE disease.prognosis != 'partial_recovery' AND drug.active_ingredients != 'bendamustine';
+-- Query 8: filter4_join2 (disease, drug, institution)
+SELECT Med_disease.common_symptoms, Med_drug.pharmaceutical_form, Med_institution.funding_sources, Med_drug.dosage_frequency FROM disease JOIN institution ON disease.disease_name = institution.research_diseases JOIN drug ON disease.disease_name = drug.disease_name WHERE Med_disease.prognosis != 'partial_recovery' AND Med_drug.active_ingredients != 'bendamustine' AND Med_drug.manufacturer = 'Astellas';
 
--- Query 9: filter3_join1 (disease, drug)
-SELECT drug.active_ingredients, disease.disease_name, disease.sequelae, drug.side_effects FROM disease JOIN drug ON disease.disease_name = drug.disease_name WHERE disease.disease_name = 'Metastatic Colorectal Cancer' OR drug.administration_route != 'injection';
+-- Query 9: filter5_join1 (disease, drug)
+SELECT Med_drug.active_ingredients, Med_disease.disease_name, Med_disease.sequelae, Med_drug.side_effects FROM disease JOIN drug ON disease.disease_name = drug.disease_name WHERE Med_disease.disease_name = 'Metastatic Colorectal Cancer' OR Med_drug.administration_route != 'injection' OR Med_drug.recommended_usage = 'after meals';
 
--- Query 10: filter4_join2 (disease, drug, institution)
-SELECT disease.sequelae, drug.brand_name, drug.pharmaceutical_form, institution.parent_organization FROM disease JOIN drug ON disease.disease_name = drug.disease_name JOIN institution ON disease.disease_name = institution.research_diseases WHERE drug.pharmaceutical_form = 'tablet' AND drug.indication != 'Runny nose' AND disease.preventive_measures = 'meditation';
+-- Query 10: filter5_join2 (disease, drug, institution)
+SELECT Med_disease.sequelae, Med_drug.brand_name, Med_drug.pharmaceutical_form, Med_institution.parent_organization FROM disease JOIN institution ON disease.disease_name = institution.research_diseases JOIN drug ON disease.disease_name = drug.disease_name WHERE Med_drug.pharmaceutical_form = 'tablet' OR Med_drug.indication != 'Runny nose' OR Med_disease.preventive_measures = 'meditation';
 
--- Query 11: filter5_join1 (disease, drug)
-SELECT drug.recommended_usage, disease.preventive_measures, drug.unsuitable_population, disease.disease_type FROM disease JOIN drug ON disease.disease_name = drug.disease_name WHERE drug.dosage_frequency < '2 or 3 times daily' OR disease.sequelae != 'disability' OR disease.epidemiology != 'especially amongst young men and women';
+-- Query 11: filter6_join1 (disease, drug)
+SELECT Med_drug.recommended_usage, Med_disease.preventive_measures, Med_drug.unsuitable_population, Med_disease.disease_type FROM disease JOIN drug ON disease.disease_name = drug.disease_name WHERE (Med_drug.dosage_frequency != '2 or 3 times daily' AND Med_disease.sequelae != 'disability') OR (Med_disease.epidemiology != 'especially amongst young men and women' AND Med_drug.active_ingredients = 'Clomiphene');
 
 -- Query 12: filter6_join2 (disease, drug, institution)
-SELECT drug.indication, institution.international_collaboration, disease.prognosis, drug.recommended_usage FROM disease JOIN drug ON disease.disease_name = drug.disease_name JOIN institution ON disease.disease_name = institution.research_diseases WHERE (drug.indication != 'constipation' AND disease.diagnosis_challenges != 'lack of accurate diagnostic test') OR (drug.single_dose = 'adult patients with EGPA 3x100 mg' AND disease.sequelae != 'gangrene');
+SELECT Med_drug.indication, Med_institution.international_collaboration, Med_disease.prognosis, Med_drug.recommended_usage FROM disease JOIN institution ON disease.disease_name = institution.research_diseases JOIN drug ON disease.disease_name = drug.disease_name WHERE (Med_drug.indication != 'constipation' AND Med_disease.diagnosis_challenges != 'lack of accurate diagnostic test') OR (Med_drug.single_dose = 'adult patients with EGPA 3x100 mg' AND Med_disease.sequelae != 'gangrene');
 

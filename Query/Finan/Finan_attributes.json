@@ -64,7 +64,7 @@
       "description": "net profit or loss amount for the reporting period (enter a negative number for loss). Enter a number. If the original currency is not USD, convert to USD according to the latest available exchange rate.",
       "is_fixed": false
     },
-    "total_Debt": {
+    "total_debt": {
       "value_type": "int",
       "usage": "numerical",
       "modality": "text",

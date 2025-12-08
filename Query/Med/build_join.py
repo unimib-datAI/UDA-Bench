@@ -362,10 +362,11 @@ def generate_multi_table_join_query(
 # Helper Functions
 # =============================================================================
 
-def attrs_from_json(attr_list: List[Dict]) -> List[Attribute]:
-    """Convert JSON attribute list to Attribute objects."""
+def attrs_from_json(attr_data, table_name: str = None) -> List[Attribute]:
+    """Convert JSON attribute data to Attribute objects. Handles Med format."""
     type_map = {
         "str": AttributeType.STRING, 
+        "multi_str": AttributeType.STRING,  # Handle Med multi_str type
         "int": AttributeType.INTEGER, 
         "float": AttributeType.FLOAT
     }
@@ -379,17 +380,35 @@ def attrs_from_json(attr_list: List[Dict]) -> List[Attribute]:
         "image": AttributeModality.IMAGE
     }
     
-    return [
-        Attribute(
-            name=a["name"], 
-            table=a["table"],
-            value_type=type_map.get(a["value_type"], AttributeType.STRING),
-            usage=usage_map.get(a["usage"], AttributeUsage.GENERAL),
-            modality=modality_map.get(a["modality"], AttributeModality.TEXT),
-            is_nullable=a.get("is_nullable", False),
-            description=a.get("description", "")
-        ) for a in attr_list
-    ]
+    # Handle Med format: {"attr_name": {"value_type": "str", ...}}
+    if isinstance(attr_data, dict) and all(isinstance(v, dict) for v in attr_data.values()):
+        return [
+            Attribute(
+                name=attr_name,
+                table=f"Med_{table_name}" if table_name else "unknown",
+                value_type=type_map.get(attr_metadata.get("value_type"), AttributeType.STRING),
+                usage=usage_map.get(attr_metadata.get("usage"), AttributeUsage.GENERAL),
+                modality=modality_map.get(attr_metadata.get("modality"), AttributeModality.TEXT),
+                is_nullable=attr_metadata.get("is_nullable", False),
+                description=attr_metadata.get("description", "")
+            ) for attr_name, attr_metadata in attr_data.items()
+        ]
+    
+    # Handle original format: [{"name": "attr", "table": "table", ...}]
+    elif isinstance(attr_data, list):
+        return [
+            Attribute(
+                name=a["name"], 
+                table=a["table"],
+                value_type=type_map.get(a["value_type"], AttributeType.STRING),
+                usage=usage_map.get(a["usage"], AttributeUsage.GENERAL),
+                modality=modality_map.get(a["modality"], AttributeModality.TEXT),
+                is_nullable=a.get("is_nullable", False),
+                description=a.get("description", "")
+            ) for a in attr_data
+        ]
+    
+    return []
 
 
 def create_player_join_graph(base_path: str) -> JoinGraph:
@@ -444,9 +463,9 @@ def create_med_join_graph(base_path: str) -> JoinGraph:
     
     # Create table configurations
     tables = {
-        "drug": TableConfig("drug", f"{base_path}/drug.csv", attrs_from_json(attrs_data["drug"])),
-        "disease": TableConfig("disease", f"{base_path}/disease.csv", attrs_from_json(attrs_data["disease"])),
-        "institution": TableConfig("institution", f"{base_path}/institution.csv", attrs_from_json(attrs_data["institution"])),
+        "drug": TableConfig("drug", f"{base_path}/drug.csv", attrs_from_json(attrs_data["drug"], "drug")),
+        "disease": TableConfig("disease", f"{base_path}/disease.csv", attrs_from_json(attrs_data["disease"], "disease")),
+        "institution": TableConfig("institution", f"{base_path}/institution.csv", attrs_from_json(attrs_data["institution"], "institution")),
     }
     
     # Define join paths
@@ -548,7 +567,7 @@ if __name__ == "__main__":
     
     # Test build_select_in_join_clause
     select_clause, selected = build_select_in_join_clause(
-        join_graph, ["disease", "institution"], select_attr_num=4
+        join_graph, ["disease", "institution"], select_attr_num=3
     )
     print(f"\nSELECT clause: {select_clause}")
     
