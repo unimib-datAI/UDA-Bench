@@ -11,8 +11,8 @@ SELECT nationality, COUNT(*) AS count_all FROM player WHERE name = 'Antonius Cle
 SELECT nationality, MAX(mvp_awards) AS max_mvp_awards FROM player WHERE draft_year > 2012 OR nba_championships > 0 GROUP BY nationality;
 
 -- Query 5: filter5_agg1 (player)
-SELECT nationality, AVG(fiba_world_cup) AS avg_fiba_world_cup FROM player WHERE team = 'New York Knicks  ' OR nba_championships <= 0 OR fiba_world_cup < 0 GROUP BY nationality;
+SELECT nationality, AVG(fiba_world_cup) AS avg_fiba_world_cup FROM player WHERE team = 'New York Knicks  ' OR nba_championships >= 0 OR fiba_world_cup > 0 GROUP BY nationality;
 
 -- Query 6: filter6_agg1 (player)
-SELECT position, MIN(fiba_world_cup) AS min_fiba_world_cup FROM player WHERE (fiba_world_cup < 0 AND mvp_awards <= 0) OR (age < 91 AND fiba_world_cup >= 0) GROUP BY position;
+SELECT position, MIN(fiba_world_cup) AS min_fiba_world_cup FROM player WHERE (fiba_world_cup < 0 AND mvp_awards >=0) OR (age < 91 AND fiba_world_cup >= 0) GROUP BY position;
 

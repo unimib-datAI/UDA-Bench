@@ -14,5 +14,5 @@ SELECT own_year, nba_team, age FROM manager WHERE nba_team = 'Miami Heat' AND ow
 SELECT own_year, age, nationality FROM manager WHERE age <= 76 OR name = 'Joseph Chung-Hsin Tsai' OR own_year != 2012 OR own_year = 2017;
 
 -- Query 6: 6 (manager)
-SELECT nationality, age, name FROM manager WHERE (age >= 63 AND age = 63) OR (nba_team != 'Indiana Pacers' AND nba_team != 'New Orleans Pelicans');
+SELECT nationality, age, name FROM manager WHERE (age >= 63 AND age <= 83) OR (nba_team != 'Indiana Pacers' AND nba_team != 'New Orleans Pelicans');
 

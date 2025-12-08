@@ -23,7 +23,7 @@ SELECT marriage, theme, object FROM art WHERE birth_city = 'Boston';
 SELECT awards, zodiac, object FROM art WHERE death_country = 'Italy';
 
 -- Query 9: 1 (art)
-SELECT birth_date, birth_country, tone FROM art WHERE art_institution = '';
+SELECT birth_date, birth_country, tone FROM art WHERE art_institution = 'China Academy of Art';
 
 -- Query 10: 1 (art)
 SELECT genre, style, age FROM art WHERE name != 'Christiaan Karel Appel';
@@ -53,7 +53,7 @@ SELECT genre, century, birth_continent FROM art WHERE death_date != '1943/1/13' 
 SELECT death_city, marriage, genre FROM art WHERE zodiac = 'Cancer' AND birth_city != 'San Francisco';
 
 -- Query 19: 2 (art)
-SELECT color, genre, art_institution FROM art WHERE genre != 'Surrealist' AND teaching < 0;
+SELECT color, genre, art_institution FROM art WHERE genre != 'Surrealist' AND teaching > 0;
 
 -- Query 20: 2 (art)
 SELECT death_city, birth_continent, style FROM art WHERE birth_date = '1905/3/12' AND marriage = 'Separated';
@@ -65,7 +65,7 @@ SELECT birth_city, death_date, composition FROM art WHERE death_date != '1943/1/
 SELECT color, zodiac, genre FROM art WHERE marriage != 'Cohabiting' OR art_institution != 'Slade School of art';
 
 -- Query 23: 3 (art)
-SELECT teaching, death_date, tone FROM art WHERE teaching != 0 OR age != 90;
+SELECT teaching, death_date, tone FROM art WHERE teaching != 0 OR age <= 50;
 
 -- Query 24: 3 (art)
 SELECT art_movement, birth_date, style FROM art WHERE art_movement = 'Generación de la Ruptura' OR death_country != 'Brazil';
@@ -107,16 +107,16 @@ SELECT art_movement, style, death_city FROM art WHERE birth_date != '1905/4/25' 
 SELECT genre, death_city, birth_city FROM art WHERE age <= 83 AND death_city != 'Stuttgart' AND birth_date = '1905/4/4' AND genre = 'Still life';
 
 -- Query 37: 4 (art)
-SELECT tone, century, awards FROM art WHERE awards >= 1 AND awards <= 0 AND birth_city != 'Stockholm' AND death_country = 'Switzerland';
+SELECT tone, century, awards FROM art WHERE awards <= 1 AND awards >= 0 AND birth_city != 'Stockholm' AND death_country = 'Switzerland';
 
 -- Query 38: 4 (art)
-SELECT death_city, style, art_movement FROM art WHERE name != 'Eduardo Chillida Juantegui' AND age > 90 AND birth_continent != 'Africa' AND birth_country = 'United States';
+SELECT death_city, style, art_movement FROM art WHERE name != 'Eduardo Chillida Juantegui' AND age < 90 AND birth_continent != 'Africa' AND birth_country = 'United States';
 
 -- Query 39: 4 (art)
-SELECT birth_city, zodiac, tone FROM art WHERE birth_city = 'Addis Ababa' AND death_city != 'Tigre' AND birth_country = 'Switzerland' AND teaching < 0;
+SELECT birth_city, zodiac, tone FROM art WHERE birth_city = 'Addis Ababa' AND death_city != 'Tigre' AND birth_country = 'Switzerland' AND teaching > 0;
 
 -- Query 40: 4 (art)
-SELECT marriage, object, awards FROM art WHERE birth_country != 'Spain' AND nationality != 'Canadian' AND teaching >= 0 AND teaching <= 0;
+SELECT marriage, object, awards FROM art WHERE birth_country != 'Spain' AND nationality != 'Canadian' AND teaching >= 0 AND teaching <= 1;
 
 -- Query 41: 5 (art)
 SELECT death_city, genre, death_country FROM art WHERE zodiac != 'Cancer' OR birth_date = '1905/4/4' OR art_institution != 'Hunter College' OR awards = 1;
@@ -125,7 +125,7 @@ SELECT death_city, genre, death_country FROM art WHERE zodiac != 'Cancer' OR bir
 SELECT art_institution, nationality, genre FROM art WHERE century = '19th-20th' OR birth_date != '1905/5/12' OR birth_country = 'Chile' OR birth_continent != 'Australia';
 
 -- Query 43: 5 (art)
-SELECT tone, birth_city, nationality FROM art WHERE awards = 0 OR birth_city = 'Brussels' OR zodiac != 'Aries' OR age >= 90;
+SELECT tone, birth_city, nationality FROM art WHERE awards = 0 OR birth_city = 'Brussels' OR zodiac != 'Aries' OR age <= 90;
 
 -- Query 44: 5 (art)
 SELECT marriage, genre, death_date FROM art WHERE century != '19th' OR name != 'Oswald Achenbach' OR art_institution = 'National Academy of Design' OR teaching > 0;
@@ -140,7 +140,7 @@ SELECT object, death_country, age FROM art WHERE death_country != 'United Kingdo
 SELECT color, name, age FROM art WHERE field != 'Writer' OR birth_city = 'Paris' OR nationality != 'Indian' OR awards <= 1;
 
 -- Query 48: 5 (art)
-SELECT field, teaching, style FROM art WHERE birth_date != '1905/4/15' OR nationality != 'Irish' OR birth_city != 'Warsaw' OR age >= 74;
+SELECT field, teaching, style FROM art WHERE birth_date != '1905/4/15' OR nationality != 'Irish' OR birth_city != 'Warsaw' OR age >= 34;
 
 -- Query 49: 5 (art)
 SELECT object, birth_date, death_country FROM art WHERE birth_city = 'Dublin' OR marriage != 'Married' OR teaching != 0 OR birth_city = 'Paris';
@@ -149,10 +149,10 @@ SELECT object, birth_date, death_country FROM art WHERE birth_city = 'Dublin' OR
 SELECT name, marriage, composition FROM art WHERE marriage != 'Cohabiting' OR field = 'Painting' OR art_movement = 'art Nouveau' OR field = 'Music';
 
 -- Query 51: 6 (art)
-SELECT birth_country, genre, age FROM art WHERE (age >= 61 AND age = 61) OR (death_city != 'Leningrad' AND field != 'Installation art');
+SELECT birth_country, genre, age FROM art WHERE (age >= 61 AND age < 70) OR (death_city != 'Leningrad' AND field != 'Installation art');
 
 -- Query 52: 6 (art)
-SELECT composition, age, name FROM art WHERE (age > 90 AND genre != 'Nature') OR (death_city = 'Paris' AND zodiac != 'Aries');
+SELECT composition, age, name FROM art WHERE (age < 90 AND genre != 'Nature') OR (death_city = 'Paris' AND zodiac != 'Aries');
 
 -- Query 53: 6 (art)
 SELECT teaching, genre, death_country FROM art WHERE (zodiac = 'Aquarius' AND field = 'Video') OR (teaching != 0 AND birth_city != 'Los Angeles');

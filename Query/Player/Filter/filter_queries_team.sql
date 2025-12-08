@@ -1,5 +1,5 @@
 -- Query 1: 1 (team)
-SELECT founded_year, ownership, team_name FROM team WHERE ownership != '  ';
+SELECT founded_year, ownership, team_name FROM team WHERE ownership = 'Joseph Tsai';
 
 -- Query 2: 1 (team)
 SELECT ownership, championships, founded_year FROM team WHERE founded_year < 1989;
@@ -32,5 +32,5 @@ SELECT team_name, founded_year, ownership FROM team WHERE founded_year > 1967 OR
 SELECT location, founded_year, team_name FROM team WHERE (founded_year >= 1949 AND founded_year = 1949) OR (ownership != 'Paul Allen' AND ownership != 'Glen Taylor');
 
 -- Query 12: 6 (team)
-SELECT location, founded_year, team_name FROM team WHERE (founded_year > 1989 AND ownership != 'Gabe Plotkin and Rick Schnall') OR (ownership = ' ' AND founded_year = 1967);
+SELECT location, founded_year, team_name FROM team WHERE (founded_year > 1989 AND ownership != 'Gabe Plotkin and Rick Schnall') OR (ownership = 'Joseph Tsai' AND founded_year = 1967);
 
