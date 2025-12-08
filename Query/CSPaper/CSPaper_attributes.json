@@ -1,5 +1,21 @@
 {
   "paper": {
+    "name": {
+      "value_type": "str",
+      "usage": "general",
+      "modality": "text",
+      "is_nullable": false,
+      "description": "the name of the paper.",
+      "is_fixed": true
+    },
+    "author": {
+      "value_type": "str",
+      "usage": "general",
+      "modality": "text",
+      "is_nullable": false,
+      "description": "the author of the paper.",
+      "is_fixed": true
+    },
     "topic": {
       "value_type": "str",
       "usage": "categorical",
