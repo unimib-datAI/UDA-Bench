@@ -29,7 +29,8 @@
 - `semantic_join.llm_provider` / `semantic_join.llm_model`：语义匹配 LLM；默认沿用评测 LLM，支持单独指定。
 - `semantic_join.max_query`：单次语义匹配的最大 query 数（防爆量，默认基于行数阈值）。
 - `semantic_join.debug_dir`：可选调试落盘目录（候选对、LLM 判定）。
-- CLI 新增：`--semantic-join`（布尔）、`--semantic-join-topk`、`--semantic-join-threshold`、`--semantic-join-max-query`、`--semantic-join-llm-provider/--semantic-join-llm-model`。
+- `semantic_join.vector_prefilter_enabled`：是否先用向量检索做候选预过滤（默认 True，关闭则直接用 LLM 判定所有潜在 pair，需配合 `max_query`/采样保护）。
+- CLI 新增：`--semantic-join`（布尔）、`--semantic-join-topk`、`--semantic-join-threshold`、`--semantic-join-max-query`、`--semantic-join-llm-provider/--semantic-join-llm-model`、`--semantic-join-vector-prefilter`（布尔）。
 
 ## 模块与职责拆分
 - `SqlParser` 扩展：输出 Join 图（边列表、顺序）、每表 Filter 子句、必要的投影列；补充 Join 列的类型与列描述。
@@ -45,16 +46,19 @@
 3. **Join 阶段（逐边）**  
    - 基表选择：默认以最小行数子表为起点，按 Join 图顺序合并。  
    - 精确 Join：用 pandas/duckdb 做等值 inner join，得到 `exact_df`。  
-   - 语义候选生成：  
-     - 统计左右表行数，行数多者为 document 侧，构造 `doc_text = join_col_values`（多列串联）。  
-     - SeekDB 入库 document 列，记录向量 id -> pandas行索引映射。  
-     - query 侧取 `query_text`，按 topK 检索，过滤相似度阈值，得到候选对。  
+   - 语义候选生成（可切换向量预过滤）：  
+     - 若 `vector_prefilter_enabled=True`：统计左右表行数，行数多者为 document 侧，构造 `doc_text = join_col_values`（多列串联）；SeekDB 入库 document 列，记录向量 id -> 表主键(join的情况下主键都是{table_name}.id)索引映射；query 侧取 `query_text`，按 topK 检索并过滤相似度阈值，得到候选对。  
+     - 若 `vector_prefilter_enabled=False`：跳过向量检索，直接对所有潜在 pair（受 `max_query`/采样控制）交给 LLM 判定。  
    - LLM 判定：对候选对构造 prompt（含列描述、表名、原值），LLM 返回是否匹配；通过者形成 `semantic_pairs`。  
    - 合并：`result_df = exact_df ∪ semantic_join_df`，按主键去重（以 exact 优先）。  
 4. **Aggregation 阶段**：若存在 group by/聚合，使用 duckdb 在 `result_df` 上执行标准 SQL。  
 5. **输出与调试**：  
    - 主输出仍为 `gold_result.csv`。  
    - 若开启 debug，则落盘 `semantic_candidates.csv`（候选对 + 分数）、`semantic_hits.csv`（LLM 通过的对），便于复现。
+
+## 参考的代码
+可直接复用的embedding类： @benchmark/evaluation/tools/text_embedding.py
+可参考的seekdb向量数据库的用法-(不要直接引用这个文件，要重构一个简单的向量功能模块到@benchmark/evaluation/tools中)： @ref_demo_code/database/oceanbase/demo8_hybrid_search_seekdb.py (对待匹配的document列使用混合检索)
 
 ## 风险与防护
 - **爆量匹配**：设置 `max_query`、限制候选行数，超过阈值可只做精确 Join 或采样。  
@@ -65,6 +69,6 @@
 1. 扩展 `EvalSettings`、CLI 参数，打通 `GtRunner` 分支调用。  
 2. 完成 `SqlParser` 的 Join/Filter 拆解输出，编写 `SemanticJoinPlanner`/`Executor` 框架与 SeekDB/LLM 适配层。  
 3. 在 Player 数据集构造小型 Join 用例（如 city/team/manager），对比开启/关闭语义模式的 `gold_result` 行数差异。  
-4. 添加单测：Join 图解析、向量候选生成（用假向量）、精确+语义合并去重逻辑。  
+4. 添加单测：Join 图解析、向量候选生成、精确+语义合并去重逻辑。  
 5. 集成冒烟：`--semantic-join` 跑一条多表 SQL，全链路生成 `gold_result.csv` 并校验文件结构。  
 6. 文档：在 `use_manual.md` 补充开关说明与性能参数建议，引用 seekdb 依赖要求。
