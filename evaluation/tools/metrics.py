@@ -95,7 +95,7 @@ class MetricCalculator:
             return self.agg
         if meta and meta.value_type in {"int", "float"}:
             return self.numeric
-        if meta and meta.value_type == "multi-str":
+        if meta and meta.value_type == "multi_str":
             return self.multi
         return self.string
 

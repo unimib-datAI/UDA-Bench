@@ -96,7 +96,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--output-dir", type=Path, help="Directory to store acc_result outputs; defaults to sibling of result.csv")
     parser.add_argument("--primary-key", help="Optional secondary key for multi-entity alignment")
     parser.add_argument("--float-tolerance", type=float, default=0.0, help="Absolute tolerance for float comparison")
-    parser.add_argument("--multi-value-sep", default="||", help="Separator for multi-str attributes")
+    parser.add_argument("--multi-value-sep", default="||", help="Separator for multi_str attributes")
     parser.add_argument("--llm-provider", default="aihubmix", help="LLM provider name, set to 'none' to disable")
     parser.add_argument("--llm-model", help="LLM model name")
     parser.add_argument("--log-level", default="INFO", help="Logging level")

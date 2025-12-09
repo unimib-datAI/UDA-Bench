@@ -26,7 +26,7 @@
 ]
 ```
 
-### 2) 多值列匹配计数（multi-str，用 `batch_completion`）
+### 2) 多值列匹配计数（multi_str，用 `batch_completion`）
 用途：`MultiValueComparator` / 多实体列匹配，统计 `List A` 中有多少项能在 `List B` 找到语义等价项，返回整数。
 
 ```json
