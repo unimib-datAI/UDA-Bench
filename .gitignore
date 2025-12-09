@@ -13,3 +13,4 @@
 **/evaluation/demo_acc_result/
 .vscode/
 !**/template_api_key.yaml
+/Evidence
