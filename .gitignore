@@ -12,4 +12,4 @@
 **/sql_eval/
 **/evaluation/demo_acc_result/
 .vscode/
-./Evidence/
+/Evidence
