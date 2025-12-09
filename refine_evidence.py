@@ -47,13 +47,21 @@ def find_evidence_heuristic(value: str, evidence: str, attribute_name: str) -> s
                 start = sentence_end
     
     # Look for sentences that mention the value (case-insensitive)
+    # Prefer sentences that are reasonably long (at least 30 characters)
     best_span = None
     best_sentence = ""
+    MIN_SENTENCE_LENGTH = 30  # Minimum length for a meaningful sentence
     
     for start_idx, end_idx in sentence_spans:
         sentence_text = evidence[start_idx:end_idx].strip()
         if sentence_text and value_str.lower() in sentence_text.lower():
-            if not best_sentence or len(sentence_text) < len(best_sentence):
+            # Prefer sentences that are at least MIN_SENTENCE_LENGTH characters
+            if len(sentence_text) >= MIN_SENTENCE_LENGTH:
+                if not best_sentence or len(sentence_text) < len(best_sentence):
+                    best_sentence = sentence_text
+                    best_span = (start_idx, end_idx)
+            # If no good sentence found yet, keep even short ones as backup
+            elif not best_sentence:
                 best_sentence = sentence_text
                 best_span = (start_idx, end_idx)
     
@@ -67,13 +75,23 @@ def find_evidence_heuristic(value: str, evidence: str, attribute_name: str) -> s
         # Find the sentence containing this position
         for start_idx, end_idx in sentence_spans:
             if start_idx <= value_pos < end_idx:
-                return evidence[start_idx:end_idx]
+                sentence_text = evidence[start_idx:end_idx].strip()
+                # Only return if it's a meaningful sentence
+                if len(sentence_text) >= MIN_SENTENCE_LENGTH:
+                    return evidence[start_idx:end_idx]
     
-    # If still no match, return the first sentence or the full evidence if it's short
+    # If still no match, find the first meaningful sentence (length >= MIN_SENTENCE_LENGTH)
+    for start_idx, end_idx in sentence_spans:
+        sentence_text = evidence[start_idx:end_idx].strip()
+        if len(sentence_text) >= MIN_SENTENCE_LENGTH:
+            return evidence[start_idx:end_idx]
+    
+    # If no meaningful sentence found, return the full evidence if short, or first 200 chars
     if len(evidence) <= 200:
         return evidence
     else:
-        if sentence_spans:
+        if sentence_spans and len(sentence_spans) > 0:
+            # Return first sentence even if short
             return evidence[sentence_spans[0][0]:sentence_spans[0][1]]
         else:
             # No sentence structure found, return first 200 chars
@@ -123,7 +141,7 @@ Response (exact substring only):"""
             messages=[
                 {"role": "user", "content": prompt}
             ],
-            max_tokens=500,
+            max_tokens=4096,
             temperature=0.1
         )
         
@@ -150,12 +168,22 @@ def refine_evidence_csv(input_file: str, output_file: str, use_llm: bool = True)
     """
     Main function to refine evidence columns in the CSV.
     """
-    # Read the CSV file
-    try:
-        df = pd.read_csv(input_file)
-    except Exception as e:
-        print(f"Error reading CSV file: {e}")
-        return
+    # 检查是否有已存在的输出文件，如果有就加载它（断点续传）
+    if os.path.exists(output_file):
+        try:
+            df = pd.read_csv(output_file)
+            print(f"📂 Found existing output file, resuming from: {output_file}")
+        except Exception as e:
+            print(f"Warning: Failed to load existing output file: {e}")
+            print("Loading original input file instead...")
+            df = pd.read_csv(input_file)
+    else:
+        # Read the original CSV file
+        try:
+            df = pd.read_csv(input_file)
+        except Exception as e:
+            print(f"Error reading CSV file: {e}")
+            return
     
     print(f"Loaded CSV with {len(df)} rows and {len(df.columns)} columns")
     
@@ -190,6 +218,11 @@ def refine_evidence_csv(input_file: str, output_file: str, use_llm: bool = True)
         print(f"Created new column: {refined_col}")
         
         for idx, row in df.iterrows():
+            # 检查是否已经处理过（cell有值就跳过）
+            if pd.notna(df.at[idx, refined_col]) and str(df.at[idx, refined_col]).strip():
+                print(f"  Row {idx}: Skipping (already processed)")
+                continue
+            
             value = row[attr] if pd.notna(row[attr]) else ""
             evidence = str(row[evidence_col]) if pd.notna(row[evidence_col]) else ""
             
@@ -204,6 +237,9 @@ def refine_evidence_csv(input_file: str, output_file: str, use_llm: bool = True)
                 # Store refined evidence in the new column
                 df.at[idx, refined_col] = refined_evidence
                 
+                # 每处理一个cell就保存文件
+                df.to_csv(output_file, index=False)
+                
                 # Print some info about the refinement
                 original_len = len(evidence)
                 refined_len = len(refined_evidence)
@@ -212,6 +248,8 @@ def refine_evidence_csv(input_file: str, output_file: str, use_llm: bool = True)
             else:
                 # For rows without valid value or evidence, keep the refined column empty
                 df.at[idx, refined_col] = ""
+                # 也保存空值的情况
+                df.to_csv(output_file, index=False)
     
     # Save the refined CSV
     try:
@@ -264,8 +302,8 @@ def main():
 if __name__ == "__main__":
     # For direct execution with hardcoded files
     if len(sys.argv) == 1:
-        input_file = "/data/dengqiyan/UDA-Bench/Evidence/Player/manager.csv"
-        output_file = "/data/dengqiyan/UDA-Bench/Evidence/Player/manager_refined.csv"
+        input_file = "/data/dengqiyan/UDA-Bench/Evidence/Player/city.csv"
+        output_file = "/data/dengqiyan/UDA-Bench/Evidence/Player/city_refined.csv"
         
         print("Running with default files:")
         print(f"Input: {input_file}")
