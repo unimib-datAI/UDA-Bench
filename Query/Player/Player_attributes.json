@@ -180,7 +180,7 @@
       "description": "ownership is the name of the team's owner (e.g. Jeanie Buss).",
       "is_fixed": false
     },
-    "championships": {
+    "championship": {
       "value_type": "int",
       "usage": "numerical",
       "modality": "text",

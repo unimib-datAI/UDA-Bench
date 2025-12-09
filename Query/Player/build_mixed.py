@@ -38,7 +38,7 @@ from build_agg import build_aggregation_clause, build_group_by_clause
 from build_join import (
     JoinGraph, JoinPath, TableConfig, 
     build_select_in_join_clause, build_from_join_clause,
-    create_player_join_graph, create_med_join_graph, attrs_from_json
+    create_player_join_graph, create_player_join_graph, attrs_from_json
 )
 
 
@@ -185,8 +185,18 @@ def build_where_clause_with_table_prefix(
             attr = random.choice(all_attrs)
             selectivity = random.choice(["low", "medium", "high"])
             
-            # Get stats for the specific table
-            table_stats = join_graph.data_stats.get(attr.table)
+            # Get stats for the specific table - handle different table name prefixes
+            csv_table_name = attr.table
+            if csv_table_name.startswith("Player_"):
+                csv_table_name = csv_table_name.replace("Player_", "")
+            elif csv_table_name.startswith("Med_"):
+                csv_table_name = csv_table_name.replace("Med_", "")
+            
+            table_stats = join_graph.data_stats.get(csv_table_name)
+            
+            if table_stats is None:
+                continue
+            
             pred, ratio = generate_predicate(attr, selectivity, table_stats)
             
             if pred is not None:
@@ -720,7 +730,7 @@ def generate_filter_agg_queries(base_path: str, output_path: str, num_queries_pe
     print("=" * 70)
     
     attributes_path = f"{base_path}/Player_attributes.json"
-    attributes = load_attributes_from_json(attributes_path)
+    attributes = load_attributes_from_json(attributes_path, table_prefix="")  # No prefix for Player dataset
     table_names = list(set(attr.table for attr in attributes if attr.table))
     
     all_queries = []
@@ -731,8 +741,9 @@ def generate_filter_agg_queries(base_path: str, output_path: str, num_queries_pe
         table_attrs = [attr for attr in attributes if attr.table == table_name]
         print(f"   Attributes: {len(table_attrs)}")
         
-        # Load stats for this table
-        table_csv_path = f"{base_path}/{table_name}.csv"
+        # Load stats for this table - map Player_xxx to xxx.csv
+        csv_table_name = table_name.replace("Player_", "") if table_name.startswith("Player_") else table_name
+        table_csv_path = f"{base_path}/{csv_table_name}.csv"
         if not os.path.exists(table_csv_path):
             print(f"   ⚠️ No CSV file found: {table_csv_path}")
             continue
@@ -786,25 +797,34 @@ def generate_filter_join_queries(base_path: str, output_path: str, num_queries: 
     
     # Create join graph
     join_graph = create_player_join_graph(base_path)
-    join_table_names = ["player", "team", "city", "manager"]
+    join_table_names = ["player","team", "city", "manager"]
     
     queries = []
-    for i in range(num_queries):
-        try:
-            sql, meta = generate_mixed_query(
-                operators=("filter", "join"),
-                subcategories={"filter": (i % 6) + 1, "join": (i % 2) + 1},
-                join_graph=join_graph,
-                table_names=join_table_names,
-                select_attr_num=4,
-                image_num=0,
-                seed=i * 200
-            )
-            meta["combination_name"] = f"filter{((i % 6) + 1)}_join{((i % 2) + 1)}"
-            queries.append({"sql": sql, "metadata": meta})
-            
-        except Exception as e:
-            print(f"   ⚠️ Error for query {i+1}: {e}")
+    query_count = 0
+    
+    # Generate queries in correct order: filter1_join1, filter1_join2, filter2_join1, filter2_join2, ...
+    for filter_subcat in range(1, 7):  # filter1 到 filter6
+        for join_subcat in range(1, 3):  # join1 到 join2
+            if query_count >= num_queries:
+                break
+            try:
+                sql, meta = generate_mixed_query(
+                    operators=("filter", "join"),
+                    subcategories={"filter": filter_subcat, "join": join_subcat},
+                    join_graph=join_graph,
+                    table_names=join_table_names,
+                    select_attr_num=4,
+                    image_num=0,
+                    seed=query_count * 200
+                )
+                meta["combination_name"] = f"filter{filter_subcat}_join{join_subcat}"
+                queries.append({"sql": sql, "metadata": meta})
+                query_count += 1
+                
+            except Exception as e:
+                print(f"   ⚠️ Error for filter{filter_subcat}_join{join_subcat}: {e}")
+        if query_count >= num_queries:
+            break
     
     # Save filter+join queries
     json_path = os.path.join(output_path, "mixed_queries_filter_join.json")
@@ -825,33 +845,39 @@ def generate_agg_join_queries(base_path: str, output_path: str, num_queries: int
     print("3. GENERATING AGG+JOIN QUERIES (Multi-Table)")
     print("=" * 70)
     
-    # Create join graph
+    # Create join graph 
     join_graph = create_player_join_graph(base_path)
-    join_table_names = ["player", "team", "city", "manager"]
+    join_table_names = ["player","team", "city", "manager"]
     
     queries = []
-    for i in range(num_queries):
+    query_count = 0
+    
+    # Generate queries in correct order: agg1_join1, agg1_join2
+    for join_subcat in range(1, 3):  # join1 到 join2
+        if query_count >= num_queries:
+            break
         try:
             sql, meta = generate_mixed_query(
                 operators=("agg", "join"),
-                subcategories={"agg": 1, "join": (i % 2) + 1},
+                subcategories={"agg": 1, "join": join_subcat},
                 join_graph=join_graph,
                 table_names=join_table_names,
                 select_attr_num=4,
                 image_num=0,
-                seed=i * 250
+                seed=query_count * 250
             )
-            meta["combination_name"] = f"agg1_join{((i % 2) + 1)}"
+            meta["combination_name"] = f"agg1_join{join_subcat}"
             queries.append({"sql": sql, "metadata": meta})
+            query_count += 1
             
         except Exception as e:
-            print(f"   ⚠️ Error for query {i+1}: {e}")
+            print(f"   ⚠️ Error for agg1_join{join_subcat}: {e}")
     
     # Save agg+join queries
-    json_path = os.path.join(output_path, "mixed_queries_agg_join.json")
+    # json_path = os.path.join(output_path, "mixed_queries_agg_join.json")
     sql_path = os.path.join(output_path, "mixed_queries_agg_join.sql")
     
-    save_queries_to_file(queries, json_path, format="json")
+    # save_queries_to_file(queries, json_path, format="json")
     save_queries_to_file(queries, sql_path, format="sql")
     
     print(f"✅ Generated {len(queries)} agg+join queries")
@@ -868,35 +894,44 @@ def generate_filter_agg_join_queries(base_path: str, output_path: str, num_queri
     
     # Create join graph
     join_graph = create_player_join_graph(base_path)
-    join_table_names = ["player", "team", "city", "manager"]
+    join_table_names = ["player","team", "city", "manager"]
     
     queries = []
-    for i in range(num_queries):
-        try:
-            sql, meta = generate_mixed_query(
-                operators=("filter", "agg", "join"),
-                subcategories={
-                    "filter": (i % 6) + 1, 
-                    "agg": 1,
-                    "join": (i % 2) + 1
-                },
-                join_graph=join_graph,
-                table_names=join_table_names,
-                select_attr_num=4,
-                image_num=0,
-                seed=i * 300
-            )
-            meta["combination_name"] = f"filter{((i % 6) + 1)}_agg1_join{((i % 2) + 1)}"
-            queries.append({"sql": sql, "metadata": meta})
-            
-        except Exception as e:
-            print(f"   ⚠️ Error for query {i+1}: {e}")
+    query_count = 0
+    
+    # Generate queries in correct order: filter1_agg1_join1, filter1_agg1_join2, filter2_agg1_join1, filter2_agg1_join2, ...
+    for filter_subcat in range(1, 7):  # filter1 到 filter6
+        for join_subcat in range(1, 3):  # join1 到 join2
+            if query_count >= num_queries:
+                break
+            try:
+                sql, meta = generate_mixed_query(
+                    operators=("filter", "agg", "join"),
+                    subcategories={
+                        "filter": filter_subcat, 
+                        "agg": 1,
+                        "join": join_subcat
+                    },
+                    join_graph=join_graph,
+                    table_names=join_table_names,
+                    select_attr_num=4,
+                    image_num=0,
+                    seed=query_count * 300
+                )
+                meta["combination_name"] = f"filter{filter_subcat}_agg1_join{join_subcat}"
+                queries.append({"sql": sql, "metadata": meta})
+                query_count += 1
+                
+            except Exception as e:
+                print(f"   ⚠️ Error for filter{filter_subcat}_agg1_join{join_subcat}: {e}")
+        if query_count >= num_queries:
+            break
     
     # Save filter+agg+join queries
-    json_path = os.path.join(output_path, "mixed_queries_filter_agg_join.json")
+    #json_path = os.path.join(output_path, "mixed_queries_filter_agg_join.json")
     sql_path = os.path.join(output_path, "mixed_queries_filter_agg_join.sql")
     
-    save_queries_to_file(queries, json_path, format="json")
+    #save_queries_to_file(queries, json_path, format="json")
     save_queries_to_file(queries, sql_path, format="sql")
     
     print(f"✅ Generated {len(queries)} filter+agg+join queries")
