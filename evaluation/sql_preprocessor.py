@@ -57,10 +57,10 @@ from typing import Dict, List, Mapping, Optional, Sequence
 
 import sqlglot
 
-from .config import load_json
-from .logging_utils import setup_logger
-from .sql_parser import ParsedQuery, SqlParser
-from .utils import ensure_dir
+from .tools.config import load_json
+from .tools.logging_utils import setup_logger
+from .tools.sql_parser import ParsedQuery, SqlParser
+from .tools.utils import ensure_dir
 
 
 class SqlPreprocessor:

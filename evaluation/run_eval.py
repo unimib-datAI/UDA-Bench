@@ -68,16 +68,16 @@ from pathlib import Path
 
 from sqlglot import exp, parse_one
 
-from .config import EvalSettings, Paths
-from .gt_runner import GtRunner
-from .logging_utils import setup_logger
-from .metrics import MetricCalculator
-from .query_manifest import QueryManifest
-from .result_loader import ResultLoader
-from .result_writer import ResultWriter
-from .row_matcher import RowMatcher
-from .sql_parser import SqlParser
-from .utils import standardize_column_name
+from .tools.config import EvalSettings, Paths
+from .tools.gt_runner import GtRunner
+from .tools.logging_utils import setup_logger
+from .tools.metrics import MetricCalculator
+from .tools.query_manifest import QueryManifest
+from .tools.result_loader import ResultLoader
+from .tools.result_writer import ResultWriter
+from .tools.row_matcher import RowMatcher
+from .tools.sql_parser import SqlParser
+from .tools.utils import standardize_column_name
 
 
 def infer_result_path(dataset: str, task: str, sql_file: Path, query_id: int) -> Path:

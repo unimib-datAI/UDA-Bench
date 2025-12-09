@@ -1,19 +1,11 @@
 """
-Modular evaluation toolkit for UDA-Bench.
+Entry points for UDA-Bench evaluation workflows.
 
-Modules are organized to match the design in ``evaluation/doc/modular_eval_script_design.md``.
-Each piece can be imported independently or wired together via ``run_eval.py``.
+Shared utility modules have moved to ``benchmark/tools``; this package now
+only exposes the runnable scripts.
 """
 
 __all__ = [
-    "config",
-    "sql_parser",
-    "query_manifest",
+    "run_eval",
     "sql_preprocessor",
-    "gt_runner",
-    "result_loader",
-    "row_matcher",
-    "comparators",
-    "metrics",
-    "result_writer",
 ]
