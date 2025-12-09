@@ -10,6 +10,7 @@ __all__ = [
     "config",
     "gt_runner",
     "logging_utils",
+    "load_api_keys",
     "metrics",
     "normalize_result",
     "query_manifest",

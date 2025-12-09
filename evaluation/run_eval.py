@@ -51,7 +51,7 @@ python3 -m evaluation.run_eval \
 - --primary-key：多实体场景的二级主键；未指定时使用解析得到的主键。
 - --float-tolerance：浮点数比较的绝对容忍度。
 - --multi-value-sep：多值字符串的分隔符（默认 "||"）。
-- --llm-provider/--llm-model：可选的 LLM 语义比对配置；默认为 openai（用 LLM）。
+- --llm-provider/--llm-model：可选的 LLM 语义比对配置；默认为 aihubmix（用 LLM）。
 - --log-level：日志级别，默认 INFO。
 
 输出：
@@ -97,7 +97,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--primary-key", help="Optional secondary key for multi-entity alignment")
     parser.add_argument("--float-tolerance", type=float, default=0.0, help="Absolute tolerance for float comparison")
     parser.add_argument("--multi-value-sep", default="||", help="Separator for multi-str attributes")
-    parser.add_argument("--llm-provider", default="openai", help="LLM provider name, set to 'none' to disable")
+    parser.add_argument("--llm-provider", default="aihubmix", help="LLM provider name, set to 'none' to disable")
     parser.add_argument("--llm-model", help="LLM model name")
     parser.add_argument("--log-level", default="INFO", help="Logging level")
     return parser

@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import List, Optional, Sequence, Tuple
 
 from .config import EvalSettings
+from .load_api_keys import load_api_keys
 from .logging_utils import setup_logger
 from .utils import normalize_whitespace, split_multi_value
 
@@ -34,8 +35,7 @@ class LlmClient:
     Falls back to deterministic comparison when provider is disabled or unavailable.
     """
 
-    DEFAULT_API_BASE = "https://aihubmix.com/v1"
-    DEFAULT_API_KEY = "sk-fthhzHHMmUwA5cDq0eC213365c824c4f80B588C3E1557eB2"
+    DEFAULT_PROVIDER = "aihubmix"
     DEFAULT_MODEL = "openai/gpt-4.1-mini"
 
     def __init__(self, settings: EvalSettings, logger_name: str = "llm_client") -> None:
@@ -43,15 +43,31 @@ class LlmClient:
         self.logger = setup_logger(logger_name, level=settings.log_level)
         self._litellm = None
         self.model = settings.llm_model or self.DEFAULT_MODEL
-        if settings.llm_provider and settings.llm_provider != "none":
+        provider = (settings.llm_provider or self.DEFAULT_PROVIDER).lower()
+        if provider and provider != "none":
             try:
-                os.environ.setdefault("OPENAI_API_BASE", self.DEFAULT_API_BASE)
-                os.environ.setdefault("OPENAI_API_KEY", self.DEFAULT_API_KEY)
-                import litellm  # type: ignore
+                api_key, api_base = load_api_keys(provider)
+            except Exception as exc:  # pragma: no cover - defensive logging
+                self.logger.warning("Failed to load API config for provider '%s': %s", provider, exc)
+                api_key, api_base = None, None
 
-                self._litellm = litellm
-            except Exception as exc:
-                self.logger.warning("litellm not available, fallback to string match (%s)", exc)
+            env_api_key = os.environ.get("OPENAI_API_KEY")
+            env_api_base = os.environ.get("OPENAI_API_BASE")
+
+            if api_base and not env_api_base:
+                os.environ["OPENAI_API_BASE"] = api_base
+            if api_key and not env_api_key:
+                os.environ["OPENAI_API_KEY"] = api_key
+
+            if api_key or env_api_key:
+                try:
+                    import litellm  # type: ignore
+
+                    self._litellm = litellm
+                except Exception as exc:
+                    self.logger.warning("litellm not available, fallback to string match (%s)", exc)
+            else:
+                self.logger.warning("No API key configured for provider '%s'; fallback to string match", provider)
 
     @property
     def can_use_llm(self) -> bool:
