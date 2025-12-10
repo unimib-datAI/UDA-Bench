@@ -6,7 +6,7 @@ from typing import Dict, Mapping, Optional
 import duckdb
 import pandas as pd
 
-from .config import SemanticJoinSettings
+from .config import EvalSettings
 from .logging_utils import setup_logger
 from .semantic_join import SemanticJoinExecutor
 from .sql_parser import ParsedQuery
@@ -40,14 +40,14 @@ class GtRunner:
         self,
         sql: str,
         parsed_query: Optional[ParsedQuery] = None,
-        semantic_settings: Optional[SemanticJoinSettings] = None,
+        settings: Optional[EvalSettings] = None,
     ) -> pd.DataFrame:
         if not self._tables_loaded:
             self._load_tables()
 
-        if semantic_settings and semantic_settings.enabled and parsed_query and parsed_query.query_type == "join":
+        if settings and settings.semantic_join_enabled and parsed_query and parsed_query.query_type == "join":
             try:
-                return self._run_with_semantic_join(sql, parsed_query, semantic_settings)
+                return self._run_with_semantic_join(sql, parsed_query, settings)
             except Exception as exc:  # pragma: no cover - fallback safety
                 self.logger.warning("Semantic join execution failed, fallback to exact join: %s", exc)
 
@@ -56,7 +56,7 @@ class GtRunner:
         return self._post_process(df)
 
     def _run_with_semantic_join(
-        self, sql: str, parsed_query: ParsedQuery, settings: SemanticJoinSettings
+        self, sql: str, parsed_query: ParsedQuery, settings: EvalSettings
     ) -> pd.DataFrame:
         self.logger.info("Running SQL on GT with semantic join enabled")
         filtered_tables = self._prepare_filtered_tables(parsed_query)

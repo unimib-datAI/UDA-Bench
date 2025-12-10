@@ -4,20 +4,6 @@ from typing import Dict, Optional
 
 
 @dataclass
-class SemanticJoinSettings:
-    """Config for semantic join augmentation when executing GT SQL."""
-
-    enabled: bool = False
-    topk: int = 5
-    score_threshold: float = 0.0
-    max_query: int = 200
-    llm_provider: Optional[str] = None
-    llm_model: Optional[str] = None
-    debug_dir: Optional[Path] = None
-    vector_prefilter_enabled: bool = True
-
-
-@dataclass
 class EvalSettings:
     """Global knobs for evaluation."""
 
@@ -27,7 +13,12 @@ class EvalSettings:
     llm_model: Optional[str] = None
     cache_path: Optional[Path] = None
     log_level: str = "INFO"
-    semantic_join: SemanticJoinSettings = field(default_factory=SemanticJoinSettings)
+    semantic_join_enabled: bool = False
+    semantic_join_topk: int = 5
+    semantic_join_score_threshold: float = 0.0
+    semantic_join_max_query: int = 200
+    semantic_join_debug_dir: Optional[Path] = None
+    semantic_join_vector_prefilter_enabled: bool = True
 
 
 @dataclass

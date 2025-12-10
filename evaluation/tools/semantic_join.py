@@ -9,7 +9,7 @@ import pandas as pd
 from difflib import SequenceMatcher
 
 from .comparators import LlmClient
-from .config import EvalSettings, SemanticJoinSettings
+from .config import EvalSettings
 from .logging_utils import setup_logger
 from .sql_parser import JoinInfo, ParsedQuery
 from .utils import normalize_whitespace
@@ -116,13 +116,8 @@ class SeekDBClient:
 class JoinLLMMatcher:
     """Lightweight LLM/lexical matcher for join keys."""
 
-    def __init__(self, settings: SemanticJoinSettings, logger_name: str = "semantic_join.llm") -> None:
-        eval_settings = EvalSettings(
-            llm_provider=settings.llm_provider or "none",
-            llm_model=settings.llm_model,
-            log_level="INFO",
-        )
-        self.llm_client = LlmClient(eval_settings, logger_name=logger_name)
+    def __init__(self, settings: EvalSettings, logger_name: str = "semantic_join.llm") -> None:
+        self.llm_client = LlmClient(settings, logger_name=logger_name)
 
     def is_match(self, left_text: str, right_text: str, description: Optional[str] = None) -> bool:
         l_norm = normalize_whitespace(left_text).lower()
@@ -146,14 +141,16 @@ class SemanticJoinExecutor:
 
     def __init__(
         self,
-        settings: SemanticJoinSettings,
+        settings: EvalSettings,
         attributes: Mapping,
         logger_name: str = "semantic_join",
     ) -> None:
         self.settings = settings
         self.attributes = attributes
         self.logger = setup_logger(logger_name)
-        self.vector_client = SeekDBClient(logger_name=f"{logger_name}.seekdb") if settings.vector_prefilter_enabled else None
+        self.vector_client = (
+            SeekDBClient(logger_name=f"{logger_name}.seekdb") if settings.semantic_join_vector_prefilter_enabled else None
+        )
         self.matcher = JoinLLMMatcher(settings=settings, logger_name=f"{logger_name}.llm")
 
     def augment_tables(self, parsed_query: ParsedQuery, tables: Mapping[str, pd.DataFrame]) -> Dict[str, pd.DataFrame]:
@@ -210,7 +207,7 @@ class SemanticJoinExecutor:
         progress = tqdm(total=llm_pairs, desc="LLM join match", unit="pair")
         description = self._build_join_description(doc_table, doc_keys, query_table, query_keys)
         for q_idx, doc_candidates in enumerate(candidates):
-            if self.settings.max_query and q_idx >= self.settings.max_query:
+            if self.settings.semantic_join_max_query and q_idx >= self.settings.semantic_join_max_query:
                 break
             for d_idx, score in doc_candidates:
                 if doc_side == "left":
@@ -221,7 +218,7 @@ class SemanticJoinExecutor:
                     continue
                 l_text = left_texts[left_idx]
                 r_text = right_texts[right_idx]
-                if score < self.settings.score_threshold:
+                if score < self.settings.semantic_join_score_threshold:
                     progress.update(1)
                     continue
                 if self.matcher.is_match(l_text, r_text, description=description):
@@ -229,7 +226,7 @@ class SemanticJoinExecutor:
                 progress.update(1)
         progress.close()
 
-        if self.settings.debug_dir:
+        if self.settings.semantic_join_debug_dir:
             self._dump_debug(
                 join=join,
                 candidates=candidates,
@@ -275,13 +272,13 @@ class SemanticJoinExecutor:
     def _generate_candidates(self, doc_texts: Sequence[str], query_texts: Sequence[str]) -> List[List[Tuple[int, float]]]:
         if self.vector_client:
             index_id = self.vector_client.build_index(doc_texts)
-            return self.vector_client.search(index_id, query_texts, topk=self.settings.topk)
+            return self.vector_client.search(index_id, query_texts, topk=self.settings.semantic_join_topk)
 
         # No vector client: brute-force lexical topK
         candidates: List[List[Tuple[int, float]]] = []
         for q in query_texts:
             scored = [(idx, _safe_ratio(q.lower(), d.lower())) for idx, d in enumerate(doc_texts)]
-            top = sorted(scored, key=lambda x: x[1], reverse=True)[: self.settings.topk]
+            top = sorted(scored, key=lambda x: x[1], reverse=True)[: self.settings.semantic_join_topk]
             candidates.append(top)
         return candidates
 
@@ -323,7 +320,7 @@ class SemanticJoinExecutor:
         doc_texts: Sequence[str],
         query_texts: Sequence[str],
     ) -> None:
-        debug_dir = Path(self.settings.debug_dir)
+        debug_dir = Path(self.settings.semantic_join_debug_dir)
         debug_dir.mkdir(parents=True, exist_ok=True)
 
         cand_rows = []

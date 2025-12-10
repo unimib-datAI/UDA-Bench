@@ -69,7 +69,7 @@ from pathlib import Path
 
 from sqlglot import exp, parse_one
 
-from .tools.config import EvalSettings, Paths, SemanticJoinSettings
+from .tools.config import EvalSettings, Paths
 from .tools.gt_runner import GtRunner
 from .tools.logging_utils import setup_logger
 from .tools.metrics import MetricCalculator
@@ -117,9 +117,12 @@ def build_arg_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--semantic-join-llm-provider",
-        help="Optional override LLM provider for semantic join (defaults to eval LLM provider)",
+        help="Optional override LLM provider for semantic join; also syncs eval LLM config",
     )
-    parser.add_argument("--semantic-join-llm-model", help="Optional override LLM model for semantic join")
+    parser.add_argument(
+        "--semantic-join-llm-model",
+        help="Optional override LLM model for semantic join; also syncs eval LLM config",
+    )
     parser.add_argument(
         "--semantic-join-vector-prefilter",
         action=argparse.BooleanOptionalAction,
@@ -193,24 +196,25 @@ def main():
     sql_file: Path = args.sql_file
     result_csv = args.result_csv or infer_result_path(args.dataset, args.task, sql_file, args.query_id)
 
-    semantic_join_settings = SemanticJoinSettings(
-        enabled=bool(args.semantic_join),
-        topk=args.semantic_join_topk,
-        score_threshold=args.semantic_join_threshold,
-        max_query=args.semantic_join_max_query,
-        llm_provider=args.semantic_join_llm_provider,
-        llm_model=args.semantic_join_llm_model,
-        debug_dir=args.semantic_join_debug_dir,
-        vector_prefilter_enabled=bool(args.semantic_join_vector_prefilter),
-    )
+    llm_provider = args.llm_provider
+    llm_model = args.llm_model
+    if args.semantic_join_llm_provider:
+        llm_provider = args.semantic_join_llm_provider
+    if args.semantic_join_llm_model:
+        llm_model = args.semantic_join_llm_model
 
     settings = EvalSettings(
         float_tolerance=args.float_tolerance,
         multi_value_sep=args.multi_value_sep,
-        llm_provider=args.llm_provider,
-        llm_model=args.llm_model,
+        llm_provider=llm_provider,
+        llm_model=llm_model,
         log_level=args.log_level,
-        semantic_join=semantic_join_settings,
+        semantic_join_enabled=bool(args.semantic_join),
+        semantic_join_topk=args.semantic_join_topk,
+        semantic_join_score_threshold=args.semantic_join_threshold,
+        semantic_join_max_query=args.semantic_join_max_query,
+        semantic_join_debug_dir=args.semantic_join_debug_dir,
+        semantic_join_vector_prefilter_enabled=bool(args.semantic_join_vector_prefilter),
     )
 
     paths = Paths(
@@ -235,7 +239,7 @@ def main():
 
     gt_runner = GtRunner(gt_dir=paths.resolve_gt_dir(), attributes=manifest.attributes)
     gt_sql = _inject_id_columns(manifest, logger)
-    gold_df = gt_runner.run(gt_sql, parsed_query=manifest.parsed, semantic_settings=settings.semantic_join)
+    gold_df = gt_runner.run(gt_sql, parsed_query=manifest.parsed, settings=settings)
 
     loader = ResultLoader(
         expected_columns=manifest.parsed.output_columns,
