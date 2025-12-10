@@ -7,6 +7,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import List, Optional, Sequence, Tuple
 
+import pandas as pd
+
 from .config import EvalSettings
 from .load_api_keys import load_api_keys
 from .logging_utils import setup_logger
@@ -17,6 +19,20 @@ def f1_score(p: float, r: float) -> float:
     if p + r == 0:
         return 0.0
     return 2 * p * r / (p + r)
+
+
+def _is_empty_value(val) -> bool:
+    """Treat None/NaN/empty-string as empty for aggregation comparison."""
+    if val is None:
+        return True
+    if isinstance(val, str):
+        return val.strip() == ""
+    try:
+        if pd.isna(val):
+            return True
+    except Exception:
+        pass
+    return False
 
 
 @dataclass
@@ -209,10 +225,18 @@ class NumericComparator(CellComparator):
 
 class AggComparator(CellComparator):
     def compare(self, pred, gold, description: Optional[str] = None) -> CellScore:
+        if _is_empty_value(pred) and _is_empty_value(gold):
+            return CellScore(precision=1.0, recall=1.0)
+        if _is_empty_value(pred) or _is_empty_value(gold):
+            return CellScore(precision=0.0, recall=0.0)
         try:
             pred_val = float(pred)
             gold_val = float(gold)
         except Exception:
+            return CellScore(precision=0.0, recall=0.0)
+        if math.isnan(pred_val) and math.isnan(gold_val):
+            return CellScore(precision=1.0, recall=1.0)
+        if math.isnan(pred_val) or math.isnan(gold_val):
             return CellScore(precision=0.0, recall=0.0)
         if gold_val == 0:
             ok = pred_val == gold_val
