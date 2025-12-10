@@ -58,7 +58,7 @@
 
 ## 参考的代码
 可直接复用的embedding类： @benchmark/evaluation/tools/text_embedding.py
-可参考的seekdb向量数据库的用法-(不要直接引用这个文件，要重构一个简单的向量功能模块到@benchmark/evaluation/tools中)： @ref_demo_code/database/oceanbase/demo8_hybrid_search_seekdb.py (对待匹配的document列使用混合检索)
+
 
 ## 风险与防护
 - **爆量匹配**：设置 `max_query`、限制候选行数，超过阈值可只做精确 Join 或采样。  
@@ -72,3 +72,20 @@
 4. 添加单测：Join 图解析、向量候选生成、精确+语义合并去重逻辑。  
 5. 集成冒烟：`--semantic-join` 跑一条多表 SQL，全链路生成 `gold_result.csv` 并校验文件结构。  
 6. 文档：在 `use_manual.md` 补充开关说明与性能参数建议，引用 seekdb 依赖要求。
+
+```
+最终集成测试
+
+python3 -m evaluation.run_eval \
+  --dataset Player \
+  --task Mixed \
+  --sql-file evaluation/demo_acc_result/Player/Mixed/mixed_queries_filter_join/2/sql.json \
+  --result-csv evaluation/demo_acc_result/Player/Mixed/mixed_queries_filter_join/2/filter_join_player_2.csv \
+  --semantic-join \
+  --semantic-join-topk 8 \
+  --semantic-join-threshold 0.25 \
+  --semantic-join-max-query 20000 \
+  --semantic-join-vector-prefilter
+
+
+```

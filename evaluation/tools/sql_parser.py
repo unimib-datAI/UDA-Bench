@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import List, Optional, Sequence
+from typing import Dict, List, Optional, Sequence
 
 import sqlglot
 from sqlglot import exp
@@ -33,6 +33,8 @@ class ParsedQuery:
     tables: List[str]
     select_items: List[SelectItem]
     group_by: List[str]
+    joins: List["JoinInfo"]
+    table_filters: Dict[str, str]
     join_keys: List[str]
     stop_columns: List[str]
     query_type: str
@@ -51,7 +53,9 @@ class SqlParser:
         tables = self._collect_tables(expr)
         select_items = [self._parse_select_item(item) for item in expr.selects]
         group_by = self._collect_group_by(expr)
+        joins = self._collect_joins(expr)
         join_keys = self._collect_join_keys(expr)
+        table_filters = self._collect_filters_per_table(expr, tables)
         query_type = self._detect_query_type(group_by, select_items, tables)
         stop_columns = self._detect_stop_columns(select_items, tables, query_type)
         primary_keys = self._infer_primary_keys(query_type, group_by, tables, join_keys)
@@ -60,6 +64,8 @@ class SqlParser:
             tables=tables,
             select_items=select_items,
             group_by=group_by,
+            joins=joins,
+            table_filters=table_filters,
             join_keys=join_keys,
             stop_columns=stop_columns,
             query_type=query_type,
@@ -85,6 +91,74 @@ class SqlParser:
             else:
                 cols.append(node.sql())
         return cols
+
+    def _collect_filters_per_table(self, expr: exp.Expression, tables: Sequence[str]) -> Dict[str, str]:
+        where_expr = expr.args.get("where")
+        if not where_expr:
+            return {}
+        predicates = self._flatten_predicates(where_expr.this if hasattr(where_expr, "this") else where_expr)
+        filters: Dict[str, List[str]] = {}
+        for pred in predicates:
+            columns = {col.table for col in pred.find_all(exp.Column) if col.table}
+            table: Optional[str] = None
+            if len(columns) == 1:
+                table = list(columns)[0]
+            elif len(columns) == 0 and len(tables) == 1:
+                table = tables[0]
+            else:
+                continue  # skip cross-table or ambiguous predicates
+            filters.setdefault(table, []).append(pred.sql(dialect="duckdb"))
+        return {table: " AND ".join(parts) for table, parts in filters.items()}
+
+    def _flatten_predicates(self, node: exp.Expression) -> List[exp.Expression]:
+        if isinstance(node, exp.And):
+            return self._flatten_predicates(node.left) + self._flatten_predicates(node.right)
+        return [node]
+
+    def _collect_joins(self, expr: exp.Expression) -> List["JoinInfo"]:
+        joins: List[JoinInfo] = []
+        for join_expr in expr.find_all(exp.Join):
+            right_table_hint = self._extract_table_name(join_expr.this)
+            join_type = (join_expr.args.get("kind") or "inner").lower()
+            on_expr = join_expr.args.get("on")
+            pairs: List[tuple[str, str, str, str]] = []
+
+            if on_expr:
+                for eq_expr in on_expr.find_all(exp.EQ):
+                    left, right = eq_expr.left, eq_expr.right
+                    if not (isinstance(left, exp.Column) and isinstance(right, exp.Column)):
+                        continue
+                    lt = left.table
+                    rt = right.table
+                    if lt and rt:
+                        pairs.append((lt, left.name, rt, right.name))
+                    elif lt and right_table_hint:
+                        pairs.append((lt, left.name, right_table_hint, right.name))
+                    elif rt and right_table_hint:
+                        pairs.append((right_table_hint, left.name, rt, right.name))
+
+            if not pairs:
+                continue
+            first_left, _, first_right, _ = pairs[0]
+            left_keys: List[str] = []
+            right_keys: List[str] = []
+            for lt, lk, rt, rk in pairs:
+                if lt != first_left or rt != first_right:
+                    continue
+                left_keys.append(lk)
+                right_keys.append(rk)
+
+            if left_keys and right_keys:
+                joins.append(
+                    JoinInfo(
+                        left_table=first_left,
+                        right_table=first_right,
+                        left_keys=left_keys,
+                        right_keys=right_keys,
+                        join_type=join_type,
+                    )
+                )
+        return joins
 
     def _collect_join_keys(self, expr: exp.Expression) -> List[str]:
         keys: List[str] = []
@@ -183,3 +257,17 @@ class SqlParser:
         if column.table:
             return f"{column.table}.{column.name}"
         return column.name
+
+    def _extract_table_name(self, table_expr: Optional[exp.Expression]) -> Optional[str]:
+        if isinstance(table_expr, exp.Table):
+            return table_expr.name
+        return None
+
+
+@dataclass
+class JoinInfo:
+    left_table: str
+    right_table: str
+    left_keys: List[str]
+    right_keys: List[str]
+    join_type: str = "inner"
