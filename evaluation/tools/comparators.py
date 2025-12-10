@@ -35,15 +35,13 @@ class LlmClient:
     Falls back to deterministic comparison when provider is disabled or unavailable.
     """
 
-    DEFAULT_PROVIDER = "aihubmix"
-    DEFAULT_MODEL = "openai/gpt-4.1-mini"
 
     def __init__(self, settings: EvalSettings, logger_name: str = "llm_client") -> None:
         self.settings = settings
         self.logger = setup_logger(logger_name, level=settings.log_level)
         self._litellm = None
-        self.model = settings.llm_model or self.DEFAULT_MODEL
-        provider = (settings.llm_provider or self.DEFAULT_PROVIDER).lower()
+        self.model = settings.llm_model
+        provider = settings.llm_provider.lower()
         if provider and provider != "none":
             try:
                 api_key, api_base = load_api_keys(provider)

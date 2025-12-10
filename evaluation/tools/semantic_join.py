@@ -13,6 +13,8 @@ from .config import EvalSettings, SemanticJoinSettings
 from .logging_utils import setup_logger
 from .sql_parser import JoinInfo, ParsedQuery
 from .utils import normalize_whitespace
+from tqdm import tqdm
+
 
 try:  # optional dependency
     from .text_embedding import TextApiEmbeddings, load_text_model_config  # type: ignore
@@ -203,6 +205,9 @@ class SemanticJoinExecutor:
         candidates = self._generate_candidates(doc_texts, query_texts)
         hits: List[SemanticPair] = []
 
+        total_pairs = sum(len(lst) for lst in candidates)
+        llm_pairs = total_pairs - len(exact_pairs)
+        progress = tqdm(total=llm_pairs, desc="LLM join match", unit="pair")
         description = self._build_join_description(doc_table, doc_keys, query_table, query_keys)
         for q_idx, doc_candidates in enumerate(candidates):
             if self.settings.max_query and q_idx >= self.settings.max_query:
@@ -217,9 +222,12 @@ class SemanticJoinExecutor:
                 l_text = left_texts[left_idx]
                 r_text = right_texts[right_idx]
                 if score < self.settings.score_threshold:
+                    progress.update(1)
                     continue
                 if self.matcher.is_match(l_text, r_text, description=description):
                     hits.append(SemanticPair(left_index=left_idx, right_index=right_idx, score=score))
+                progress.update(1)
+        progress.close()
 
         if self.settings.debug_dir:
             self._dump_debug(

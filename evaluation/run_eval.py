@@ -99,7 +99,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--float-tolerance", type=float, default=0.0, help="Absolute tolerance for float comparison")
     parser.add_argument("--multi-value-sep", default="||", help="Separator for multi_str attributes")
     parser.add_argument("--llm-provider", default="aihubmix", help="LLM provider name, set to 'none' to disable")
-    parser.add_argument("--llm-model", help="LLM model name")
+    parser.add_argument("--llm-model", default="openai/gpt-4.1-mini",help="LLM model name")
     parser.add_argument("--log-level", default="INFO", help="Logging level")
     parser.add_argument("--semantic-join", action="store_true", help="Enable semantic join augmentation for GT execution")
     parser.add_argument("--semantic-join-topk", type=int, default=5, help="Vector prefilter topK for semantic join")
