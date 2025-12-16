@@ -35,7 +35,7 @@ def _is_empty_value(val) -> bool:
         if pd.isna(val):
             return True
     except Exception:
-        pass
+        return False
     return False
 
 
