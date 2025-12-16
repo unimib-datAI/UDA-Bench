@@ -26,7 +26,11 @@ def _is_empty_value(val) -> bool:
     if val is None:
         return True
     if isinstance(val, str):
-        return val.strip() == ""
+        stripped = val.strip()
+        if stripped == "":
+            return True
+        if stripped.lower() in {"none", "nan", "null", "n/a"}:
+            return True
     try:
         if pd.isna(val):
             return True
@@ -199,6 +203,11 @@ class NumericComparator(CellComparator):
         self.settings = settings
 
     def compare(self, pred, gold, description: Optional[str] = None) -> CellScore:
+        if _is_empty_value(pred) and _is_empty_value(gold):
+            return CellScore(precision=1.0, recall=1.0)
+        if _is_empty_value(pred) or _is_empty_value(gold):
+            return CellScore(precision=0.0, recall=0.0)
+
         try:
             if isinstance(pred, str):
                 pred_val = float(pred.strip())
@@ -211,6 +220,8 @@ class NumericComparator(CellComparator):
         except Exception:
             return CellScore(precision=0.0, recall=0.0)
 
+        if math.isnan(pred_val) and math.isnan(gold_val):
+            return CellScore(precision=1.0, recall=1.0)
         if math.isnan(pred_val) or math.isnan(gold_val):
             return CellScore(precision=0.0, recall=0.0)
 

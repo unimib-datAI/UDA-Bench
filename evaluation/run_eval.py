@@ -78,7 +78,7 @@ from .tools.result_loader import ResultLoader
 from .tools.result_writer import ResultWriter
 from .tools.row_matcher import RowMatcher
 from .tools.sql_parser import SqlParser
-from .tools.utils import standardize_column_name
+from .tools.utils import normalize_empty_cells, standardize_column_name
 
 
 def infer_result_path(dataset: str, task: str, sql_file: Path, query_id: int) -> Path:
@@ -256,6 +256,21 @@ def main():
         secondary_key=args.primary_key,
         attr_descriptions=manifest.attributes,
         query_type=manifest.parsed.query_type,
+    )
+
+    numeric_columns: set[str] = set()
+    for item in manifest.parsed.select_items:
+        col_name = item.output_name
+        meta = manifest.get_column_meta(col_name)
+        if item.is_agg or (meta and meta.value_type in {"int", "float"}):
+            numeric_columns.add(col_name)
+
+    empty_tokens = ["none", "nan", "null", "n/a"]
+    match_result.gold_aligned = normalize_empty_cells(
+        match_result.gold_aligned, numeric_columns=sorted(numeric_columns), empty_tokens=empty_tokens
+    )
+    match_result.pred_aligned = normalize_empty_cells(
+        match_result.pred_aligned, numeric_columns=sorted(numeric_columns), empty_tokens=empty_tokens
     )
 
     metric_calculator = MetricCalculator(manifest, settings)

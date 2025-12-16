@@ -2,11 +2,12 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
-from typing import Any, Iterable, List, Mapping, MutableMapping, Sequence
+from typing import Any, Iterable, List, Mapping, MutableMapping, Optional, Sequence, Set
 
 import pandas as pd
 
 WHITESPACE_PATTERN = re.compile(r"\s+")
+DEFAULT_EMPTY_TOKENS: Set[str] = {"none", "nan", "null", "n/a"}
 
 
 def ensure_dir(path: Path) -> Path:
@@ -134,3 +135,51 @@ def normalize_types(df: pd.DataFrame, attributes: Mapping[str, Mapping[str, Mapp
 
 def format_primary_key(row: pd.Series, keys: Sequence[str]) -> tuple:
     return tuple(str(row[k]) for k in keys)
+
+
+def normalize_empty_cells(
+    df: pd.DataFrame,
+    *,
+    numeric_columns: Optional[Sequence[str]] = None,
+    empty_tokens: Optional[Sequence[str]] = None,
+) -> pd.DataFrame:
+    """
+    Normalize missing/empty values with best practice:
+    - numeric columns: map empty tokens/blank/None/NaN -> NaN
+    - non-numeric columns: map empty tokens/blank/None/NaN -> ""
+
+    This keeps numeric columns numeric-friendly while making string matching treat
+    common sentinel strings ("None", "NaN", "null", "n/a") as empty.
+    """
+
+    if df.empty:
+        return df
+
+    tokens = {str(t).strip().lower() for t in (empty_tokens or DEFAULT_EMPTY_TOKENS) if str(t).strip()}
+    numeric_set = {str(c) for c in (numeric_columns or [])}
+
+    out = df.copy()
+    for col in out.columns:
+        series = out[col]
+        treat_as_numeric = col in numeric_set or pd.api.types.is_numeric_dtype(series)
+
+        if treat_as_numeric and pd.api.types.is_numeric_dtype(series):
+            continue
+
+        def normalize_value(value: Any):
+            if value is None:
+                return pd.NA if treat_as_numeric else ""
+            try:
+                if pd.isna(value):
+                    return pd.NA if treat_as_numeric else ""
+            except Exception:
+                pass
+            if isinstance(value, str):
+                stripped = value.strip()
+                if stripped == "" or stripped.lower() in tokens:
+                    return pd.NA if treat_as_numeric else ""
+                return value if treat_as_numeric else stripped
+            return value
+
+        out[col] = series.map(normalize_value)
+    return out
