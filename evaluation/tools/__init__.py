@@ -17,6 +17,7 @@ __all__ = [
     "result_loader",
     "result_writer",
     "row_matcher",
+    "semantic_join",
     "sql_aliaser",
     "sql_parser",
     "utils",

@@ -58,7 +58,7 @@ class MetricCalculator:
             row_iter = zip(pred_df[col_name], gold_df[col_name])
             if uses_llm:
                 total_cells = min(len(pred_df[col_name]), len(gold_df[col_name]))
-                print(f"LLM cell matching progress for column '{col_name}':")
+                print(f"exact plus LLM cell matching progress for column '{col_name}':")
                 row_iter = tqdm(row_iter, total=total_cells, desc=f"LLM cells: {col_name}", unit="cell")
             for pred_cell, gold_cell in row_iter:
                 score = comparator.compare(pred_cell, gold_cell, description=meta.description if meta else None)
@@ -95,7 +95,7 @@ class MetricCalculator:
             return self.agg
         if meta and meta.value_type in {"int", "float"}:
             return self.numeric
-        if meta and meta.value_type == "multi-str":
+        if meta and meta.value_type == "multi_str":
             return self.multi
         return self.string
 

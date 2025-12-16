@@ -53,6 +53,7 @@ python3 -m evaluation.run_eval \
 - --multi-value-sep：多值字符串的分隔符（默认 "||"）。
 - --llm-provider/--llm-model：可选的 LLM 语义比对配置；默认为 aihubmix（用 LLM）。
 - --log-level：日志级别，默认 INFO。
+- --semantic-join：开启 GT 执行阶段的语义 Join 补齐；可选调节 topK/threshold/max-query/vector-prefilter/LLM provider。
 
 输出：
 {output_dir}/gold_result.csv           # duckdb 执行 GT SQL 的结果
@@ -77,7 +78,7 @@ from .tools.result_loader import ResultLoader
 from .tools.result_writer import ResultWriter
 from .tools.row_matcher import RowMatcher
 from .tools.sql_parser import SqlParser
-from .tools.utils import standardize_column_name
+from .tools.utils import normalize_empty_cells, standardize_column_name
 
 
 def infer_result_path(dataset: str, task: str, sql_file: Path, query_id: int) -> Path:
@@ -96,10 +97,43 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--output-dir", type=Path, help="Directory to store acc_result outputs; defaults to sibling of result.csv")
     parser.add_argument("--primary-key", help="Optional secondary key for multi-entity alignment")
     parser.add_argument("--float-tolerance", type=float, default=0.0, help="Absolute tolerance for float comparison")
-    parser.add_argument("--multi-value-sep", default="||", help="Separator for multi-str attributes")
+    parser.add_argument("--multi-value-sep", default="||", help="Separator for multi_str attributes")
     parser.add_argument("--llm-provider", default="aihubmix", help="LLM provider name, set to 'none' to disable")
-    parser.add_argument("--llm-model", help="LLM model name")
+    parser.add_argument("--llm-model", default="openai/gpt-4.1-mini",help="LLM model name")
     parser.add_argument("--log-level", default="INFO", help="Logging level")
+    parser.add_argument("--semantic-join", action="store_true", help="Enable semantic join augmentation for GT execution")
+    parser.add_argument("--semantic-join-topk", type=int, default=5, help="Vector prefilter topK for semantic join")
+    parser.add_argument(
+        "--semantic-join-threshold",
+        type=float,
+        default=0.0,
+        help="Similarity threshold for semantic join vector prefilter",
+    )
+    parser.add_argument(
+        "--semantic-join-max-query",
+        type=int,
+        default=200,
+        help="Max query rows to send into semantic matching (protects from explosion)",
+    )
+    parser.add_argument(
+        "--semantic-join-llm-provider",
+        help="Optional override LLM provider for semantic join; also syncs eval LLM config",
+    )
+    parser.add_argument(
+        "--semantic-join-llm-model",
+        help="Optional override LLM model for semantic join; also syncs eval LLM config",
+    )
+    parser.add_argument(
+        "--semantic-join-vector-prefilter",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Toggle vector prefilter for semantic join (default on)",
+    )
+    parser.add_argument(
+        "--semantic-join-debug-dir",
+        type=Path,
+        help="Optional directory to dump semantic join debug artifacts (candidates/hits)",
+    )
     return parser
 
 
@@ -162,12 +196,25 @@ def main():
     sql_file: Path = args.sql_file
     result_csv = args.result_csv or infer_result_path(args.dataset, args.task, sql_file, args.query_id)
 
+    llm_provider = args.llm_provider
+    llm_model = args.llm_model
+    if args.semantic_join_llm_provider:
+        llm_provider = args.semantic_join_llm_provider
+    if args.semantic_join_llm_model:
+        llm_model = args.semantic_join_llm_model
+
     settings = EvalSettings(
         float_tolerance=args.float_tolerance,
         multi_value_sep=args.multi_value_sep,
-        llm_provider=args.llm_provider,
-        llm_model=args.llm_model,
+        llm_provider=llm_provider,
+        llm_model=llm_model,
         log_level=args.log_level,
+        semantic_join_enabled=bool(args.semantic_join),
+        semantic_join_topk=args.semantic_join_topk,
+        semantic_join_score_threshold=args.semantic_join_threshold,
+        semantic_join_max_query=args.semantic_join_max_query,
+        semantic_join_debug_dir=args.semantic_join_debug_dir,
+        semantic_join_vector_prefilter_enabled=bool(args.semantic_join_vector_prefilter),
     )
 
     paths = Paths(
@@ -192,7 +239,7 @@ def main():
 
     gt_runner = GtRunner(gt_dir=paths.resolve_gt_dir(), attributes=manifest.attributes)
     gt_sql = _inject_id_columns(manifest, logger)
-    gold_df = gt_runner.run(gt_sql)
+    gold_df = gt_runner.run(gt_sql, parsed_query=manifest.parsed, settings=settings)
 
     loader = ResultLoader(
         expected_columns=manifest.parsed.output_columns,
@@ -209,6 +256,21 @@ def main():
         secondary_key=args.primary_key,
         attr_descriptions=manifest.attributes,
         query_type=manifest.parsed.query_type,
+    )
+
+    numeric_columns: set[str] = set()
+    for item in manifest.parsed.select_items:
+        col_name = item.output_name
+        meta = manifest.get_column_meta(col_name)
+        if item.is_agg or (meta and meta.value_type in {"int", "float"}):
+            numeric_columns.add(col_name)
+
+    empty_tokens = ["none", "nan", "null", "n/a"]
+    match_result.gold_aligned = normalize_empty_cells(
+        match_result.gold_aligned, numeric_columns=sorted(numeric_columns), empty_tokens=empty_tokens
+    )
+    match_result.pred_aligned = normalize_empty_cells(
+        match_result.pred_aligned, numeric_columns=sorted(numeric_columns), empty_tokens=empty_tokens
     )
 
     metric_calculator = MetricCalculator(manifest, settings)

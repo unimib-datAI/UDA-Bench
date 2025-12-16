@@ -5,7 +5,7 @@
 ## 输入输出与目录约定
 - **输入**：  
   - SQL 集合：`Query/{Dataset}/{Agg|Filter|Select|Mixed}/*.sql`。  
-  - 属性元数据：`Query/{Dataset}/*_attributes.json`，含 `description`、`value_type`（int/float/str/multi-str）。  
+  - 属性元数据：`Query/{Dataset}/*_attributes.json`，含 `description`、`value_type`（int/float/str/multi_str）。  
   - 抽取结果：`evaluation/demo_acc_result/{Dataset}/.../{query_id}/result.csv`，列名与 SQL select 列一致。  
   - GT 表：`Query/{Dataset}/*.csv`。
 - **输出（每条 SQL）**：写入 `evaluation/demo_acc_result/{Dataset}/{Task}/{query_dir}/{id}/acc_result/`，生成 `gold_result.csv`（duckdb 结果）、`matched_result.csv`、`matched_gold_result.csv`、`acc.json`（逐列 precision/recall/f1 及均值）。
@@ -65,7 +65,7 @@
 {
   "sql": "{SQL 语句字符串}",
   "table1": {
-    "attr1": {"value_type": "int|float|str|multi-str", "description": "..."},
+    "attr1": {"value_type": "int|float|str|multi_str", "description": "..."},
     "attr2": {"value_type": "...", "description": "..."}
   },
   "table2": {

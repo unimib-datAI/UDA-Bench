@@ -82,6 +82,29 @@ python3 -m evaluation.run_eval \
   --result-csv evaluation/demo_acc_result/{数据集名}/{Task名}/{query集合名}/{id}/result.csv
 ```
 
+### 可选：开启语义 Join 补齐
+在 GT 执行阶段加入语义 Join 扩充（默认关闭），常用参数如下：
+- `--semantic-join`：启用语义补齐。
+- `--semantic-join-topk`：向量预检索候选数。
+- `--semantic-join-threshold`：向量相似度阈值。
+- `--semantic-join-max-query`：限制进入语义匹配的 query 行数，避免爆量。
+- `--semantic-join-vector-prefilter/--no-semantic-join-vector-prefilter`：是否启用向量预筛。
+- `--semantic-join-llm-provider/--semantic-join-llm-model`：语义判定使用的 LLM，可覆盖全局配置。
+
+示例（基于 Player Mixed 的 filter_join 用例）：
+```
+python3 -m evaluation.run_eval \
+  --dataset Player \
+  --task Mixed \
+  --sql-file evaluation/demo_acc_result/Player/Mixed/mixed_queries_filter_join/2/sql.json \
+  --result-csv evaluation/demo_acc_result/Player/Mixed/mixed_queries_filter_join/2/filter_join_player_2.csv \
+  --semantic-join \
+  --semantic-join-topk 8 \
+  --semantic-join-threshold 0.35 \
+  --semantic-join-max-query 200 \
+  --semantic-join-vector-prefilter
+```
+
 ## step 5 : 查看评测结果
 评测结果会出现在：evaluation/demo_acc_result/Player/Join/join_queries/2/acc_result
 包括

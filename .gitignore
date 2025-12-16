@@ -11,5 +11,8 @@
 **/result/
 **/sql_eval/
 **/evaluation/demo_acc_result/
+.vscode/
+!**/template_api_key.yaml
+!**/template_embedding_model.yaml
 /Evidence
 /Code
