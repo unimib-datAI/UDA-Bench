@@ -168,14 +168,6 @@
       "description": "the artistic genre or type of the image, choose one or more from: [Abstraction, Geometry, Conceptual, Figuration, Portraiture, Landscape, Urban, Street, Interior, Architecture, Narrative, Imagination, Religion, History, Politics, Animals, Action, StillLife, Medium, Graphic, Industry, Text, Other]; if multiple genres are relevant, separate them with `||`.",
       "is_fixed": false
     },
-    "theme": {
-      "value_type": "str",
-      "usage": "general",
-      "modality": "image",
-      "is_nullable": false,
-      "description": "the main idea, message, or subject matter conveyed by the image (e.g., nature, war, love, spirituality, identity, urban life, social criticism). Describe it briefly in free-form text, not limited to any fixed list.",
-      "is_fixed": false
-    },
     "object": {
       "value_type": "multi_str",
       "usage": "general",
