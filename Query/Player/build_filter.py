@@ -425,7 +425,8 @@ if __name__ == "__main__":
     # Configuration
     base_path = "/data/dengqiyan/UDA-Bench/Query/Player"
     attributes_path = f"{base_path}/Player_attributes.json"
-    gt_data_path = f"{base_path}/Player.csv"
+    table = "player"
+    gt_data_path = f"{base_path}/{table}.csv"
 
     output_path = f"{base_path}/Filter"
     
@@ -443,9 +444,9 @@ if __name__ == "__main__":
     
     queries = generate_and_save_filter_queries(
         attributes=attributes,
-        table="Player",
+        table=table,
         output_dir=output_path,
-        num_queries_per_subcategory=10,
+        num_queries_per_subcategory=6,
         select_attr_num=3,
         image_num=1,
         filter_count=4,

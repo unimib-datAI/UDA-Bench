@@ -1,4 +1,4 @@
-city_name,state_name,population,area,gdp,id
+city_name,state_name,population,area,gdp,ID
 Denver,Colorado,715522,400.739,,1
 Boston,Massachusetts,675647,125.0,,2
 Indianapolis,Indiana,887642,953.0,,3
@@ -7,7 +7,7 @@ San Antonio,Texas,1434625,1205.4,,5
 Los Angeles,California,"3,820,914",1210.0,,6
 Minneapolis,Minnesota,429954,152.8,,7
 Miami,Florida,442241,,344.9,8
-Inglewood,California,"107,762",24.0, ,9
+Inglewood,California,"107,762",24.0,,9
 Portland,Oregon,"652,503",375.78,,10
 San Francisco,California,808988,121.0,252200,11
 Philadelphia,Pennsylvania,1603797,,518.5,12
