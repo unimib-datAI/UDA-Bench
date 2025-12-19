@@ -140,19 +140,34 @@ def load_attributes_from_json(json_path: str) -> List[Attribute]:
     
     # Handle both flat list and nested dict formats
     if isinstance(data, dict):
-        # Nested format: {"Wiki_Text": [...], "Wiki_Art": [...]}
-        for source_key, attr_list in data.items():
-            for attr_dict in attr_list:
-                attr = Attribute(
-                    name=attr_dict["name"],
-                    table=attr_dict["table"],
-                    value_type=type_mapping.get(attr_dict["value_type"], AttributeType.STRING),
-                    usage=usage_mapping.get(attr_dict["usage"], AttributeUsage.GENERAL),
-                    modality=modality_mapping.get(attr_dict["modality"], AttributeModality.TEXT),
-                    is_nullable=attr_dict.get("is_nullable", False),
-                    description=attr_dict.get("description", "")
-                )
-                attributes.append(attr)
+        # Check if it's the new format: {"Table": {"attr1": {...}, "attr2": {...}}}
+        for source_key, attr_data in data.items():
+            if isinstance(attr_data, dict) and not isinstance(list(attr_data.values())[0], dict):
+                # Old nested format: {"Wiki_Text": [...], "Wiki_Art": [...]}
+                for attr_dict in attr_data:
+                    attr = Attribute(
+                        name=attr_dict["name"],
+                        table=attr_dict["table"],
+                        value_type=type_mapping.get(attr_dict["value_type"], AttributeType.STRING),
+                        usage=usage_mapping.get(attr_dict["usage"], AttributeUsage.GENERAL),
+                        modality=modality_mapping.get(attr_dict["modality"], AttributeModality.TEXT),
+                        is_nullable=attr_dict.get("is_nullable", False),
+                        description=attr_dict.get("description", "")
+                    )
+                    attributes.append(attr)
+            else:
+                # New format: {"Table": {"attr1": {...}, "attr2": {...}}}
+                for attr_name, attr_info in attr_data.items():
+                    attr = Attribute(
+                        name=attr_name,
+                        table=source_key,
+                        value_type=type_mapping.get(attr_info["value_type"], AttributeType.STRING),
+                        usage=usage_mapping.get(attr_info["usage"], AttributeUsage.GENERAL),
+                        modality=modality_mapping.get(attr_info["modality"], AttributeModality.TEXT),
+                        is_nullable=attr_info.get("is_nullable", False),
+                        description=attr_info.get("description", "")
+                    )
+                    attributes.append(attr)
     elif isinstance(data, list):
         # Flat format: [...]
         for attr_dict in data:

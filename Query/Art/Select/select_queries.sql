@@ -1,5 +1,5 @@
 -- Query 1: select (art)
-SELECT Color FROM art;
+SELECT color FROM art;
 
 -- Query 2: select (art)
 SELECT composition, name FROM art;
@@ -14,7 +14,7 @@ SELECT nationality FROM art;
 SELECT composition, art_institution FROM art;
 
 -- Query 6: select (art)
-SELECT name, death_city, Color FROM art;
+SELECT name, death_city, color FROM art;
 
 -- Query 7: select (art)
 SELECT name, tone, birth_city FROM art;

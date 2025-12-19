@@ -423,9 +423,9 @@ if __name__ == "__main__":
     from utils import load_attributes_from_json, DataStatistics
     
     # Configuration
-    base_path = "/data/dengqiyan/UDA-Bench/Query/Player"
-    attributes_path = f"{base_path}/Player_attributes.json"
-    gt_data_path = f"{base_path}/Player.csv"
+    base_path = "/data/dengqiyan/UDA-Bench/Query/Art"
+    attributes_path = f"{base_path}/Art_attributes.json"
+    gt_data_path = f"{base_path}/Art.csv"
 
     output_path = f"{base_path}/Filter"
     

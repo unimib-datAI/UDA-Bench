@@ -205,8 +205,8 @@ if __name__ == "__main__":
     from utils import load_attributes_from_json
     
     # Configuration
-    base_path = "/data/dengqiyan/UDA-Bench/Query/Med"
-    attributes_path = f"{base_path}/Med_attributes.json"
+    base_path = "/data/dengqiyan/UDA-Bench/Query/Art"
+    attributes_path = f"{base_path}/Art_attributes.json"
 
     output_path = f"{base_path}/Select"
     
@@ -221,10 +221,10 @@ if __name__ == "__main__":
     
     queries = generate_and_save_select_queries(
         attributes=attributes,
-        table="disease",
+        table="Art",
         output_dir=output_path,
-        num_queries=4,
-        attribute_num=5,
+        num_queries=10,
+        attribute_num=4,
         image_num=1
     )
     
