@@ -71,7 +71,7 @@ SELECT auditor, board_members, major_events FROM Finance WHERE major_events = 'O
 SELECT exchange_code, executive_profiles, principal_activities FROM Finance WHERE exchange_code = 'MTA' OR net_assets >= 41673000;
 
 -- Query 25: 3 (Finance)
-SELECT major_events, dividend_per_share, earnings_per_share FROM Finance WHERE dividend_per_share <= 0.00 OR major_equity_changes > 'Yes';
+SELECT major_events, dividend_per_share, earnings_per_share FROM Finance WHERE dividend_per_share <= 0.00 OR major_equity_changes = 'Yes';
 
 -- Query 26: 3 (Finance)
 SELECT remuneration_policy, bussiness_sales, revenue FROM Finance WHERE remuneration_policy != 'Fixed' OR total_Debt < '0';
@@ -107,7 +107,7 @@ SELECT exchange_code, principal_activities, earnings_per_share FROM Finance WHER
 SELECT executive_profiles, total_assets, auditor FROM Finance WHERE executive_profiles != 'Nancy L. Erba' AND business_risks != 'Market Risk' AND remuneration_policy = 'Mixed' AND business_segments_num = 2;
 
 -- Query 37: 4 (Finance)
-SELECT bussiness_sales, auditor, revenue FROM Finance WHERE bussiness_sales > '-171254' AND dividend_per_share >= 0.00 AND total_assets < 4345662000 AND major_equity_changes <= 'No';
+SELECT bussiness_sales, auditor, revenue FROM Finance WHERE bussiness_sales > '-171254' AND dividend_per_share >= 0.00 AND total_assets < 4345662000 AND major_equity_changes = 'No';
 
 -- Query 38: 4 (Finance)
 SELECT company_name, business_segments_num, exchange_code FROM Finance WHERE company_name != 'Swiss Water Decaffeinated Coffee Inc.' AND executive_profiles != 'Shayne Currie' AND the_highest_ownership_stake <= 49.28 AND total_Debt != '0';
@@ -121,7 +121,7 @@ account)' AND net_profit_or_loss = '27299000';
 SELECT total_Debt, bussiness_sales, business_segments_num FROM Finance WHERE total_Debt <= '258804000' AND registered_office != '340 Madison Avenue, Suite 3C, New York, New York, 10173' AND major_events != 'Other' AND net_profit_or_loss >= '40423000';
 
 -- Query 41: 5 (Finance)
-SELECT earnings_per_share, net_profit_or_loss, net_assets FROM Finance WHERE net_profit_or_loss <= '165500000' OR principal_activities = 'Other' OR major_equity_changes > 'Yes' OR total_Debt = '8613673';
+SELECT earnings_per_share, net_profit_or_loss, net_assets FROM Finance WHERE net_profit_or_loss <= '165500000' OR principal_activities = 'Other' OR major_equity_changes = 'Yes' OR total_Debt = '8613673';
 
 -- Query 42: 5 (Finance)
 SELECT auditor, revenue, remuneration_policy FROM Finance WHERE revenue > 391926000 OR registered_office != '1654 Smallman St., Pittsburgh, Pennsylvania 15222' OR company_name = 'Bionano Genomics, Inc.' OR auditor != 'BDO LLP';
@@ -145,7 +145,7 @@ SELECT dividend_per_share, company_name, executive_profiles FROM Finance WHERE d
 SELECT bussiness_profit, principal_activities, major_events FROM Finance WHERE principal_activities != 'Transportation' OR registered_office != '2 Prologis Blvd., Suite 500, Mississauga, Ontario, L5W 0G8' OR dividend_per_share < 0.40 OR major_events = 'Leadership Change';
 
 -- Query 49: 5 (Finance)
-SELECT net_assets, total_assets, auditor FROM Finance WHERE total_assets <= 136955488 OR total_assets >= 33746800000 OR major_equity_changes < 'No' OR major_events != 'Major Contract';
+SELECT net_assets, total_assets, auditor FROM Finance WHERE total_assets <= 136955488 OR total_assets >= 33746800000 OR major_equity_changes = 'No' OR major_events != 'Major Contract';
 
 -- Query 50: 5 (Finance)
 SELECT company_name, the_highest_ownership_stake, business_segments_num FROM Finance WHERE business_segments_num = 1 OR earnings_per_share != -0.04 OR exchange_code = 'WHLR' OR dividend_per_share = 0.40;
