@@ -129,7 +129,7 @@
       "is_fixed": false
     },
     "major_equity_changes": {
-      "value_type": "int",
+      "value_type": "str",
       "usage": "categorical",
       "modality": "text",
       "is_nullable": false,
