@@ -5,7 +5,7 @@ SELECT color FROM art;
 SELECT composition, name FROM art;
 
 -- Query 3: select (art)
-SELECT nationality FROM art;
+SELECT name FROM art;
 
 -- Query 4: select (art)
 SELECT nationality FROM art;
