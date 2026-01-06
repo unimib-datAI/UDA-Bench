@@ -211,7 +211,7 @@ Our benchmark evaluates 7 existing unstructured data analysis systems:
 | **DocETL**          | Code            | ✅        | ✅         | ❌          | ✅       | ✅      | ✅    | ✅         | ✅            | ✅             |
 | **ZenDB**           | SQL-like        | ✅        | ✅         | ❌          | ✅       | ✅      | ✅    | ❌         | ✅            | ❌             |
 | **QUEST**           | SQL-like        | ✅        | ✅         | ❌          | ✅       | ✅      | ✅    | ❌         | ✅            | ❌             |
-| **UQE**             | SQL-like        | ❌        | ✅         | ❌          | ✅       | ✅      | ❌    | ✅         | ✅            | ❌             |
+| **UQE**             | SQL-like        | ❌        | ✅         | ✅          | ✅       | ✅      | ❌    | ✅         | ✅            | ❌             |
 
 *Table 1: Overview of existing unstructured data analysis systems and their capabilities.*
 
