@@ -1,0 +1,361 @@
+query_id,sql_file,result_csv,acc_json,return_code,status,stdout,stderr,macro_f1,macro_precision,macro_recall,sql
+1,systems/DocETL/outputs/Player/Filter/filter_queries_player_duckdb/1/sql.json,systems/DocETL/outputs/Player/Filter/filter_queries_player_duckdb/1/result.csv,systems/DocETL/outputs/Player/Filter/filter_queries_player_duckdb/1/acc_result/acc.json,0,ok,,"[2026-03-18 11:47:23,746] [INFO] Starting evaluation for dataset=Player sql=systems\DocETL\outputs\Player\Filter\filter_queries_player_duckdb\1\sql.json
+[2026-03-18 11:47:23,857] [INFO] Running SQL on GT (exact)
+[2026-03-18 11:47:23,874] [INFO] Loaded result from systems\DocETL\outputs\Player\Filter\filter_queries_player_duckdb\1\result.csv with 140 rows
+[2026-03-18 11:47:23,917] [WARNING] No API key configured for provider 'aihubmix'; fallback to string match
+[2026-03-18 11:47:24,169] [INFO] Aligned 140 rows (gold=140, pred=140) using keys=['id']
+[2026-03-18 11:47:24,169] [WARNING] No API key configured for provider 'aihubmix'; fallback to string match
+[2026-03-18 11:47:24,169] [WARNING] No API key configured for provider 'aihubmix'; fallback to string match
+[2026-03-18 11:47:24,201] [INFO] Saved outputs to systems\DocETL\outputs\Player\Filter\filter_queries_player_duckdb\1\acc_result (gold=140, matched=140 rows)
+[2026-03-18 11:47:24,201] [INFO] Evaluation finished. Macro F1=1.0000
+",1.0,1.0,1.0,"SELECT mvp_awards, draft_pick, fiba_world_cup FROM player WHERE CAST(fiba_world_cup AS DOUBLE) >= 0;"
+2,systems/DocETL/outputs/Player/Filter/filter_queries_player_duckdb/2/sql.json,systems/DocETL/outputs/Player/Filter/filter_queries_player_duckdb/2/result.csv,systems/DocETL/outputs/Player/Filter/filter_queries_player_duckdb/2/acc_result/acc.json,0,ok,,"[2026-03-18 11:47:26,051] [INFO] Starting evaluation for dataset=Player sql=systems\DocETL\outputs\Player\Filter\filter_queries_player_duckdb\2\sql.json
+[2026-03-18 11:47:26,203] [INFO] Running SQL on GT (exact)
+[2026-03-18 11:47:26,220] [INFO] Loaded result from systems\DocETL\outputs\Player\Filter\filter_queries_player_duckdb\2\result.csv with 126 rows
+[2026-03-18 11:47:26,265] [WARNING] No API key configured for provider 'aihubmix'; fallback to string match
+[2026-03-18 11:47:26,465] [INFO] Aligned 126 rows (gold=126, pred=126) using keys=['id']
+[2026-03-18 11:47:26,479] [WARNING] No API key configured for provider 'aihubmix'; fallback to string match
+[2026-03-18 11:47:26,479] [WARNING] No API key configured for provider 'aihubmix'; fallback to string match
+[2026-03-18 11:47:26,479] [INFO] Saved outputs to systems\DocETL\outputs\Player\Filter\filter_queries_player_duckdb\2\acc_result (gold=126, matched=126 rows)
+[2026-03-18 11:47:26,479] [INFO] Evaluation finished. Macro F1=1.0000
+",1.0,1.0,1.0,"SELECT position, nationality, age FROM player WHERE CAST(age AS DOUBLE) < 78;"
+3,systems/DocETL/outputs/Player/Filter/filter_queries_player_duckdb/3/sql.json,systems/DocETL/outputs/Player/Filter/filter_queries_player_duckdb/3/result.csv,systems/DocETL/outputs/Player/Filter/filter_queries_player_duckdb/3/acc_result/acc.json,0,ok,,"[2026-03-18 11:47:27,933] [INFO] Starting evaluation for dataset=Player sql=systems\DocETL\outputs\Player\Filter\filter_queries_player_duckdb\3\sql.json
+[2026-03-18 11:47:28,056] [INFO] Running SQL on GT (exact)
+[2026-03-18 11:47:28,080] [INFO] Loaded result from systems\DocETL\outputs\Player\Filter\filter_queries_player_duckdb\3\result.csv with 17 rows
+[2026-03-18 11:47:28,126] [WARNING] No API key configured for provider 'aihubmix'; fallback to string match
+[2026-03-18 11:47:28,161] [INFO] Aligned 17 rows (gold=17, pred=17) using keys=['id']
+[2026-03-18 11:47:28,163] [WARNING] No API key configured for provider 'aihubmix'; fallback to string match
+[2026-03-18 11:47:28,164] [WARNING] No API key configured for provider 'aihubmix'; fallback to string match
+[2026-03-18 11:47:28,180] [INFO] Saved outputs to systems\DocETL\outputs\Player\Filter\filter_queries_player_duckdb\3\acc_result (gold=17, matched=17 rows)
+[2026-03-18 11:47:28,181] [INFO] Evaluation finished. Macro F1=1.0000
+",1.0,1.0,1.0,"SELECT mvp_awards, draft_pick, name FROM player WHERE CAST(mvp_awards AS DOUBLE) >= 1;"
+4,systems/DocETL/outputs/Player/Filter/filter_queries_player_duckdb/4/sql.json,systems/DocETL/outputs/Player/Filter/filter_queries_player_duckdb/4/result.csv,systems/DocETL/outputs/Player/Filter/filter_queries_player_duckdb/4/acc_result/acc.json,0,ok,,"[2026-03-18 11:47:32,907] [INFO] Starting evaluation for dataset=Player sql=systems\DocETL\outputs\Player\Filter\filter_queries_player_duckdb\4\sql.json
+[2026-03-18 11:47:33,017] [INFO] Running SQL on GT (exact)
+[2026-03-18 11:47:33,033] [INFO] Loaded result from systems\DocETL\outputs\Player\Filter\filter_queries_player_duckdb\4\result.csv with 1 rows
+[2026-03-18 11:47:33,065] [WARNING] No API key configured for provider 'aihubmix'; fallback to string match
+[2026-03-18 11:47:33,065] [INFO] Aligned 1 rows (gold=1, pred=1) using keys=['id']
+[2026-03-18 11:47:33,065] [WARNING] No API key configured for provider 'aihubmix'; fallback to string match
+[2026-03-18 11:47:33,065] [WARNING] No API key configured for provider 'aihubmix'; fallback to string match
+[2026-03-18 11:47:33,081] [INFO] Saved outputs to systems\DocETL\outputs\Player\Filter\filter_queries_player_duckdb\4\acc_result (gold=1, matched=1 rows)
+[2026-03-18 11:47:33,081] [INFO] Evaluation finished. Macro F1=1.0000
+",1.0,1.0,1.0,"SELECT age, birth_date, team FROM player WHERE team = 'Cedevita Olimpija';"
+5,systems/DocETL/outputs/Player/Filter/filter_queries_player_duckdb/5/sql.json,systems/DocETL/outputs/Player/Filter/filter_queries_player_duckdb/5/result.csv,systems/DocETL/outputs/Player/Filter/filter_queries_player_duckdb/5/acc_result/acc.json,0,ok,,"[2026-03-18 11:47:34,585] [INFO] Starting evaluation for dataset=Player sql=systems\DocETL\outputs\Player\Filter\filter_queries_player_duckdb\5\sql.json
+[2026-03-18 11:47:34,696] [INFO] Running SQL on GT (exact)
+[2026-03-18 11:47:34,728] [INFO] Loaded result from systems\DocETL\outputs\Player\Filter\filter_queries_player_duckdb\5\result.csv with 107 rows
+[2026-03-18 11:47:34,754] [WARNING] No API key configured for provider 'aihubmix'; fallback to string match
+[2026-03-18 11:47:34,880] [INFO] Aligned 107 rows (gold=107, pred=107) using keys=['id']
+[2026-03-18 11:47:34,880] [WARNING] No API key configured for provider 'aihubmix'; fallback to string match
+[2026-03-18 11:47:34,880] [WARNING] No API key configured for provider 'aihubmix'; fallback to string match
+[2026-03-18 11:47:34,896] [INFO] Saved outputs to systems\DocETL\outputs\Player\Filter\filter_queries_player_duckdb\5\acc_result (gold=107, matched=107 rows)
+[2026-03-18 11:47:34,896] [INFO] Evaluation finished. Macro F1=1.0000
+",1.0,1.0,1.0,"SELECT fiba_world_cup, nba_championships, birth_date FROM player WHERE CAST(nba_championships AS DOUBLE) = 0;"
+6,systems/DocETL/outputs/Player/Filter/filter_queries_player_duckdb/6/sql.json,systems/DocETL/outputs/Player/Filter/filter_queries_player_duckdb/6/result.csv,systems/DocETL/outputs/Player/Filter/filter_queries_player_duckdb/6/acc_result/acc.json,0,ok,,"[2026-03-18 11:47:36,323] [INFO] Starting evaluation for dataset=Player sql=systems\DocETL\outputs\Player\Filter\filter_queries_player_duckdb\6\sql.json
+[2026-03-18 11:47:36,417] [INFO] Running SQL on GT (exact)
+[2026-03-18 11:47:36,433] [INFO] Loaded result from systems\DocETL\outputs\Player\Filter\filter_queries_player_duckdb\6\result.csv with 1 rows
+[2026-03-18 11:47:36,449] [WARNING] No API key configured for provider 'aihubmix'; fallback to string match
+[2026-03-18 11:47:36,465] [INFO] Aligned 1 rows (gold=1, pred=1) using keys=['id']
+[2026-03-18 11:47:36,465] [WARNING] No API key configured for provider 'aihubmix'; fallback to string match
+[2026-03-18 11:47:36,465] [WARNING] No API key configured for provider 'aihubmix'; fallback to string match
+[2026-03-18 11:47:36,465] [INFO] Saved outputs to systems\DocETL\outputs\Player\Filter\filter_queries_player_duckdb\6\acc_result (gold=1, matched=1 rows)
+[2026-03-18 11:47:36,465] [INFO] Evaluation finished. Macro F1=1.0000
+",1.0,1.0,1.0,"SELECT college, birth_date, draft_year FROM player WHERE birth_date = '1973/11/25';"
+7,systems/DocETL/outputs/Player/Filter/filter_queries_player_duckdb/7/sql.json,systems/DocETL/outputs/Player/Filter/filter_queries_player_duckdb/7/result.csv,systems/DocETL/outputs/Player/Filter/filter_queries_player_duckdb/7/acc_result/acc.json,0,ok,,"[2026-03-18 11:47:38,063] [INFO] Starting evaluation for dataset=Player sql=systems\DocETL\outputs\Player\Filter\filter_queries_player_duckdb\7\sql.json
+[2026-03-18 11:47:38,169] [INFO] Running SQL on GT (exact)
+[2026-03-18 11:47:38,197] [INFO] Loaded result from systems\DocETL\outputs\Player\Filter\filter_queries_player_duckdb\7\result.csv with 15 rows
+[2026-03-18 11:47:38,232] [WARNING] No API key configured for provider 'aihubmix'; fallback to string match
+[2026-03-18 11:47:38,266] [INFO] Aligned 15 rows (gold=15, pred=15) using keys=['id']
+[2026-03-18 11:47:38,268] [WARNING] No API key configured for provider 'aihubmix'; fallback to string match
+[2026-03-18 11:47:38,268] [WARNING] No API key configured for provider 'aihubmix'; fallback to string match
+[2026-03-18 11:47:38,279] [INFO] Saved outputs to systems\DocETL\outputs\Player\Filter\filter_queries_player_duckdb\7\acc_result (gold=15, matched=15 rows)
+[2026-03-18 11:47:38,279] [INFO] Evaluation finished. Macro F1=1.0000
+",1.0,1.0,1.0,"SELECT fiba_world_cup, draft_year, name FROM player WHERE CAST(draft_year AS DOUBLE) <= 2018 AND CAST(fiba_world_cup AS DOUBLE) > 0;"
+8,systems/DocETL/outputs/Player/Filter/filter_queries_player_duckdb/8/sql.json,systems/DocETL/outputs/Player/Filter/filter_queries_player_duckdb/8/result.csv,systems/DocETL/outputs/Player/Filter/filter_queries_player_duckdb/8/acc_result/acc.json,0,ok,,"[2026-03-18 11:47:39,758] [INFO] Starting evaluation for dataset=Player sql=systems\DocETL\outputs\Player\Filter\filter_queries_player_duckdb\8\sql.json
+[2026-03-18 11:47:39,901] [INFO] Running SQL on GT (exact)
+[2026-03-18 11:47:39,916] [INFO] Loaded result from systems\DocETL\outputs\Player\Filter\filter_queries_player_duckdb\8\result.csv with 19 rows
+[2026-03-18 11:47:39,944] [WARNING] No API key configured for provider 'aihubmix'; fallback to string match
+[2026-03-18 11:47:39,965] [INFO] Aligned 19 rows (gold=19, pred=19) using keys=['id']
+[2026-03-18 11:47:39,965] [WARNING] No API key configured for provider 'aihubmix'; fallback to string match
+[2026-03-18 11:47:39,965] [WARNING] No API key configured for provider 'aihubmix'; fallback to string match
+[2026-03-18 11:47:39,997] [INFO] Saved outputs to systems\DocETL\outputs\Player\Filter\filter_queries_player_duckdb\8\acc_result (gold=19, matched=19 rows)
+[2026-03-18 11:47:39,997] [INFO] Evaluation finished. Macro F1=1.0000
+",1.0,1.0,1.0,"SELECT position, nba_championships, fiba_world_cup FROM player WHERE CAST(fiba_world_cup AS DOUBLE) > 0 AND nationality != 'Azerbaijani';"
+9,systems/DocETL/outputs/Player/Filter/filter_queries_player_duckdb/9/sql.json,systems/DocETL/outputs/Player/Filter/filter_queries_player_duckdb/9/result.csv,systems/DocETL/outputs/Player/Filter/filter_queries_player_duckdb/9/acc_result/acc.json,0,ok,,"[2026-03-18 11:47:41,502] [INFO] Starting evaluation for dataset=Player sql=systems\DocETL\outputs\Player\Filter\filter_queries_player_duckdb\9\sql.json
+[2026-03-18 11:47:41,626] [INFO] Running SQL on GT (exact)
+[2026-03-18 11:47:41,637] [INFO] Loaded result from systems\DocETL\outputs\Player\Filter\filter_queries_player_duckdb\9\result.csv with 28 rows
+[2026-03-18 11:47:41,669] [WARNING] No API key configured for provider 'aihubmix'; fallback to string match
+[2026-03-18 11:47:41,733] [INFO] Aligned 28 rows (gold=28, pred=28) using keys=['id']
+[2026-03-18 11:47:41,733] [WARNING] No API key configured for provider 'aihubmix'; fallback to string match
+[2026-03-18 11:47:41,733] [WARNING] No API key configured for provider 'aihubmix'; fallback to string match
+[2026-03-18 11:47:41,753] [INFO] Saved outputs to systems\DocETL\outputs\Player\Filter\filter_queries_player_duckdb\9\acc_result (gold=28, matched=28 rows)
+[2026-03-18 11:47:41,753] [INFO] Evaluation finished. Macro F1=1.0000
+",1.0,1.0,1.0,"SELECT draft_pick, nba_championships, team FROM player WHERE CAST(draft_pick AS DOUBLE) < 24 AND CAST(draft_pick AS DOUBLE) >= 10;"
+10,systems/DocETL/outputs/Player/Filter/filter_queries_player_duckdb/10/sql.json,systems/DocETL/outputs/Player/Filter/filter_queries_player_duckdb/10/result.csv,systems/DocETL/outputs/Player/Filter/filter_queries_player_duckdb/10/acc_result/acc.json,0,ok,,"[2026-03-18 11:47:43,419] [INFO] Starting evaluation for dataset=Player sql=systems\DocETL\outputs\Player\Filter\filter_queries_player_duckdb\10\sql.json
+[2026-03-18 11:47:43,640] [INFO] Running SQL on GT (exact)
+[2026-03-18 11:47:43,658] [INFO] Loaded result from systems\DocETL\outputs\Player\Filter\filter_queries_player_duckdb\10\result.csv with 0 rows
+[2026-03-18 11:47:43,718] [WARNING] No API key configured for provider 'aihubmix'; fallback to string match
+[2026-03-18 11:47:43,722] [INFO] Aligned 0 rows (gold=0, pred=0) using keys=['id']
+[2026-03-18 11:47:43,724] [WARNING] No API key configured for provider 'aihubmix'; fallback to string match
+[2026-03-18 11:47:43,724] [WARNING] No API key configured for provider 'aihubmix'; fallback to string match
+[2026-03-18 11:47:43,743] [INFO] Saved outputs to systems\DocETL\outputs\Player\Filter\filter_queries_player_duckdb\10\acc_result (gold=0, matched=0 rows)
+[2026-03-18 11:47:43,743] [INFO] Evaluation finished. Macro F1=0.0000
+",0.0,0.0,0.0,"SELECT age, birth_date, college FROM player WHERE CAST(age AS DOUBLE) > 78 AND CAST(mvp_awards AS DOUBLE) > 0;"
+11,systems/DocETL/outputs/Player/Filter/filter_queries_player_duckdb/11/sql.json,systems/DocETL/outputs/Player/Filter/filter_queries_player_duckdb/11/result.csv,systems/DocETL/outputs/Player/Filter/filter_queries_player_duckdb/11/acc_result/acc.json,0,ok,,"[2026-03-18 11:47:45,401] [INFO] Starting evaluation for dataset=Player sql=systems\DocETL\outputs\Player\Filter\filter_queries_player_duckdb\11\sql.json
+[2026-03-18 11:47:45,512] [INFO] Running SQL on GT (exact)
+[2026-03-18 11:47:45,528] [INFO] Loaded result from systems\DocETL\outputs\Player\Filter\filter_queries_player_duckdb\11\result.csv with 139 rows
+[2026-03-18 11:47:45,571] [WARNING] No API key configured for provider 'aihubmix'; fallback to string match
+[2026-03-18 11:47:45,781] [INFO] Aligned 139 rows (gold=139, pred=139) using keys=['id']
+[2026-03-18 11:47:45,796] [WARNING] No API key configured for provider 'aihubmix'; fallback to string match
+[2026-03-18 11:47:45,796] [WARNING] No API key configured for provider 'aihubmix'; fallback to string match
+[2026-03-18 11:47:45,796] [INFO] Saved outputs to systems\DocETL\outputs\Player\Filter\filter_queries_player_duckdb\11\acc_result (gold=139, matched=139 rows)
+[2026-03-18 11:47:45,796] [INFO] Evaluation finished. Macro F1=1.0000
+",1.0,1.0,1.0,"SELECT fiba_world_cup, birth_date, nba_championships FROM player WHERE birth_date != '1959/6/10' AND birth_date != '1964/2/15';"
+12,systems/DocETL/outputs/Player/Filter/filter_queries_player_duckdb/12/sql.json,systems/DocETL/outputs/Player/Filter/filter_queries_player_duckdb/12/result.csv,systems/DocETL/outputs/Player/Filter/filter_queries_player_duckdb/12/acc_result/acc.json,0,ok,,"[2026-03-18 11:47:47,239] [INFO] Starting evaluation for dataset=Player sql=systems\DocETL\outputs\Player\Filter\filter_queries_player_duckdb\12\sql.json
+[2026-03-18 11:47:47,366] [INFO] Running SQL on GT (exact)
+[2026-03-18 11:47:47,397] [INFO] Loaded result from systems\DocETL\outputs\Player\Filter\filter_queries_player_duckdb\12\result.csv with 2 rows
+[2026-03-18 11:47:47,429] [WARNING] No API key configured for provider 'aihubmix'; fallback to string match
+[2026-03-18 11:47:47,449] [INFO] Aligned 2 rows (gold=2, pred=2) using keys=['id']
+[2026-03-18 11:47:47,452] [WARNING] No API key configured for provider 'aihubmix'; fallback to string match
+[2026-03-18 11:47:47,452] [WARNING] No API key configured for provider 'aihubmix'; fallback to string match
+[2026-03-18 11:47:47,462] [INFO] Saved outputs to systems\DocETL\outputs\Player\Filter\filter_queries_player_duckdb\12\acc_result (gold=2, matched=2 rows)
+[2026-03-18 11:47:47,462] [INFO] Evaluation finished. Macro F1=1.0000
+",1.0,1.0,1.0,"SELECT olympic_gold_medals, position, birth_date FROM player WHERE CAST(olympic_gold_medals AS DOUBLE) < 1 AND CAST(draft_pick AS DOUBLE) = 24;"
+13,systems/DocETL/outputs/Player/Filter/filter_queries_player_duckdb/13/sql.json,systems/DocETL/outputs/Player/Filter/filter_queries_player_duckdb/13/result.csv,systems/DocETL/outputs/Player/Filter/filter_queries_player_duckdb/13/acc_result/acc.json,0,ok,,"[2026-03-18 11:47:49,132] [INFO] Starting evaluation for dataset=Player sql=systems\DocETL\outputs\Player\Filter\filter_queries_player_duckdb\13\sql.json
+[2026-03-18 11:47:49,323] [INFO] Running SQL on GT (exact)
+[2026-03-18 11:47:49,360] [INFO] Loaded result from systems\DocETL\outputs\Player\Filter\filter_queries_player_duckdb\13\result.csv with 124 rows
+[2026-03-18 11:47:49,411] [WARNING] No API key configured for provider 'aihubmix'; fallback to string match
+[2026-03-18 11:47:49,706] [INFO] Aligned 124 rows (gold=124, pred=124) using keys=['id']
+[2026-03-18 11:47:49,712] [WARNING] No API key configured for provider 'aihubmix'; fallback to string match
+[2026-03-18 11:47:49,712] [WARNING] No API key configured for provider 'aihubmix'; fallback to string match
+[2026-03-18 11:47:49,734] [INFO] Saved outputs to systems\DocETL\outputs\Player\Filter\filter_queries_player_duckdb\13\acc_result (gold=124, matched=124 rows)
+[2026-03-18 11:47:49,734] [INFO] Evaluation finished. Macro F1=1.0000
+",1.0,1.0,1.0,"SELECT team, nationality, mvp_awards FROM player WHERE CAST(mvp_awards AS DOUBLE) < 1 OR birth_date = '1995/10/2';"
+14,systems/DocETL/outputs/Player/Filter/filter_queries_player_duckdb/14/sql.json,systems/DocETL/outputs/Player/Filter/filter_queries_player_duckdb/14/result.csv,systems/DocETL/outputs/Player/Filter/filter_queries_player_duckdb/14/acc_result/acc.json,0,ok,,"[2026-03-18 11:47:51,415] [INFO] Starting evaluation for dataset=Player sql=systems\DocETL\outputs\Player\Filter\filter_queries_player_duckdb\14\sql.json
+[2026-03-18 11:47:51,556] [INFO] Running SQL on GT (exact)
+[2026-03-18 11:47:51,580] [INFO] Loaded result from systems\DocETL\outputs\Player\Filter\filter_queries_player_duckdb\14\result.csv with 140 rows
+[2026-03-18 11:47:51,617] [WARNING] No API key configured for provider 'aihubmix'; fallback to string match
+[2026-03-18 11:47:51,847] [INFO] Aligned 140 rows (gold=140, pred=140) using keys=['id']
+[2026-03-18 11:47:51,863] [WARNING] No API key configured for provider 'aihubmix'; fallback to string match
+[2026-03-18 11:47:51,863] [WARNING] No API key configured for provider 'aihubmix'; fallback to string match
+[2026-03-18 11:47:51,879] [INFO] Saved outputs to systems\DocETL\outputs\Player\Filter\filter_queries_player_duckdb\14\acc_result (gold=140, matched=140 rows)
+[2026-03-18 11:47:51,879] [INFO] Evaluation finished. Macro F1=1.0000
+",1.0,1.0,1.0,"SELECT draft_year, age, fiba_world_cup FROM player WHERE CAST(draft_year AS DOUBLE) <= 2018 OR CAST(olympic_gold_medals AS DOUBLE) >= 0;"
+15,systems/DocETL/outputs/Player/Filter/filter_queries_player_duckdb/15/sql.json,systems/DocETL/outputs/Player/Filter/filter_queries_player_duckdb/15/result.csv,systems/DocETL/outputs/Player/Filter/filter_queries_player_duckdb/15/acc_result/acc.json,0,ok,,"[2026-03-18 11:47:53,383] [INFO] Starting evaluation for dataset=Player sql=systems\DocETL\outputs\Player\Filter\filter_queries_player_duckdb\15\sql.json
+[2026-03-18 11:47:53,477] [INFO] Running SQL on GT (exact)
+[2026-03-18 11:47:53,483] [INFO] Loaded result from systems\DocETL\outputs\Player\Filter\filter_queries_player_duckdb\15\result.csv with 140 rows
+[2026-03-18 11:47:53,511] [WARNING] No API key configured for provider 'aihubmix'; fallback to string match
+[2026-03-18 11:47:53,702] [INFO] Aligned 140 rows (gold=140, pred=140) using keys=['id']
+[2026-03-18 11:47:53,702] [WARNING] No API key configured for provider 'aihubmix'; fallback to string match
+[2026-03-18 11:47:53,702] [WARNING] No API key configured for provider 'aihubmix'; fallback to string match
+[2026-03-18 11:47:53,718] [INFO] Saved outputs to systems\DocETL\outputs\Player\Filter\filter_queries_player_duckdb\15\acc_result (gold=140, matched=140 rows)
+[2026-03-18 11:47:53,718] [INFO] Evaluation finished. Macro F1=1.0000
+",1.0,1.0,1.0,"SELECT fiba_world_cup, nationality, college FROM player WHERE college = 'University of Connecticut' OR birth_date != '1971/12/3';"
+16,systems/DocETL/outputs/Player/Filter/filter_queries_player_duckdb/16/sql.json,systems/DocETL/outputs/Player/Filter/filter_queries_player_duckdb/16/result.csv,systems/DocETL/outputs/Player/Filter/filter_queries_player_duckdb/16/acc_result/acc.json,0,ok,,"[2026-03-18 11:47:55,595] [INFO] Starting evaluation for dataset=Player sql=systems\DocETL\outputs\Player\Filter\filter_queries_player_duckdb\16\sql.json
+[2026-03-18 11:47:55,720] [INFO] Running SQL on GT (exact)
+[2026-03-18 11:47:55,736] [INFO] Loaded result from systems\DocETL\outputs\Player\Filter\filter_queries_player_duckdb\16\result.csv with 31 rows
+[2026-03-18 11:47:55,768] [WARNING] No API key configured for provider 'aihubmix'; fallback to string match
+[2026-03-18 11:47:55,822] [INFO] Aligned 31 rows (gold=31, pred=31) using keys=['id']
+[2026-03-18 11:47:55,824] [WARNING] No API key configured for provider 'aihubmix'; fallback to string match
+[2026-03-18 11:47:55,824] [WARNING] No API key configured for provider 'aihubmix'; fallback to string match
+[2026-03-18 11:47:55,833] [INFO] Saved outputs to systems\DocETL\outputs\Player\Filter\filter_queries_player_duckdb\16\acc_result (gold=31, matched=31 rows)
+[2026-03-18 11:47:55,833] [INFO] Evaluation finished. Macro F1=1.0000
+",1.0,1.0,1.0,"SELECT olympic_gold_medals, fiba_world_cup, birth_date FROM player WHERE birth_date = '1994/4/25' OR position != 'Frontcourt';"
+17,systems/DocETL/outputs/Player/Filter/filter_queries_player_duckdb/17/sql.json,systems/DocETL/outputs/Player/Filter/filter_queries_player_duckdb/17/result.csv,systems/DocETL/outputs/Player/Filter/filter_queries_player_duckdb/17/acc_result/acc.json,0,ok,,"[2026-03-18 11:47:58,758] [INFO] Starting evaluation for dataset=Player sql=systems\DocETL\outputs\Player\Filter\filter_queries_player_duckdb\17\sql.json
+[2026-03-18 11:47:58,873] [INFO] Running SQL on GT (exact)
+[2026-03-18 11:47:58,905] [INFO] Loaded result from systems\DocETL\outputs\Player\Filter\filter_queries_player_duckdb\17\result.csv with 57 rows
+[2026-03-18 11:47:58,937] [WARNING] No API key configured for provider 'aihubmix'; fallback to string match
+[2026-03-18 11:47:59,016] [INFO] Aligned 57 rows (gold=57, pred=57) using keys=['id']
+[2026-03-18 11:47:59,016] [WARNING] No API key configured for provider 'aihubmix'; fallback to string match
+[2026-03-18 11:47:59,016] [WARNING] No API key configured for provider 'aihubmix'; fallback to string match
+[2026-03-18 11:47:59,032] [INFO] Saved outputs to systems\DocETL\outputs\Player\Filter\filter_queries_player_duckdb\17\acc_result (gold=57, matched=57 rows)
+[2026-03-18 11:47:59,032] [INFO] Evaluation finished. Macro F1=1.0000
+",1.0,1.0,1.0,"SELECT college, draft_pick, fiba_world_cup FROM player WHERE CAST(draft_pick AS DOUBLE) <= 10 OR college = 'Michigan State University';"
+18,systems/DocETL/outputs/Player/Filter/filter_queries_player_duckdb/18/sql.json,systems/DocETL/outputs/Player/Filter/filter_queries_player_duckdb/18/result.csv,systems/DocETL/outputs/Player/Filter/filter_queries_player_duckdb/18/acc_result/acc.json,0,ok,,"[2026-03-18 11:48:00,664] [INFO] Starting evaluation for dataset=Player sql=systems\DocETL\outputs\Player\Filter\filter_queries_player_duckdb\18\sql.json
+[2026-03-18 11:48:00,848] [INFO] Running SQL on GT (exact)
+[2026-03-18 11:48:00,870] [INFO] Loaded result from systems\DocETL\outputs\Player\Filter\filter_queries_player_duckdb\18\result.csv with 38 rows
+[2026-03-18 11:48:00,911] [WARNING] No API key configured for provider 'aihubmix'; fallback to string match
+[2026-03-18 11:48:00,991] [INFO] Aligned 38 rows (gold=38, pred=38) using keys=['id']
+[2026-03-18 11:48:00,991] [WARNING] No API key configured for provider 'aihubmix'; fallback to string match
+[2026-03-18 11:48:00,991] [WARNING] No API key configured for provider 'aihubmix'; fallback to string match
+[2026-03-18 11:48:01,018] [INFO] Saved outputs to systems\DocETL\outputs\Player\Filter\filter_queries_player_duckdb\18\acc_result (gold=38, matched=38 rows)
+[2026-03-18 11:48:01,020] [INFO] Evaluation finished. Macro F1=1.0000
+",1.0,1.0,1.0,"SELECT olympic_gold_medals, nba_championships, age FROM player WHERE CAST(olympic_gold_medals AS DOUBLE) > 1 OR position != 'Frontcourt';"
+19,systems/DocETL/outputs/Player/Filter/filter_queries_player_duckdb/19/sql.json,systems/DocETL/outputs/Player/Filter/filter_queries_player_duckdb/19/result.csv,systems/DocETL/outputs/Player/Filter/filter_queries_player_duckdb/19/acc_result/acc.json,0,ok,,"[2026-03-18 11:48:02,661] [INFO] Starting evaluation for dataset=Player sql=systems\DocETL\outputs\Player\Filter\filter_queries_player_duckdb\19\sql.json
+[2026-03-18 11:48:02,779] [INFO] Running SQL on GT (exact)
+[2026-03-18 11:48:02,791] [INFO] Loaded result from systems\DocETL\outputs\Player\Filter\filter_queries_player_duckdb\19\result.csv with 12 rows
+[2026-03-18 11:48:02,829] [WARNING] No API key configured for provider 'aihubmix'; fallback to string match
+[2026-03-18 11:48:02,838] [INFO] Aligned 12 rows (gold=12, pred=12) using keys=['id']
+[2026-03-18 11:48:02,838] [WARNING] No API key configured for provider 'aihubmix'; fallback to string match
+[2026-03-18 11:48:02,838] [WARNING] No API key configured for provider 'aihubmix'; fallback to string match
+[2026-03-18 11:48:02,858] [INFO] Saved outputs to systems\DocETL\outputs\Player\Filter\filter_queries_player_duckdb\19\acc_result (gold=12, matched=12 rows)
+[2026-03-18 11:48:02,858] [INFO] Evaluation finished. Macro F1=1.0000
+",1.0,1.0,1.0,"SELECT fiba_world_cup, draft_pick, draft_year FROM player WHERE CAST(draft_pick AS DOUBLE) >= 24 AND CAST(age AS DOUBLE) >= 42 AND CAST(mvp_awards AS DOUBLE) >= 0 AND CAST(mvp_awards AS DOUBLE) < 1;"
+20,systems/DocETL/outputs/Player/Filter/filter_queries_player_duckdb/20/sql.json,systems/DocETL/outputs/Player/Filter/filter_queries_player_duckdb/20/result.csv,systems/DocETL/outputs/Player/Filter/filter_queries_player_duckdb/20/acc_result/acc.json,0,ok,,"[2026-03-18 11:48:04,390] [INFO] Starting evaluation for dataset=Player sql=systems\DocETL\outputs\Player\Filter\filter_queries_player_duckdb\20\sql.json
+[2026-03-18 11:48:04,552] [INFO] Running SQL on GT (exact)
+[2026-03-18 11:48:04,573] [INFO] Loaded result from systems\DocETL\outputs\Player\Filter\filter_queries_player_duckdb\20\result.csv with 7 rows
+[2026-03-18 11:48:04,608] [WARNING] No API key configured for provider 'aihubmix'; fallback to string match
+[2026-03-18 11:48:04,628] [INFO] Aligned 7 rows (gold=7, pred=7) using keys=['id']
+[2026-03-18 11:48:04,630] [WARNING] No API key configured for provider 'aihubmix'; fallback to string match
+[2026-03-18 11:48:04,630] [WARNING] No API key configured for provider 'aihubmix'; fallback to string match
+[2026-03-18 11:48:04,635] [INFO] Saved outputs to systems\DocETL\outputs\Player\Filter\filter_queries_player_duckdb\20\acc_result (gold=7, matched=7 rows)
+[2026-03-18 11:48:04,635] [INFO] Evaluation finished. Macro F1=1.0000
+",1.0,1.0,1.0,"SELECT name, nba_championships, college FROM player WHERE CAST(nba_championships AS DOUBLE) > 2 AND CAST(olympic_gold_medals AS DOUBLE) >= 0 AND CAST(olympic_gold_medals AS DOUBLE) != 1 AND name != 'Toby Kimball';"
+21,systems/DocETL/outputs/Player/Filter/filter_queries_player_duckdb/21/sql.json,systems/DocETL/outputs/Player/Filter/filter_queries_player_duckdb/21/result.csv,systems/DocETL/outputs/Player/Filter/filter_queries_player_duckdb/21/acc_result/acc.json,0,ok,,"[2026-03-18 11:48:06,068] [INFO] Starting evaluation for dataset=Player sql=systems\DocETL\outputs\Player\Filter\filter_queries_player_duckdb\21\sql.json
+[2026-03-18 11:48:06,179] [INFO] Running SQL on GT (exact)
+[2026-03-18 11:48:06,196] [INFO] Loaded result from systems\DocETL\outputs\Player\Filter\filter_queries_player_duckdb\21\result.csv with 0 rows
+[2026-03-18 11:48:06,228] [WARNING] No API key configured for provider 'aihubmix'; fallback to string match
+[2026-03-18 11:48:06,228] [INFO] Aligned 0 rows (gold=0, pred=0) using keys=['id']
+[2026-03-18 11:48:06,228] [WARNING] No API key configured for provider 'aihubmix'; fallback to string match
+[2026-03-18 11:48:06,228] [WARNING] No API key configured for provider 'aihubmix'; fallback to string match
+[2026-03-18 11:48:06,228] [INFO] Saved outputs to systems\DocETL\outputs\Player\Filter\filter_queries_player_duckdb\21\acc_result (gold=0, matched=0 rows)
+[2026-03-18 11:48:06,228] [INFO] Evaluation finished. Macro F1=0.0000
+",0.0,0.0,0.0,"SELECT age, olympic_gold_medals, mvp_awards FROM player WHERE CAST(olympic_gold_medals AS DOUBLE) >= 1 AND college = 'University of Connecticut' AND CAST(draft_year AS DOUBLE) > 2014 AND CAST(fiba_world_cup AS DOUBLE) >= 0;"
+22,systems/DocETL/outputs/Player/Filter/filter_queries_player_duckdb/22/sql.json,systems/DocETL/outputs/Player/Filter/filter_queries_player_duckdb/22/result.csv,systems/DocETL/outputs/Player/Filter/filter_queries_player_duckdb/22/acc_result/acc.json,0,ok,,"[2026-03-18 11:48:07,922] [INFO] Starting evaluation for dataset=Player sql=systems\DocETL\outputs\Player\Filter\filter_queries_player_duckdb\22\sql.json
+[2026-03-18 11:48:08,033] [INFO] Running SQL on GT (exact)
+[2026-03-18 11:48:08,049] [INFO] Loaded result from systems\DocETL\outputs\Player\Filter\filter_queries_player_duckdb\22\result.csv with 0 rows
+[2026-03-18 11:48:08,081] [WARNING] No API key configured for provider 'aihubmix'; fallback to string match
+[2026-03-18 11:48:08,081] [INFO] Aligned 0 rows (gold=0, pred=0) using keys=['id']
+[2026-03-18 11:48:08,081] [WARNING] No API key configured for provider 'aihubmix'; fallback to string match
+[2026-03-18 11:48:08,081] [WARNING] No API key configured for provider 'aihubmix'; fallback to string match
+[2026-03-18 11:48:08,081] [INFO] Saved outputs to systems\DocETL\outputs\Player\Filter\filter_queries_player_duckdb\22\acc_result (gold=0, matched=0 rows)
+[2026-03-18 11:48:08,081] [INFO] Evaluation finished. Macro F1=0.0000
+",0.0,0.0,0.0,"SELECT draft_pick, olympic_gold_medals, position FROM player WHERE CAST(olympic_gold_medals AS DOUBLE) > 0 AND birth_date != '1943/12/23' AND CAST(nba_championships AS DOUBLE) < 2 AND birth_date = '1992/12/17';"
+23,systems/DocETL/outputs/Player/Filter/filter_queries_player_duckdb/23/sql.json,systems/DocETL/outputs/Player/Filter/filter_queries_player_duckdb/23/result.csv,systems/DocETL/outputs/Player/Filter/filter_queries_player_duckdb/23/acc_result/acc.json,0,ok,,"[2026-03-18 11:48:09,626] [INFO] Starting evaluation for dataset=Player sql=systems\DocETL\outputs\Player\Filter\filter_queries_player_duckdb\23\sql.json
+[2026-03-18 11:48:09,739] [INFO] Running SQL on GT (exact)
+[2026-03-18 11:48:09,759] [INFO] Loaded result from systems\DocETL\outputs\Player\Filter\filter_queries_player_duckdb\23\result.csv with 0 rows
+[2026-03-18 11:48:09,792] [WARNING] No API key configured for provider 'aihubmix'; fallback to string match
+[2026-03-18 11:48:09,794] [INFO] Aligned 0 rows (gold=0, pred=0) using keys=['id']
+[2026-03-18 11:48:09,794] [WARNING] No API key configured for provider 'aihubmix'; fallback to string match
+[2026-03-18 11:48:09,794] [WARNING] No API key configured for provider 'aihubmix'; fallback to string match
+[2026-03-18 11:48:09,800] [INFO] Saved outputs to systems\DocETL\outputs\Player\Filter\filter_queries_player_duckdb\23\acc_result (gold=0, matched=0 rows)
+[2026-03-18 11:48:09,800] [INFO] Evaluation finished. Macro F1=0.0000
+",0.0,0.0,0.0,"SELECT fiba_world_cup, birth_date, draft_pick FROM player WHERE birth_date != '1950/1/29' AND college = 'Oregon State University' AND CAST(age AS DOUBLE) != 42 AND name = 'Walter Berry';"
+24,systems/DocETL/outputs/Player/Filter/filter_queries_player_duckdb/24/sql.json,systems/DocETL/outputs/Player/Filter/filter_queries_player_duckdb/24/result.csv,systems/DocETL/outputs/Player/Filter/filter_queries_player_duckdb/24/acc_result/acc.json,0,ok,,"[2026-03-18 11:48:11,319] [INFO] Starting evaluation for dataset=Player sql=systems\DocETL\outputs\Player\Filter\filter_queries_player_duckdb\24\sql.json
+[2026-03-18 11:48:11,475] [INFO] Running SQL on GT (exact)
+[2026-03-18 11:48:11,486] [INFO] Loaded result from systems\DocETL\outputs\Player\Filter\filter_queries_player_duckdb\24\result.csv with 14 rows
+[2026-03-18 11:48:11,528] [WARNING] No API key configured for provider 'aihubmix'; fallback to string match
+[2026-03-18 11:48:11,557] [INFO] Aligned 14 rows (gold=14, pred=14) using keys=['id']
+[2026-03-18 11:48:11,560] [WARNING] No API key configured for provider 'aihubmix'; fallback to string match
+[2026-03-18 11:48:11,560] [WARNING] No API key configured for provider 'aihubmix'; fallback to string match
+[2026-03-18 11:48:11,570] [INFO] Saved outputs to systems\DocETL\outputs\Player\Filter\filter_queries_player_duckdb\24\acc_result (gold=14, matched=14 rows)
+[2026-03-18 11:48:11,570] [INFO] Evaluation finished. Macro F1=1.0000
+",1.0,1.0,1.0,"SELECT nationality, draft_pick, team FROM player WHERE nationality != 'German' AND CAST(olympic_gold_medals AS DOUBLE) > 0 AND CAST(olympic_gold_medals AS DOUBLE) != 0 AND CAST(mvp_awards AS DOUBLE) = 0;"
+25,systems/DocETL/outputs/Player/Filter/filter_queries_player_duckdb/25/sql.json,systems/DocETL/outputs/Player/Filter/filter_queries_player_duckdb/25/result.csv,systems/DocETL/outputs/Player/Filter/filter_queries_player_duckdb/25/acc_result/acc.json,0,ok,,"[2026-03-18 11:48:13,356] [INFO] Starting evaluation for dataset=Player sql=systems\DocETL\outputs\Player\Filter\filter_queries_player_duckdb\25\sql.json
+[2026-03-18 11:48:13,647] [INFO] Running SQL on GT (exact)
+[2026-03-18 11:48:13,668] [INFO] Loaded result from systems\DocETL\outputs\Player\Filter\filter_queries_player_duckdb\25\result.csv with 134 rows
+[2026-03-18 11:48:13,719] [WARNING] No API key configured for provider 'aihubmix'; fallback to string match
+[2026-03-18 11:48:13,974] [INFO] Aligned 134 rows (gold=134, pred=134) using keys=['id']
+[2026-03-18 11:48:13,978] [WARNING] No API key configured for provider 'aihubmix'; fallback to string match
+[2026-03-18 11:48:13,979] [WARNING] No API key configured for provider 'aihubmix'; fallback to string match
+[2026-03-18 11:48:13,988] [INFO] Saved outputs to systems\DocETL\outputs\Player\Filter\filter_queries_player_duckdb\25\acc_result (gold=134, matched=134 rows)
+[2026-03-18 11:48:13,988] [INFO] Evaluation finished. Macro F1=1.0000
+",1.0,1.0,1.0,"SELECT draft_pick, age, position FROM player WHERE CAST(age AS DOUBLE) <= 62 OR birth_date = '1997/8/7' OR college != 'Oregon State University' OR CAST(nba_championships AS DOUBLE) = 2;"
+26,systems/DocETL/outputs/Player/Filter/filter_queries_player_duckdb/26/sql.json,systems/DocETL/outputs/Player/Filter/filter_queries_player_duckdb/26/result.csv,systems/DocETL/outputs/Player/Filter/filter_queries_player_duckdb/26/acc_result/acc.json,0,ok,,"[2026-03-18 11:48:15,740] [INFO] Starting evaluation for dataset=Player sql=systems\DocETL\outputs\Player\Filter\filter_queries_player_duckdb\26\sql.json
+[2026-03-18 11:48:15,855] [INFO] Running SQL on GT (exact)
+[2026-03-18 11:48:15,868] [INFO] Loaded result from systems\DocETL\outputs\Player\Filter\filter_queries_player_duckdb\26\result.csv with 141 rows
+[2026-03-18 11:48:15,913] [WARNING] No API key configured for provider 'aihubmix'; fallback to string match
+[2026-03-18 11:48:16,301] [INFO] Aligned 141 rows (gold=141, pred=141) using keys=['id']
+[2026-03-18 11:48:16,302] [WARNING] No API key configured for provider 'aihubmix'; fallback to string match
+[2026-03-18 11:48:16,302] [WARNING] No API key configured for provider 'aihubmix'; fallback to string match
+[2026-03-18 11:48:16,326] [INFO] Saved outputs to systems\DocETL\outputs\Player\Filter\filter_queries_player_duckdb\26\acc_result (gold=141, matched=141 rows)
+[2026-03-18 11:48:16,328] [INFO] Evaluation finished. Macro F1=1.0000
+",1.0,1.0,1.0,"SELECT olympic_gold_medals, college, age FROM player WHERE CAST(age AS DOUBLE) > 42 OR name != 'Fran Curran Francis Hugh Curran Sr.' OR name = 'Dewayne ""D. J."" White, Jr.' OR CAST(fiba_world_cup AS DOUBLE) = 1;"
+27,systems/DocETL/outputs/Player/Filter/filter_queries_player_duckdb/27/sql.json,systems/DocETL/outputs/Player/Filter/filter_queries_player_duckdb/27/result.csv,systems/DocETL/outputs/Player/Filter/filter_queries_player_duckdb/27/acc_result/acc.json,0,ok,,"[2026-03-18 11:48:17,992] [INFO] Starting evaluation for dataset=Player sql=systems\DocETL\outputs\Player\Filter\filter_queries_player_duckdb\27\sql.json
+[2026-03-18 11:48:18,096] [INFO] Running SQL on GT (exact)
+[2026-03-18 11:48:18,109] [INFO] Loaded result from systems\DocETL\outputs\Player\Filter\filter_queries_player_duckdb\27\result.csv with 141 rows
+[2026-03-18 11:48:18,130] [WARNING] No API key configured for provider 'aihubmix'; fallback to string match
+[2026-03-18 11:48:18,405] [INFO] Aligned 141 rows (gold=141, pred=141) using keys=['id']
+[2026-03-18 11:48:18,409] [WARNING] No API key configured for provider 'aihubmix'; fallback to string match
+[2026-03-18 11:48:18,409] [WARNING] No API key configured for provider 'aihubmix'; fallback to string match
+[2026-03-18 11:48:18,421] [INFO] Saved outputs to systems\DocETL\outputs\Player\Filter\filter_queries_player_duckdb\27\acc_result (gold=141, matched=141 rows)
+[2026-03-18 11:48:18,422] [INFO] Evaluation finished. Macro F1=1.0000
+",1.0,1.0,1.0,"SELECT nba_championships, name, olympic_gold_medals FROM player WHERE CAST(nba_championships AS DOUBLE) = 0 OR team != 'Brooklyn Nets' OR nationality = 'French' OR team != 'Indiana Pacers';"
+28,systems/DocETL/outputs/Player/Filter/filter_queries_player_duckdb/28/sql.json,systems/DocETL/outputs/Player/Filter/filter_queries_player_duckdb/28/result.csv,systems/DocETL/outputs/Player/Filter/filter_queries_player_duckdb/28/acc_result/acc.json,0,ok,,"[2026-03-18 11:48:19,904] [INFO] Starting evaluation for dataset=Player sql=systems\DocETL\outputs\Player\Filter\filter_queries_player_duckdb\28\sql.json
+[2026-03-18 11:48:20,020] [INFO] Running SQL on GT (exact)
+[2026-03-18 11:48:20,020] [INFO] Loaded result from systems\DocETL\outputs\Player\Filter\filter_queries_player_duckdb\28\result.csv with 141 rows
+[2026-03-18 11:48:20,051] [WARNING] No API key configured for provider 'aihubmix'; fallback to string match
+[2026-03-18 11:48:20,272] [INFO] Aligned 141 rows (gold=141, pred=141) using keys=['id']
+[2026-03-18 11:48:20,272] [WARNING] No API key configured for provider 'aihubmix'; fallback to string match
+[2026-03-18 11:48:20,272] [WARNING] No API key configured for provider 'aihubmix'; fallback to string match
+[2026-03-18 11:48:20,299] [INFO] Saved outputs to systems\DocETL\outputs\Player\Filter\filter_queries_player_duckdb\28\acc_result (gold=141, matched=141 rows)
+[2026-03-18 11:48:20,299] [INFO] Evaluation finished. Macro F1=1.0000
+",1.0,1.0,1.0,"SELECT draft_year, age, nationality FROM player WHERE CAST(age AS DOUBLE) <= 78 OR team = 'Capitanes de Arecibo' OR CAST(mvp_awards AS DOUBLE) = 0 OR CAST(olympic_gold_medals AS DOUBLE) > 1;"
+29,systems/DocETL/outputs/Player/Filter/filter_queries_player_duckdb/29/sql.json,systems/DocETL/outputs/Player/Filter/filter_queries_player_duckdb/29/result.csv,systems/DocETL/outputs/Player/Filter/filter_queries_player_duckdb/29/acc_result/acc.json,0,ok,,"[2026-03-18 11:48:21,837] [INFO] Starting evaluation for dataset=Player sql=systems\DocETL\outputs\Player\Filter\filter_queries_player_duckdb\29\sql.json
+[2026-03-18 11:48:21,943] [INFO] Running SQL on GT (exact)
+[2026-03-18 11:48:21,958] [INFO] Loaded result from systems\DocETL\outputs\Player\Filter\filter_queries_player_duckdb\29\result.csv with 141 rows
+[2026-03-18 11:48:21,974] [WARNING] No API key configured for provider 'aihubmix'; fallback to string match
+[2026-03-18 11:48:22,201] [INFO] Aligned 141 rows (gold=141, pred=141) using keys=['id']
+[2026-03-18 11:48:22,204] [WARNING] No API key configured for provider 'aihubmix'; fallback to string match
+[2026-03-18 11:48:22,204] [WARNING] No API key configured for provider 'aihubmix'; fallback to string match
+[2026-03-18 11:48:22,213] [INFO] Saved outputs to systems\DocETL\outputs\Player\Filter\filter_queries_player_duckdb\29\acc_result (gold=141, matched=141 rows)
+[2026-03-18 11:48:22,213] [INFO] Evaluation finished. Macro F1=1.0000
+",1.0,1.0,1.0,"SELECT olympic_gold_medals, age, team FROM player WHERE CAST(age AS DOUBLE) >= 42 OR team != 'Philadelphia 76ers' OR CAST(nba_championships AS DOUBLE) >= 0 OR CAST(nba_championships AS DOUBLE) > 0;"
+30,systems/DocETL/outputs/Player/Filter/filter_queries_player_duckdb/30/sql.json,systems/DocETL/outputs/Player/Filter/filter_queries_player_duckdb/30/result.csv,systems/DocETL/outputs/Player/Filter/filter_queries_player_duckdb/30/acc_result/acc.json,0,ok,,"[2026-03-18 11:48:23,896] [INFO] Starting evaluation for dataset=Player sql=systems\DocETL\outputs\Player\Filter\filter_queries_player_duckdb\30\sql.json
+[2026-03-18 11:48:24,013] [INFO] Running SQL on GT (exact)
+[2026-03-18 11:48:24,022] [INFO] Loaded result from systems\DocETL\outputs\Player\Filter\filter_queries_player_duckdb\30\result.csv with 139 rows
+[2026-03-18 11:48:24,073] [WARNING] No API key configured for provider 'aihubmix'; fallback to string match
+[2026-03-18 11:48:24,334] [INFO] Aligned 139 rows (gold=139, pred=139) using keys=['id']
+[2026-03-18 11:48:24,334] [WARNING] No API key configured for provider 'aihubmix'; fallback to string match
+[2026-03-18 11:48:24,334] [WARNING] No API key configured for provider 'aihubmix'; fallback to string match
+[2026-03-18 11:48:24,349] [INFO] Saved outputs to systems\DocETL\outputs\Player\Filter\filter_queries_player_duckdb\30\acc_result (gold=139, matched=139 rows)
+[2026-03-18 11:48:24,349] [INFO] Evaluation finished. Macro F1=1.0000
+",1.0,1.0,1.0,"SELECT position, nationality, olympic_gold_medals FROM player WHERE position != 'Frontcourt' OR CAST(draft_pick AS DOUBLE) > 10 OR CAST(olympic_gold_medals AS DOUBLE) > 0 OR CAST(mvp_awards AS DOUBLE) = 0;"
+31,systems/DocETL/outputs/Player/Filter/filter_queries_player_duckdb/31/sql.json,systems/DocETL/outputs/Player/Filter/filter_queries_player_duckdb/31/result.csv,systems/DocETL/outputs/Player/Filter/filter_queries_player_duckdb/31/acc_result/acc.json,0,ok,,"[2026-03-18 11:48:25,942] [INFO] Starting evaluation for dataset=Player sql=systems\DocETL\outputs\Player\Filter\filter_queries_player_duckdb\31\sql.json
+[2026-03-18 11:48:26,053] [INFO] Running SQL on GT (exact)
+[2026-03-18 11:48:26,068] [INFO] Loaded result from systems\DocETL\outputs\Player\Filter\filter_queries_player_duckdb\31\result.csv with 28 rows
+[2026-03-18 11:48:26,106] [WARNING] No API key configured for provider 'aihubmix'; fallback to string match
+[2026-03-18 11:48:26,145] [INFO] Aligned 28 rows (gold=28, pred=28) using keys=['id']
+[2026-03-18 11:48:26,145] [WARNING] No API key configured for provider 'aihubmix'; fallback to string match
+[2026-03-18 11:48:26,145] [WARNING] No API key configured for provider 'aihubmix'; fallback to string match
+[2026-03-18 11:48:26,165] [INFO] Saved outputs to systems\DocETL\outputs\Player\Filter\filter_queries_player_duckdb\31\acc_result (gold=28, matched=28 rows)
+[2026-03-18 11:48:26,165] [INFO] Evaluation finished. Macro F1=1.0000
+",1.0,1.0,1.0,"SELECT team, nationality, fiba_world_cup FROM player WHERE (nationality = 'Nigerian-American' AND position = 'Frontcourt') OR (CAST(draft_pick AS DOUBLE) >= 24 AND CAST(draft_pick AS DOUBLE) >= 24);"
+32,systems/DocETL/outputs/Player/Filter/filter_queries_player_duckdb/32/sql.json,systems/DocETL/outputs/Player/Filter/filter_queries_player_duckdb/32/result.csv,systems/DocETL/outputs/Player/Filter/filter_queries_player_duckdb/32/acc_result/acc.json,0,ok,,"[2026-03-18 11:48:27,880] [INFO] Starting evaluation for dataset=Player sql=systems\DocETL\outputs\Player\Filter\filter_queries_player_duckdb\32\sql.json
+[2026-03-18 11:48:28,008] [INFO] Running SQL on GT (exact)
+[2026-03-18 11:48:28,020] [INFO] Loaded result from systems\DocETL\outputs\Player\Filter\filter_queries_player_duckdb\32\result.csv with 139 rows
+[2026-03-18 11:48:28,054] [WARNING] No API key configured for provider 'aihubmix'; fallback to string match
+[2026-03-18 11:48:28,302] [INFO] Aligned 139 rows (gold=139, pred=139) using keys=['id']
+[2026-03-18 11:48:28,320] [WARNING] No API key configured for provider 'aihubmix'; fallback to string match
+[2026-03-18 11:48:28,320] [WARNING] No API key configured for provider 'aihubmix'; fallback to string match
+[2026-03-18 11:48:28,334] [INFO] Saved outputs to systems\DocETL\outputs\Player\Filter\filter_queries_player_duckdb\32\acc_result (gold=139, matched=139 rows)
+[2026-03-18 11:48:28,334] [INFO] Evaluation finished. Macro F1=1.0000
+",1.0,1.0,1.0,"SELECT nationality, olympic_gold_medals, fiba_world_cup FROM player WHERE (CAST(fiba_world_cup AS DOUBLE) != 0 AND name = 'Erick Strickland') OR (birth_date != '1973/11/25' AND CAST(nba_championships AS DOUBLE) >= 0);"
+33,systems/DocETL/outputs/Player/Filter/filter_queries_player_duckdb/33/sql.json,systems/DocETL/outputs/Player/Filter/filter_queries_player_duckdb/33/result.csv,systems/DocETL/outputs/Player/Filter/filter_queries_player_duckdb/33/acc_result/acc.json,0,ok,,"[2026-03-18 11:48:30,115] [INFO] Starting evaluation for dataset=Player sql=systems\DocETL\outputs\Player\Filter\filter_queries_player_duckdb\33\sql.json
+[2026-03-18 11:48:30,224] [INFO] Running SQL on GT (exact)
+[2026-03-18 11:48:30,224] [INFO] Loaded result from systems\DocETL\outputs\Player\Filter\filter_queries_player_duckdb\33\result.csv with 60 rows
+[2026-03-18 11:48:30,271] [WARNING] No API key configured for provider 'aihubmix'; fallback to string match
+[2026-03-18 11:48:30,380] [INFO] Aligned 60 rows (gold=60, pred=60) using keys=['id']
+[2026-03-18 11:48:30,380] [WARNING] No API key configured for provider 'aihubmix'; fallback to string match
+[2026-03-18 11:48:30,380] [WARNING] No API key configured for provider 'aihubmix'; fallback to string match
+[2026-03-18 11:48:30,406] [INFO] Saved outputs to systems\DocETL\outputs\Player\Filter\filter_queries_player_duckdb\33\acc_result (gold=60, matched=60 rows)
+[2026-03-18 11:48:30,406] [INFO] Evaluation finished. Macro F1=1.0000
+",1.0,1.0,1.0,"SELECT college, age, position FROM player WHERE (CAST(age AS DOUBLE) < 42 AND CAST(olympic_gold_medals AS DOUBLE) <= 1) OR (team = 'Detroit Pistons' AND college = 'Temple University');"
+34,systems/DocETL/outputs/Player/Filter/filter_queries_player_duckdb/34/sql.json,systems/DocETL/outputs/Player/Filter/filter_queries_player_duckdb/34/result.csv,systems/DocETL/outputs/Player/Filter/filter_queries_player_duckdb/34/acc_result/acc.json,0,ok,,"[2026-03-18 11:48:32,065] [INFO] Starting evaluation for dataset=Player sql=systems\DocETL\outputs\Player\Filter\filter_queries_player_duckdb\34\sql.json
+[2026-03-18 11:48:32,194] [INFO] Running SQL on GT (exact)
+[2026-03-18 11:48:32,206] [INFO] Loaded result from systems\DocETL\outputs\Player\Filter\filter_queries_player_duckdb\34\result.csv with 110 rows
+[2026-03-18 11:48:32,240] [WARNING] No API key configured for provider 'aihubmix'; fallback to string match
+[2026-03-18 11:48:32,443] [INFO] Aligned 110 rows (gold=110, pred=110) using keys=['id']
+[2026-03-18 11:48:32,443] [WARNING] No API key configured for provider 'aihubmix'; fallback to string match
+[2026-03-18 11:48:32,443] [WARNING] No API key configured for provider 'aihubmix'; fallback to string match
+[2026-03-18 11:48:32,459] [INFO] Saved outputs to systems\DocETL\outputs\Player\Filter\filter_queries_player_duckdb\34\acc_result (gold=110, matched=110 rows)
+[2026-03-18 11:48:32,459] [INFO] Evaluation finished. Macro F1=1.0000
+",1.0,1.0,1.0,"SELECT nationality, name, draft_year FROM player WHERE (CAST(draft_year AS DOUBLE) != 2018 AND nationality != 'German') OR (name = 'Donta Hall' AND CAST(nba_championships AS DOUBLE) != 0);"
+35,systems/DocETL/outputs/Player/Filter/filter_queries_player_duckdb/35/sql.json,systems/DocETL/outputs/Player/Filter/filter_queries_player_duckdb/35/result.csv,systems/DocETL/outputs/Player/Filter/filter_queries_player_duckdb/35/acc_result/acc.json,0,ok,,"[2026-03-18 11:48:34,057] [INFO] Starting evaluation for dataset=Player sql=systems\DocETL\outputs\Player\Filter\filter_queries_player_duckdb\35\sql.json
+[2026-03-18 11:48:34,212] [INFO] Running SQL on GT (exact)
+[2026-03-18 11:48:34,225] [INFO] Loaded result from systems\DocETL\outputs\Player\Filter\filter_queries_player_duckdb\35\result.csv with 0 rows
+[2026-03-18 11:48:34,283] [WARNING] No API key configured for provider 'aihubmix'; fallback to string match
+[2026-03-18 11:48:34,288] [INFO] Aligned 0 rows (gold=0, pred=0) using keys=['id']
+[2026-03-18 11:48:34,289] [WARNING] No API key configured for provider 'aihubmix'; fallback to string match
+[2026-03-18 11:48:34,290] [WARNING] No API key configured for provider 'aihubmix'; fallback to string match
+[2026-03-18 11:48:34,300] [INFO] Saved outputs to systems\DocETL\outputs\Player\Filter\filter_queries_player_duckdb\35\acc_result (gold=0, matched=0 rows)
+[2026-03-18 11:48:34,301] [INFO] Evaluation finished. Macro F1=0.0000
+",0.0,0.0,0.0,"SELECT birth_date, olympic_gold_medals, mvp_awards FROM player WHERE (birth_date = '1973/11/25' AND CAST(olympic_gold_medals AS DOUBLE) != 0) OR (team = 'San Antonio Spurs' AND nationality = 'Slovenian');"
+36,systems/DocETL/outputs/Player/Filter/filter_queries_player_duckdb/36/sql.json,systems/DocETL/outputs/Player/Filter/filter_queries_player_duckdb/36/result.csv,systems/DocETL/outputs/Player/Filter/filter_queries_player_duckdb/36/acc_result/acc.json,0,ok,,"[2026-03-18 11:48:36,600] [INFO] Starting evaluation for dataset=Player sql=systems\DocETL\outputs\Player\Filter\filter_queries_player_duckdb\36\sql.json
+[2026-03-18 11:48:36,739] [INFO] Running SQL on GT (exact)
+[2026-03-18 11:48:36,750] [INFO] Loaded result from systems\DocETL\outputs\Player\Filter\filter_queries_player_duckdb\36\result.csv with 14 rows
+[2026-03-18 11:48:36,793] [WARNING] No API key configured for provider 'aihubmix'; fallback to string match
+[2026-03-18 11:48:36,821] [INFO] Aligned 14 rows (gold=14, pred=14) using keys=['id']
+[2026-03-18 11:48:36,821] [WARNING] No API key configured for provider 'aihubmix'; fallback to string match
+[2026-03-18 11:48:36,821] [WARNING] No API key configured for provider 'aihubmix'; fallback to string match
+[2026-03-18 11:48:36,837] [INFO] Saved outputs to systems\DocETL\outputs\Player\Filter\filter_queries_player_duckdb\36\acc_result (gold=14, matched=14 rows)
+[2026-03-18 11:48:36,837] [INFO] Evaluation finished. Macro F1=1.0000
+",1.0,1.0,1.0,"SELECT nationality, birth_date, age FROM player WHERE (birth_date != '1994/6/6' AND nationality = 'Slovenian') OR (CAST(nba_championships AS DOUBLE) <= 2 AND CAST(age AS DOUBLE) > 78);"

@@ -1,0 +1,3 @@
+{
+  "sql": "SELECT nationality, name, draft_year FROM player WHERE (CAST(draft_year AS DOUBLE) != 2018 AND nationality != 'German') OR (name = 'Donta Hall' AND CAST(nba_championships AS DOUBLE) != 0);"
+}

@@ -1,0 +1,37 @@
+{
+  "columns": {
+    "position": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0
+    },
+    "nba_championships": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0
+    },
+    "fiba_world_cup": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0
+    }
+  },
+  "macro_precision": 1.0,
+  "macro_recall": 1.0,
+  "macro_f1": 1.0,
+  "rows": {
+    "len_gold": 19,
+    "len_pred": 19,
+    "matched_rows": 19
+  },
+  "warnings": [],
+  "used_keys": [
+    "id"
+  ],
+  "evaluated_columns": [
+    "position",
+    "nba_championships",
+    "fiba_world_cup"
+  ],
+  "skipped_columns": []
+}

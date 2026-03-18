@@ -1,0 +1,3 @@
+{
+  "sql": "SELECT fiba_world_cup, nationality, college FROM player WHERE college = 'University of Connecticut' OR birth_date != '1971/12/3';"
+}

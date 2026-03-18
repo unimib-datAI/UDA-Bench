@@ -1,0 +1,3 @@
+{
+  "sql": "SELECT college, birth_date, draft_year FROM player WHERE birth_date = '1973/11/25';"
+}

@@ -1,0 +1,3 @@
+{
+  "sql": "SELECT team, name, mvp_awards, birth_date FROM player;"
+}

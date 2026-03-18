@@ -1,0 +1,3 @@
+{
+  "sql": "SELECT age, birth_date, college FROM player WHERE CAST(age AS DOUBLE) > 78 AND CAST(mvp_awards AS DOUBLE) > 0;"
+}

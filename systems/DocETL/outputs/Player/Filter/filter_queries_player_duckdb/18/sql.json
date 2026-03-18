@@ -1,0 +1,3 @@
+{
+  "sql": "SELECT olympic_gold_medals, nba_championships, age FROM player WHERE CAST(olympic_gold_medals AS DOUBLE) > 1 OR position != 'Frontcourt';"
+}

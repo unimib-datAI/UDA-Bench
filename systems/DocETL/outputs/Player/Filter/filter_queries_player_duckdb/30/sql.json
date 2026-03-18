@@ -1,0 +1,3 @@
+{
+  "sql": "SELECT position, nationality, olympic_gold_medals FROM player WHERE position != 'Frontcourt' OR CAST(draft_pick AS DOUBLE) > 10 OR CAST(olympic_gold_medals AS DOUBLE) > 0 OR CAST(mvp_awards AS DOUBLE) = 0;"
+}

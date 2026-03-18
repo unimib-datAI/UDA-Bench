@@ -1,0 +1,3 @@
+{
+  "sql": "SELECT age, birth_date, team FROM player WHERE team = 'Cedevita Olimpija';"
+}

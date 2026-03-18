@@ -1,0 +1,3 @@
+{
+  "sql": "SELECT olympic_gold_medals, college, age FROM player WHERE CAST(age AS DOUBLE) > 42 OR name != 'Fran Curran Francis Hugh Curran Sr.' OR name = 'Dewayne \"D. J.\" White, Jr.' OR CAST(fiba_world_cup AS DOUBLE) = 1;"
+}

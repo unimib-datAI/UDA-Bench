@@ -1,0 +1,3 @@
+{
+  "sql": "SELECT team, nationality, mvp_awards FROM player WHERE CAST(mvp_awards AS DOUBLE) < 1 OR birth_date = '1995/10/2';"
+}

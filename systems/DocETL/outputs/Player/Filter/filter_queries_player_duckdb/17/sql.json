@@ -1,0 +1,3 @@
+{
+  "sql": "SELECT college, draft_pick, fiba_world_cup FROM player WHERE CAST(draft_pick AS DOUBLE) <= 10 OR college = 'Michigan State University';"
+}
