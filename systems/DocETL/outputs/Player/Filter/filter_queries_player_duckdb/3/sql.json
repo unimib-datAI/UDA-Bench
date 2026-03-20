@@ -1,3 +1,0 @@
-{
-  "sql": "SELECT mvp_awards, draft_pick, name FROM player WHERE CAST(mvp_awards AS DOUBLE) >= 1;"
-}

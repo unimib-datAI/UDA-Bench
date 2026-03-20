@@ -1,3 +1,0 @@
-{
-  "sql": "SELECT fiba_world_cup, birth_date, nba_championships FROM player WHERE birth_date != '1959/6/10' AND birth_date != '1964/2/15';"
-}

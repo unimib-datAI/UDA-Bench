@@ -1,3 +1,0 @@
-{
-  "sql": "SELECT mvp_awards, draft_pick, fiba_world_cup FROM player WHERE CAST(fiba_world_cup AS DOUBLE) >= 0;"
-}

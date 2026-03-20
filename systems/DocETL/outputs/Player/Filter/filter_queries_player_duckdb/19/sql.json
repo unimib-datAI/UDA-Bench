@@ -1,3 +1,0 @@
-{
-  "sql": "SELECT fiba_world_cup, draft_pick, draft_year FROM player WHERE CAST(draft_pick AS DOUBLE) >= 24 AND CAST(age AS DOUBLE) >= 42 AND CAST(mvp_awards AS DOUBLE) >= 0 AND CAST(mvp_awards AS DOUBLE) < 1;"
-}

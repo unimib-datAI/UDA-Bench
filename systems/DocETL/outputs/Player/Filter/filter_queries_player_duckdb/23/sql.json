@@ -1,3 +1,0 @@
-{
-  "sql": "SELECT fiba_world_cup, birth_date, draft_pick FROM player WHERE birth_date != '1950/1/29' AND college = 'Oregon State University' AND CAST(age AS DOUBLE) != 42 AND name = 'Walter Berry';"
-}

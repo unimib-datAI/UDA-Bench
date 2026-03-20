@@ -1,3 +1,0 @@
-{
-  "sql": "SELECT age, olympic_gold_medals, mvp_awards FROM player WHERE CAST(olympic_gold_medals AS DOUBLE) >= 1 AND college = 'University of Connecticut' AND CAST(draft_year AS DOUBLE) > 2014 AND CAST(fiba_world_cup AS DOUBLE) >= 0;"
-}

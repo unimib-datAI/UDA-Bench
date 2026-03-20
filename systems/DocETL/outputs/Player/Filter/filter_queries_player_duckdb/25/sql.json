@@ -1,3 +1,0 @@
-{
-  "sql": "SELECT draft_pick, age, position FROM player WHERE CAST(age AS DOUBLE) <= 62 OR birth_date = '1997/8/7' OR college != 'Oregon State University' OR CAST(nba_championships AS DOUBLE) = 2;"
-}

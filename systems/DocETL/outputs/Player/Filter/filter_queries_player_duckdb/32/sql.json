@@ -1,3 +1,0 @@
-{
-  "sql": "SELECT nationality, olympic_gold_medals, fiba_world_cup FROM player WHERE (CAST(fiba_world_cup AS DOUBLE) != 0 AND name = 'Erick Strickland') OR (birth_date != '1973/11/25' AND CAST(nba_championships AS DOUBLE) >= 0);"
-}

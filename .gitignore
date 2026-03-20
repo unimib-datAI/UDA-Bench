@@ -1,18 +1,37 @@
-
+# Ignore everything
 *
+
+# Allow folders
 !*/
+
+# Allow specific file types
 !*.py
 !*.ipynb
 !*.md
 !*.json
 !*.csv
 !*.sql
+
+# OS / IDE
 .DS_Store
+.vscode/
+
+# Virtual env
+.venv
+
+# UDA-Bench specific ignores
 **/result/
 **/sql_eval/
 **/evaluation/demo_acc_result/
-.vscode/
+
+# Ignore DocETL outputs (IMPORTANT - override json/csv allow)
+systems/DocETL/outputs/
+systems/DocETL/real/outputs/
+
+# Keep templates
 !**/template_api_key.yaml
 !**/template_embedding_model.yaml
+
+# Other project folders
 /Evidence
 /Code

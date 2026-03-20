@@ -1,3 +1,0 @@
-{
-  "sql": "SELECT college, age, position FROM player WHERE (CAST(age AS DOUBLE) < 42 AND CAST(olympic_gold_medals AS DOUBLE) <= 1) OR (team = 'Detroit Pistons' AND college = 'Temple University');"
-}

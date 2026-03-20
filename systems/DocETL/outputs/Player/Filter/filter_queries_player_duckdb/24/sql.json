@@ -1,3 +1,0 @@
-{
-  "sql": "SELECT nationality, draft_pick, team FROM player WHERE nationality != 'German' AND CAST(olympic_gold_medals AS DOUBLE) > 0 AND CAST(olympic_gold_medals AS DOUBLE) != 0 AND CAST(mvp_awards AS DOUBLE) = 0;"
-}

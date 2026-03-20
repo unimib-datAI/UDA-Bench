@@ -1,3 +1,0 @@
-{
-  "sql": "SELECT draft_year, age, fiba_world_cup FROM player WHERE CAST(draft_year AS DOUBLE) <= 2018 OR CAST(olympic_gold_medals AS DOUBLE) >= 0;"
-}

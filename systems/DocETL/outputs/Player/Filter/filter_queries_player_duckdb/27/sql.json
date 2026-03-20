@@ -1,3 +1,0 @@
-{
-  "sql": "SELECT nba_championships, name, olympic_gold_medals FROM player WHERE CAST(nba_championships AS DOUBLE) = 0 OR team != 'Brooklyn Nets' OR nationality = 'French' OR team != 'Indiana Pacers';"
-}
