@@ -46,7 +46,10 @@ import litellm
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-BASIC_MODELS = ["gpt-4o-mini", "gpt-4o"]
+# Imposta la chiave Gemini (Google AI Studio)
+os.environ['GOOGLE_API_KEY'] = 'AIzaSyBqG-U72H5DH_gILofNaQiHoqElsrnVhBA'
+
+BASIC_MODELS = ["gemini/gemini-2.0-flash"]
 
 
 def is_deepseek_r1(model: str) -> bool:

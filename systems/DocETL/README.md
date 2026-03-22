@@ -1,13 +1,24 @@
-# DocETL – Esecuzione Pipeline di Esempio
+# DocETL – Esecuzione Pipeline su Documenti (UDA-Bench)
 
-Questa cartella contiene un esempio minimale di esecuzione di **DocETL** su un dataset strutturato (`player.csv`) utilizzando un modello LLM (es. Gemini, OpenAI, Claude).
+Questa cartella contiene un esempio di esecuzione di **DocETL** su un dataset **non strutturato** (documenti testuali di giocatori NBA), utilizzando modelli LLM (Gemini, OpenAI, Claude).
 
-⚠️ **Nota importante**
-Questa non è l’esecuzione completa del benchmark UDA-Bench, ma un **test minimale (smoke test)** per verificare che:
+A differenza della versione iniziale, questa pipeline lavora su:
 
-* DocETL funzioni correttamente
-* il modello LLM sia configurato
-* la pipeline YAML venga eseguita senza errori
+* documenti `.txt`
+* conversione in JSON
+* estrazione di informazioni tramite LLM
+
+---
+
+## ⚠️ Nota importante
+
+Questa non è l’esecuzione completa del benchmark UDA-Bench, ma una **pipeline reale su documenti** per:
+
+* verificare il funzionamento di DocETL su dati non strutturati
+* testare l’estrazione di informazioni (es. `draft_pick`)
+* simulare il comportamento dei sistemi del benchmark
+
+👉 **I dati NON sono inclusi nella repository** (per mantenere il progetto leggero e riproducibile)
 
 ---
 
@@ -24,17 +35,79 @@ pip install docetl litellm "pyrate-limiter<4"
 
 ---
 
-## 🔑 Configurazione API Key
+## 📁 Struttura della cartella
 
-DocETL usa **LiteLLM**, quindi il provider dipende dal modello scelto nello YAML.
-
-### ✔️ Gemini (Google)
-
-```bash
-setx GEMINI_API_KEY "your_api_key"
+```text
+DocETL/
+├── real/
+│   ├── data/
+│   │   ├── player_docs/              # documenti .txt (NON inclusi)
+│   │   ├── player_docs.json          # dataset generato (NON incluso)
+│   │   └── build_player_docs_json.py
+│   │
+│   ├── pipelines/
+│   │   └── player_docs_select_q1.yaml
+│   │
+│   └── outputs/                     # output generati (NON inclusi)
+│
+├── api.py
+├── README.md
+└── requirements.txt
 ```
 
-oppure in sessione corrente:
+---
+
+## 📥 Preparazione dei dati
+
+### 1️⃣ Inserire i documenti
+
+Posizionare i file `.txt` in:
+
+```text
+systems/DocETL/real/data/player_docs/
+```
+
+Ogni file deve contenere un documento testuale (es. Wikipedia di un giocatore).
+
+---
+
+### 2️⃣ Generare il dataset JSON
+
+Eseguire lo script:
+
+```bash
+python systems/DocETL/real/data/build_player_docs_json.py
+```
+
+Questo script:
+
+* legge tutti i `.txt`
+* costruisce un dataset strutturato
+* salva:
+
+```text
+systems/DocETL/real/data/player_docs.json
+```
+
+Formato esempio:
+
+```json
+{
+  "id": "5",
+  "filename": "5.txt",
+  "content": "Mark Price ..."
+}
+```
+
+---
+
+## 🔑 Configurazione API Key
+
+DocETL utilizza **LiteLLM**, quindi il provider dipende dal modello scelto nello YAML.
+
+---
+
+### ✔️ Gemini
 
 ```bash
 $env:GEMINI_API_KEY="your_api_key"
@@ -45,15 +118,15 @@ $env:GEMINI_API_KEY="your_api_key"
 ### ✔️ OpenAI
 
 ```bash
-setx OPENAI_API_KEY "your_api_key"
+$env:OPENAI_API_KEY="your_api_key"
 ```
 
 ---
 
-### ✔️ Claude (Anthropic)
+### ✔️ Claude
 
 ```bash
-setx ANTHROPIC_API_KEY "your_api_key"
+$env:ANTHROPIC_API_KEY="your_api_key"
 ```
 
 ---
@@ -68,11 +141,11 @@ default_model: gemini/gemini-2.5-flash
 
 Puoi cambiarlo con:
 
-| Provider | Esempio                   |
-| -------- | ------------------------- |
-| Gemini   | `gemini/gemini-2.5-flash` |
-| OpenAI   | `gpt-4o-mini`             |
-| Claude   | `claude-3-haiku-20240307` |
+| Provider | Modello esempio         |
+| -------- | ----------------------- |
+| Gemini   | gemini/gemini-2.5-flash |
+| OpenAI   | gpt-4o-mini             |
+| Claude   | claude-3-haiku-20240307 |
 
 ---
 
@@ -81,7 +154,7 @@ Puoi cambiarlo con:
 Dalla root del progetto:
 
 ```bash
-docetl run systems/DocETL/real/pipelines/player_select_q1.yaml
+docetl run systems/DocETL/real/pipelines/player_docs_select_q1.yaml
 ```
 
 ---
@@ -91,7 +164,7 @@ docetl run systems/DocETL/real/pipelines/player_select_q1.yaml
 Il risultato viene salvato in:
 
 ```text
-systems/DocETL/real/outputs/player_select_q1.json
+systems/DocETL/real/outputs/player_docs_select_q1.json
 ```
 
 Formato esempio:
@@ -99,7 +172,11 @@ Formato esempio:
 ```json
 [
   {
-    "id": "1",
+    "id": "5",
+    "draft_pick": "25th overall"
+  },
+  {
+    "id": "6",
     "draft_pick": ""
   }
 ]
@@ -109,55 +186,92 @@ Formato esempio:
 
 ## 🔍 Cosa fa questa pipeline
 
-Pipeline molto semplice:
+Pipeline DocETL dichiarativa composta da:
 
-1. legge il dataset `player.csv`
-2. per ogni riga:
+### Input
 
-   * invia i dati al modello LLM
-   * estrae `id` e `draft_pick`
-3. salva il risultato in JSON
+* dataset JSON (`player_docs.json`)
+* documenti testuali non strutturati
 
-Tipo operazione:
+### Operazione principale
 
 ```yaml
 type: map
 ```
 
-👉 significa: **una chiamata LLM per ogni riga**
+Per ogni documento:
+
+* invia il contenuto al modello LLM
+* estrae:
+
+  * `id`
+  * `draft_pick`
+
+### Output
+
+* record strutturati JSON
 
 ---
 
-## ⚠️ Limiti di questo esempio
+## 🧠 Comportamento del modello
+
+Regole di estrazione:
+
+* `"undrafted"` se esplicitamente indicato
+* stringa vuota se non presente
+* nessuna inferenza oltre il testo
+
+👉 Questo rende la pipeline coerente con un task di **information extraction controllata**
+
+---
+
+## ⚠️ Limiti
 
 Questa pipeline:
 
-* usa solo dati strutturati (CSV)
-* non usa documenti testuali
-* non include join, filter o aggregazioni
-* esegue un singolo step
+* esegue un singolo step (`map`)
+* non utilizza:
 
-👉 quindi è **molto più semplice** rispetto al benchmark UDA-Bench completo.
+  * join
+  * aggregazioni
+  * multi-step reasoning
+* dipende fortemente dal modello LLM
+* può produrre output non normalizzati (es. formati diversi di draft pick)
 
 ---
 
 ## 🧪 Scopo
 
-Questo esempio serve per:
+Questo setup serve per:
 
-* verificare setup ambiente
-* testare integrazione LLM
-* comprendere il funzionamento base di DocETL
+* testare DocETL su documenti reali
+* simulare task del benchmark UDA
+* confrontare con altri sistemi (QUEST, DQL)
 
 ---
 
-## 🚀 Prossimi passi
+## 🚀 Possibili estensioni
 
-Per un uso più avanzato:
+* normalizzazione output (es. parsing numerico draft pick)
+* pipeline multi-step
+* integrazione evaluator (F1 score)
+* confronto automatico con ground truth
+* supporto multi-query
 
-* eseguire più query (non solo Q1)
-* costruire pipeline multi-step
-* integrare evaluation (F1 score)
-* confrontare con altri sistemi (QUEST, DQL, ecc.)
+---
+
+## 📌 Riproducibilità
+
+La repository non include:
+
+* documenti `.txt`
+* dataset JSON generati
+* output
+
+👉 Per riprodurre i risultati:
+
+1. aggiungere i documenti
+2. generare il dataset JSON
+3. eseguire la pipeline
 
 ---
