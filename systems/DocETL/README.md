@@ -2,12 +2,6 @@
 
 Questa cartella contiene un esempio di esecuzione di **DocETL** su un dataset **non strutturato** (documenti testuali di giocatori NBA), utilizzando modelli LLM (Gemini, OpenAI, Claude).
 
-A differenza della versione iniziale, questa pipeline lavora su:
-
-* documenti `.txt`
-* conversione in JSON
-* estrazione di informazioni tramite LLM
-
 ---
 
 ## ⚠️ Nota importante
