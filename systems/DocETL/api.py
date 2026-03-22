@@ -47,7 +47,9 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 logger = logging.getLogger(__name__)
 
 # Imposta la chiave Gemini (Google AI Studio)
-os.environ['GOOGLE_API_KEY'] = 'AIzaSyBqG-U72H5DH_gILofNaQiHoqElsrnVhBA'
+os.environ["GOOGLE_API_KEY"] = os.getenv("GEMINI_API_KEY", "")
+if not os.environ["GOOGLE_API_KEY"]:
+    raise RuntimeError("GEMINI_API_KEY non impostata")
 
 BASIC_MODELS = ["gemini/gemini-2.0-flash"]
 
