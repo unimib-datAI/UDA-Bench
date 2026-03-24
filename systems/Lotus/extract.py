@@ -33,7 +33,7 @@ def anlysis_sfw_sql(sql):
 import pandas as pd
 
 import lotus
-from lotus.models import LM
+from lotus.lm import LM
 import os
 import numpy as np
 

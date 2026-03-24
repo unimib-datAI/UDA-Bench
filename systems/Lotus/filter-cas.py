@@ -42,7 +42,7 @@ import pandas as pd
 
 import lotus
 from lotus.types import CascadeArgs, ProxyModel
-from lotus.models import LM
+from lotus.lm import LM
 import os
 import time
 import numpy as np
