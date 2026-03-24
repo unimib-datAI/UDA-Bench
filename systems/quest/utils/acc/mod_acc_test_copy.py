@@ -10,8 +10,13 @@ import pandas as pd
 import re
 
 from tqdm import tqdm
-os.environ["OPENAI_API_BASE"] = "https://aihubmix.com/v1"
-os.environ["OPENAI_API_KEY"] = "sk-DrStrjrlXohoCI2iBc14Eb41A38c428b88A0973aA29fCc3b"
+
+from dotenv import load_dotenv
+
+load_dotenv()
+
+os.environ["OPENAI_API_BASE"] = os.getenv("DEEPSEEK_BASE_URL")
+os.environ["OPENAI_API_KEY"] = os.getenv("DEEPSEEK_API_KEY")
 
 from quest.core.nlp.match.table_matcher.table_join import create_advanced_group_by_matcher
 
