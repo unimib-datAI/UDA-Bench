@@ -14,8 +14,13 @@ sys.path.append('/data/QUEST/jzshe/project/quest')
 from tqdm import tqdm
 
 from quest.utils.acc.mod_acc_test_copy import cal_sql_acc, clean_pd
-os.environ["OPENAI_API_BASE"] = "https://aihubmix.com/v1"
-os.environ["OPENAI_API_KEY"] = "sk-DrStrjrlXohoCI2iBc14Eb41A38c428b88A0973aA29fCc3b"
+
+from dotenv import load_dotenv
+
+load_dotenv()
+
+os.environ["OPENAI_API_BASE"] = os.getenv("DEEPSEEK_BASE_URL")
+os.environ["OPENAI_API_KEY"] = os.getenv("DEEPSEEK_API_KEY")
 
 
 

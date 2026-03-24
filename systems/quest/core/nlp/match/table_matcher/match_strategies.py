@@ -25,6 +25,9 @@ except ImportError:
     HAS_SEMANTIC_LIBS = False
     print("Warning: sentence-transformers或sklearn未安装，语义相似度功能将不可用")
 
+from dotenv import load_dotenv
+
+load_dotenv()
 
 class MatchResult:
     """匹配结果类"""
@@ -287,8 +290,8 @@ class LLMJudgeStrategy(MatchStrategy):
                  api_key: Optional[str] = None, api_base: Optional[str] = None,
                  model: str = "gpt-4.1-mini"):
         super().__init__("llm_judge", priority, threshold)
-        self.api_key = api_key or "sk-DrStrjrlXohoCI2iBc14Eb41A38c428b88A0973aA29fCc3b"
-        self.api_base = api_base or "https://aihubmix.com/v1"
+        self.api_key = api_key or os.getenv("DEEPSEEK_API_KEY")
+        self.api_base = api_base or os.getenv("DEEPSEEK_BASE_URL")
         self.model = model
         self.max_retries = 3
         self.retry_delay = 1

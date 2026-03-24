@@ -7,11 +7,15 @@ from tqdm import tqdm
 import json
 from litellm import batch_completion
 
-API_BASE = "https://aihubmix.com/v1"
-API_KEY = "sk-DrStrjrlXohoCI2iBc14Eb41A38c428b88A0973aA29fCc3b"
+from dotenv import load_dotenv
 
-os.environ["OPENAI_API_BASE"] = API_BASE  #  "https://aihubmix.com/v1"  # "https://api.gptsapi.net/v1" # 
-os.environ["OPENAI_API_KEY"] =  API_KEY  #  sk-DrStrjrlXohoCI2iBc14Eb41A38c428b88A0973aA29fCc3b # "sk-1hP6d6b4bdf693f90163482e714e9d69c308e26d283TquxQ" # 
+load_dotenv()
+
+API_BASE = os.getenv("DEEPSEEK_BASE_URL")
+API_KEY = os.getenv("DEEPSEEK_API_KEY")
+
+os.environ["OPENAI_API_BASE"] = API_BASE
+os.environ["OPENAI_API_KEY"] =  API_KEY
 
 
 
