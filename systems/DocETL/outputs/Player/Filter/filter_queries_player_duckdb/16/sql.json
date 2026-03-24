@@ -1,3 +1,0 @@
-{
-  "sql": "SELECT olympic_gold_medals, fiba_world_cup, birth_date FROM player WHERE birth_date = '1994/4/25' OR position != 'Frontcourt';"
-}

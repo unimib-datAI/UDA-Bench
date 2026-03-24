@@ -1,3 +1,0 @@
-{
-  "sql": "SELECT position, nationality, age FROM player WHERE CAST(age AS DOUBLE) < 78;"
-}

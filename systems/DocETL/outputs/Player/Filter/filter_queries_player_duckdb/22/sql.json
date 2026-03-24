@@ -1,3 +1,0 @@
-{
-  "sql": "SELECT draft_pick, olympic_gold_medals, position FROM player WHERE CAST(olympic_gold_medals AS DOUBLE) > 0 AND birth_date != '1943/12/23' AND CAST(nba_championships AS DOUBLE) < 2 AND birth_date = '1992/12/17';"
-}

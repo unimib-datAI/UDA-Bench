@@ -1,3 +1,0 @@
-{
-  "sql": "SELECT team, nationality, fiba_world_cup FROM player WHERE (nationality = 'Nigerian-American' AND position = 'Frontcourt') OR (CAST(draft_pick AS DOUBLE) >= 24 AND CAST(draft_pick AS DOUBLE) >= 24);"
-}

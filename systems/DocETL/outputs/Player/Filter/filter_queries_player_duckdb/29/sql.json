@@ -1,3 +1,0 @@
-{
-  "sql": "SELECT olympic_gold_medals, age, team FROM player WHERE CAST(age AS DOUBLE) >= 42 OR team != 'Philadelphia 76ers' OR CAST(nba_championships AS DOUBLE) >= 0 OR CAST(nba_championships AS DOUBLE) > 0;"
-}

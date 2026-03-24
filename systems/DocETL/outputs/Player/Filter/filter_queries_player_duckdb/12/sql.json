@@ -1,3 +1,0 @@
-{
-  "sql": "SELECT olympic_gold_medals, position, birth_date FROM player WHERE CAST(olympic_gold_medals AS DOUBLE) < 1 AND CAST(draft_pick AS DOUBLE) = 24;"
-}

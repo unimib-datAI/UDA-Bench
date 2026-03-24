@@ -1,3 +1,0 @@
-{
-  "sql": "SELECT fiba_world_cup, draft_pick, mvp_awards, name FROM player;"
-}

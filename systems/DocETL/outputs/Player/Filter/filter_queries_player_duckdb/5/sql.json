@@ -1,3 +1,0 @@
-{
-  "sql": "SELECT fiba_world_cup, nba_championships, birth_date FROM player WHERE CAST(nba_championships AS DOUBLE) = 0;"
-}
