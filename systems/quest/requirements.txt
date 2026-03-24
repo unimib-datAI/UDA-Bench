@@ -38,6 +38,7 @@ Flask==3.1.0
 fonttools==4.57.0
 frozenlist==1.5.0
 fsspec==2024.6.1
+gdown
 greenlet==3.1.1
 h11==0.14.0
 httpcore==1.0.7
