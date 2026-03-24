@@ -1,0 +1,46 @@
+services:
+  vectordb:
+    image: pgvector/pgvector:pg16
+    container_name: quest_pgvector
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=${USER}
+      - POSTGRES_PASSWORD=${PASSWORD}
+      - POSTGRES_DB=${DATABASE}
+    ports:
+      - "${DB_PORT_EXTERNAL}:${DB_PORT_INTERNAL}"
+    volumes:
+      - pgvector_data:/var/lib/postgresql/data
+      - ./init_db.sql:/docker-entrypoint-initdb.d/init_db.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${USER} -d ${DATABASE}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build: .
+    container_name: quest_app
+    depends_on:
+      vectordb:
+        condition: service_healthy 
+    environment:
+      - DB_HOST=vectordb
+      - PYTHONPATH=/ 
+    working_dir: /
+    volumes:
+      - .:/quest
+    command: >
+      sh -c "
+      if [ ! -f /quest/.db_built ]; then
+        echo 'Database not found. Building database...';
+        python /quest/build_db.py && touch /quest/.db_built;
+        echo 'Database built successfully.';
+      else
+        echo 'Database already built.';
+      fi;
+      tail -f /dev/null
+      "
+
+volumes:
+  pgvector_data:
