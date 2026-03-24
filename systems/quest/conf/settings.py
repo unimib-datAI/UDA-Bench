@@ -1,7 +1,7 @@
 import os
-from openai import OpenAI
-import tiktoken
 from dotenv import load_dotenv
+import google.generativeai as genai
+import tiktoken
 
 load_dotenv()
 
@@ -32,38 +32,39 @@ DATASET_DIR = os.path.join(ABS_PROJECT_ROOT_PATH, "data/dataset/")
 INDEX_ROOT_DIR = os.path.join(RELATIVE_PROJECT_ROOT_PATH, "data/index/")
 OLLAMA_BASE =  "http://localhost:11434"
 
-# API & LLM
-API_BASE = os.getenv("API_BASE")  
-LLM_MODEL = 'openai/gpt-4.1-mini'
+API_BASE = os.getenv("API_BASE", "https://generativelanguage.googleapis.com")
+GEMINI_API_BASE = os.getenv("GEMINI_API_BASE", API_BASE)
 
-API_EMB_MODEL = "openai/text-embedding-3-small"
-API_EMB_API_BASE = API_BASE 
+LLM_MODEL = 'gemini/gemini-2.0-flash'
 
-API_EMB_API_KEY = os.getenv("OPENAI_API_KEY")
+API_EMB_MODEL = "gemini/gemini-embedding-001"  
+API_EMB_API_BASE = GEMINI_API_BASE
 
+API_EMB_API_KEY = os.getenv("GEMINI_API_KEY")
 if not API_EMB_API_KEY:
-    raise ValueError("⚠️ ERRORE CRITICO: OPENAI_API_KEY mancante. Inseriscila nel file .env!")
+    raise ValueError("⚠️ ERRORE CRITICO: GEMINI_API_KEY mancante. Inseriscila nel file .env!")
 
-GPT_MODEL = 'openai/gpt-4.1-mini'
-GPT_API_BASE = API_BASE 
+GPT_MODEL = LLM_MODEL
+GPT_API_BASE = GEMINI_API_BASE
 GPT_API_KEY = API_EMB_API_KEY
 
 LLM_BATCH_SIZE = 10
 
-os.environ['OPENAI_API_KEY'] = GPT_API_KEY
-os.environ['OPENAI_BASE'] = API_BASE
+os.environ['GEMINI_API_KEY'] = GPT_API_KEY
+#os.environ['GEMINI_API_BASE'] = GPT_API_BASE
+
+# <-- MODIFICA GEMINI: Setup del conteggio token con il tokenizer reale di Gemini
+genai.configure(api_key=GPT_API_KEY)
+# Rimuoviamo il prefisso 'gemini/' solo per l'SDK genai interno
+gemini_token_model = genai.GenerativeModel('gemini-2.0-flash')
 
 enc = tiktoken.get_encoding("cl100k_base")
 Enc_token_cnt = enc
 
 def count_tokens(text):
-    tokens = Enc_token_cnt.encode(text)
-    return len(tokens)
-
-client = OpenAI(
-    base_url=GPT_API_BASE,
-    api_key=GPT_API_KEY
-)
+    # Calcola in modo esatto i token fatturati/gestiti da Gemini
+    response = gemini_token_model.count_tokens(text)
+    return response.total_tokens
 
 # SAMPLE
 SAMPLE_NUM = 5

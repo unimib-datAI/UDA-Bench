@@ -23,7 +23,7 @@ def run(id, sql, prompt, doc):
     
     ROOT_PROJECT = Path(RELATIVE_PROJECT_ROOT_PATH).resolve().parent
     
-    if not os.path.exists(os.path.join(ROOT_PROJECT, ".built")):
+    if not os.path.exists(os.path.join(ROOT_PROJECT, ".db_built")):
         print("⚠️ Database not built. Please wait for 'build_db.py' to finish building the database and indexes.")
         return
 
