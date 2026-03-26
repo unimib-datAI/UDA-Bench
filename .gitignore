@@ -31,6 +31,13 @@
 # Virtual env
 # =========================
 .venv/
+.venv-evaporate/
+venv/
+venv-evaporate/
+**/.venv/
+**/.venv-evaporate/
+**/venv/
+**/venv-evaporate/
 
 # =========================
 # UDA-Bench specific ignores
@@ -64,3 +71,6 @@ systems/DocETL/real/outputs/
 # =========================
 /Evidence
 /Code
+
+.env
+.env.local

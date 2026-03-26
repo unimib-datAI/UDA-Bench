@@ -2,8 +2,8 @@ from collections import defaultdict, Counter
 import numpy as np  # ENHANCED: Required for advanced statistical calculations
 import json  # NEW ADDITION: For loading table.json files
 import os  # NEW ADDITION: For file path operations
-from evaporate.prompts import (PICK_VALUE_CONTEXT, Step,)
-from evaporate.utils import apply_prompt
+from prompts import (PICK_VALUE_CONTEXT, Step,)
+from utils import apply_prompt
 
 
 def clean_comparison(responses, field):

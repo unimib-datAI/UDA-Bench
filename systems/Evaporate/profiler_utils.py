@@ -323,143 +323,17 @@ def set_profiler_args(profiler_args):
 #################### GET SOME SAMPLE FILES TO SEED THE METADATA SEARCH #########################
 
 def sample_scripts(files, train_size=5):
-    """
-    Select files based on table.json entries.
-    For legal case dataset, select the first train_size files that have complete data in table.json.
-    """
-    # OLD VERSION:
-    # # "Train" split
-    # random.seed(0)
-    # if train_size <= len(files):
-    #     sample_files = random.sample(files, train_size)
-    # else:
-    #     sample_files = files
-    # sample_contents = []
-    # for sample_file in sample_files:
-    #     with open(sample_file, 'r',errors='ignore') as f:
-    #         sample_contents.append(f.read())
-    # return sample_files
-    
-    import json
     import os
-    
-    # Try to find table.json file in multiple possible locations
-    table_json_path = None
-    
-    # Strategy 1: Check if we have files and try to derive the base path
-    if files:
-        sample_file = files[0]
-        # From: /home/guyang/evaporate/data/evaporate/data/lcr/data/evaporate/swde/movie/legal_case/xxx.txt
-        # To:   /home/guyang/evaporate/data/evaporate/data/lcr/table.json
-        
-        # Try going up to find the lcr directory
-        current_dir = os.path.dirname(sample_file)
-        while current_dir and current_dir != '/':
-            if 'lcr' in current_dir:
-                # Found lcr directory, check for table.json here
-                potential_table_path = os.path.join(current_dir, 'table.json')
-                if os.path.exists(potential_table_path):
-                    table_json_path = potential_table_path
-                    break
-                # Also check parent directories of lcr
-                parent_lcr = os.path.dirname(current_dir)
-                if 'lcr' in os.path.basename(parent_lcr):
-                    potential_table_path = os.path.join(parent_lcr, 'table.json')
-                    if os.path.exists(potential_table_path):
-                        table_json_path = potential_table_path
-                        break
-            current_dir = os.path.dirname(current_dir)
-    
-    # Strategy 2: Try common locations
-    if not table_json_path:
-        common_paths = [
-            "/home/guyang/evaporate/data/evaporate/data/finance/table.json",
-            "data/evaporate/data/lcr/table.json",
-            "table.json"
-        ]
-        for path in common_paths:
-            if os.path.exists(path):
-                table_json_path = path
-                break
-    
-    if not table_json_path:
-        # Fallback to original logic if table.json not found
-        print("table.json not found, using original file selection logic")
-        if train_size <= len(files):
-            def extract_number(filepath):
-                import re
-                match = re.search(r'/(\d+)\.txt$', filepath)
-                return int(match.group(1)) if match else float('inf')
-            
-            sorted_files = sorted(files, key=extract_number)
-            sample_files = sorted_files[:train_size]
-        else:
-            sample_files = files
-    else:
-        # Load table.json and select files with complete data
-        try:
-            with open(table_json_path, 'r') as f:
-                table_data = json.load(f)
-            
-            print(f"Found table.json at: {table_json_path}")
-            print(f"Table.json contains {len(table_data)} entries")
-            print("Selecting first 10 entries from table.json in numeric order")
-            
-            # 按数字顺序排序 table.json 的键
-            def extract_number_from_path(file_path):
-                import re
-                match = re.search(r'/(\d+)\.txt$', file_path)
-                return int(match.group(1)) if match else float('inf')
-            
-            # 按文件名中的数字排序
-            sorted_paths = sorted(table_data.keys(), key=extract_number_from_path)
-            
-            # 选择前 train_size 个
-            selected_file_paths = sorted_paths[:train_size]
-            
-            print(f"DEBUG: Selected table.json keys: {[os.path.basename(p) for p in selected_file_paths]}")
-            
-            # 修复文件匹配逻辑 - 使用精确匹配而不是 endswith
-            sample_files = []
-            for selected_path in selected_file_paths:
-                file_name = os.path.basename(selected_path)  # 获取文件名：1.txt
-                
-                # 找到匹配的文件 - 使用精确的文件名匹配
-                matched = False
-                for file in files:
-                    if os.path.basename(file) == file_name:  # 精确匹配文件名
-                        sample_files.append(file)
-                        matched = True
-                        break
-                
-                if not matched:
-                    print(f"Warning: Could not find file for {file_name}")
-            
-            print(f"Selected files from table.json: {[os.path.basename(f) for f in sample_files]}")
-            
-        except Exception as e:
-            print(f"Error loading table.json: {e}, using original logic")
-            # Fallback to original logic
-            if train_size <= len(files):
-                def extract_number(filepath):
-                    import re
-                    match = re.search(r'/(\d+)\.txt$', filepath)
-                    return int(match.group(1)) if match else float('inf')
-                
-                sorted_files = sorted(files, key=extract_number)
-                sample_files = sorted_files[:train_size]
-            else:
-                sample_files = files
-    
-    sample_contents = []
-    for sample_file in sample_files:
-        try:
-            with open(sample_file, 'r') as f:
-                sample_contents.append(f.read())
-        except Exception as e:
-            print(f"Error reading file {sample_file}: {e}")
-    
-    print(f"Selected training files: {[f.split('/')[-1] for f in sample_files[:10]]}")
+    import re
+
+    def extract_number(filepath):
+        name = os.path.basename(filepath)
+        match = re.search(r'(\d+)\.txt$', name)
+        return int(match.group(1)) if match else float('inf')
+
+    sorted_files = sorted(files, key=extract_number)
+    sample_files = sorted_files[:train_size]
+    print(f"Selected training files: {[os.path.basename(f) for f in sample_files]}")
     return sample_files
  
 
