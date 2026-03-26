@@ -13,6 +13,9 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+from dotenv import load_dotenv
+
+load_dotenv()
 
 class OpenGaussDialect(psycopg2.PGDialect_psycopg2):
     """OpenGauss数据库方言
@@ -61,11 +64,11 @@ def create_opengauss_engine(db_config=None, config_file=None):
         # 如果没有提供配置，使用默认配置
         if db_config is None:
             db_config = {
-                "host": "127.0.0.1",
-                "port": 18874,
-                "database": "testdb",
-                "user": "remote_user",
-                "password": "dmE43-3654"
+                "host": os.getenv("HOST"),
+                "port": int(os.getenv("DB_PORT_INTERNAL")),
+                "database": os.getenv("DATABASE"),
+                "user": os.getenv("USER"),
+                "password": os.getenv("PASSWORD")
             }
             logger.info("使用默认数据库配置")
 

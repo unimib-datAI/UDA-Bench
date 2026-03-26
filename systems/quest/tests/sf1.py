@@ -1,7 +1,11 @@
 import sys
+import os
+import argparse
+
+from pathlib import Path
+
 sys.path.append('../../quest') # Project root path
 
-import os
 from quest.sql.parser import sqlparser
 from quest.utils.class2json import ClassToJson
 from quest.sql.planner.logical import LogicalPlanner
@@ -12,76 +16,87 @@ from quest.core.llm.sampler import AttrSampler
 from quest.core.llm.llm_query import TextLLMQuerier, LLMInfo
 from quest.utils.log import print_log
 from quest.conf.settings import RELATIVE_PROJECT_ROOT_PATH
-from quest.db.indexer.indexer import GlobalIndexer, build_all_indexer
 
-nba_player_docs_dir = "YOUR_DATASET_DIR"
+def run(id, sql, prompt, doc):
+    
+    print(f"--- Running Execution: {id} ---")
+    
+    ROOT_PROJECT = Path(RELATIVE_PROJECT_ROOT_PATH).resolve().parent
+    
+    if not os.path.exists(os.path.join(ROOT_PROJECT, ".db_built")):
+        print("⚠️ Database not built. Please wait for 'build_db.py' to finish building the database and indexes.")
+        return
 
-def run(sql, prompt):
-    print(sql)
+    print(f"SQL Query: {sql}")
+    print(f"Target Doc: {doc}")
 
-    # build AST
+    # Build AST
     ast = sqlparser.parse_sql(sql)
     jsonConverter = ClassToJson()
     js = jsonConverter.toJson(ast)
     print("AST:\n", js)
 
-    # build logical plan
-
+    # Build Logical Plan
     logicalPlanner = LogicalPlanner()
     logical = logicalPlanner.build_logical_plan(ast)
     js = jsonConverter.toJson(logical)
-    print_log("Logical Plan:\n",js)
+    print_log("Logical Plan:\n", js)
 
-    # indexer and sampler
-
-    # gb_indexer = build_all_indexer(
-    #     doc_dirs=[nba_player_docs_dir],
-    #     tables_name=["player"],
-    #     types=["TextDoc"],
-    #     debug_flag= False
-    # )
-
-    gb_indexer = load_all_indexer(table_to_type = {"player" : "TextDoc"})
+    # Load Indexer
+    gb_indexer = load_all_indexer(table_to_type={doc: "TextDoc"})
     
-    gb_sampler = AttrSampler(schema = prompt)
+    # Setup Sampler and Querier
+    gb_sampler = AttrSampler(schema=prompt)
     gb_querier = TextLLMQuerier(prompt=prompt)
 
-    gb_sampler.try_sample(gb_indexer.get_indexer("player")[0], prompt)
-    sample_table = gb_sampler.sample_table
-    # 存到log/test_sample_table.csv里 RELATIVE_PROJECT_ROOT_PATH
-    #sample_table.to_csv(os.path.join(RELATIVE_PROJECT_ROOT_PATH, "quest/tests/log/test_sample_table.csv"))
-    #attr_2_evidence = gb_sampler.map_attr_evidence
-    #print_log(attr_2_evidence)
+    gb_sampler.try_sample(gb_indexer.get_indexer(doc)[0], prompt)
 
-    # build physical plan
-
+    # Build Physical Plan
     physicalPlanner = TextPhysicalPlanner(gb_indexer, gb_querier, sampler=gb_sampler)
     physical = physicalPlanner.build(logical)
-    #js = jsonConverter.toJson(physical)
-    #print_log("Physical Plan:\n",js)
 
-    # process
-
+    # Process
     processer = Processer()
     result = processer.process(physical)
     print_log("Result Table:\n", result)
 
-    # LLM latency
-    print("query_times : ", LLMInfo.tot_query_times)
-    print("input_tokens : ", LLMInfo.tot_input_tokens)
-    print("output_tokens : ", LLMInfo.tot_output_tokens)
+    # LLM Latency & Usage Stats
+    print("\n--- LLM Statistics ---")
+    print("Query Times   : ", LLMInfo.tot_query_times)
+    print("Input Tokens  : ", LLMInfo.tot_input_tokens)
+    print("Output Tokens : ", LLMInfo.tot_output_tokens)
 
-
-    # make sure dir exists
-    result.to_csv(os.path.join(RELATIVE_PROJECT_ROOT_PATH, "quest/tests/logs/SF1.csv"))
+    # Save results
+    output_dir = os.path.join(ROOT_PROJECT, "tests/logs")
+    os.makedirs(output_dir, exist_ok=True)
+        
+    output_path = os.path.join(output_dir, f"{id}.csv")
+    result.to_csv(output_path)
+    print(f"Success! Result saved to: {output_path}")
 
     return result
 
 if __name__ == "__main__":
-    sql = "SELECT birth_date, olympic_gold_medals FROM player"
-    prompt = \
-    """
-    birth_date: birth date of the player; use format YYYY/%-m/%-d (e.g., 1984/1/30).\n \
-    olympic_gold_medals: number of Olympic gold medals the player has won (e.g., 3).\n
-    """
-    run(sql, prompt)
+    # Setup the argument parser
+    parser = argparse.ArgumentParser(description="Quest SQL Query Runner")
+
+    # Adding arguments with your default values
+    parser.add_argument("--id", type=str, default="sf1", 
+                        help="Execution ID (used for the output filename)")
+    
+    parser.add_argument("--sql", type=str, 
+                        default="SELECT birth_date, olympic_gold_medals FROM player", 
+                        help="The SQL query to execute")
+    
+    parser.add_argument("--doc", type=str, default="player", 
+                        help="The name of the table/document to query")
+    
+    parser.add_argument("--prompt", type=str, 
+                        default="birth_date: birth date of the player; use format YYYY/%-m/%-d (e.g., 1984/1/30).\nolympic_gold_medals: number of Olympic gold medals the player has won (e.g., 3).", 
+                        help="Schema prompt for the LLM")
+
+    # Parse arguments from command line
+    args = parser.parse_args()
+
+    # Call the run function with the parsed arguments
+    run(args.id, args.sql, args.prompt, args.doc)

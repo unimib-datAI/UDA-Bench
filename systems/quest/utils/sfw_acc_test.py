@@ -5,11 +5,13 @@ import os
 from tqdm import tqdm
 import json
 from litellm import batch_completion
-os.environ["OPENAI_API_BASE"] = "https://aihubmix.com/v1"
-os.environ["OPENAI_API_KEY"] = "sk-DrStrjrlXohoCI2iBc14Eb41A38c428b88A0973aA29fCc3b"
 
-# os.environ["OPENAI_API_BASE"] = "https://api.gptsapi.net/v1"
-# os.environ["OPENAI_API_KEY"] = "sk-INTd72cf84bd477b70433a9102a318263d8fdd1838emPKLc"
+from dotenv import load_dotenv
+
+load_dotenv()
+
+os.environ["OPENAI_API_BASE"] = os.getenv("DEEPSEEK_BASE_URL")
+os.environ["OPENAI_API_KEY"] = os.getenv("DEEPSEEK_API_KEY")
 
 def clean_id_column(df: pd.DataFrame) -> pd.DataFrame:
     """

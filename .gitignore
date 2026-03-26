@@ -18,6 +18,7 @@
 !*.sql
 !*.yaml
 !*.yml
+!Dockerfile
 
 # (NOTA: niente !*.txt e niente !*.json globali)
 

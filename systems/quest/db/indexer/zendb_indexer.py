@@ -33,9 +33,13 @@ import pickle
 from sklearn.metrics.pairwise import cosine_similarity
 import faiss
 
+from dotenv import load_dotenv
+
+load_dotenv()
+
 # 设置DeepSeek API密钥和配置
-DEEPSEEK_API_KEY = 'sk-DrStrjrlXohoCI2iBc14Eb41A38c428b88A0973aA29fCc3b'
-DEEPSEEK_BASE_URL = 'https://aihubmix.com/v1'
+DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY")
+DEEPSEEK_BASE_URL = os.getenv("DEEPSEEK_BASE_URL")
 
 # 初始化DeepSeek客户端
 client = OpenAI(
