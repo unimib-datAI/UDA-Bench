@@ -20,6 +20,7 @@
 !*.yml
 !Dockerfile
 
+
 # (NOTA: niente !*.txt e niente !*.json globali)
 
 # =========================
@@ -53,6 +54,12 @@ systems/DocETL/real/data/player_docs.json
 # ❌ Outputs
 systems/DocETL/outputs/
 systems/DocETL/real/outputs/
+
+# =========================
+# Lotus - Allow
+# =========================
+!systems/lotus/*/*.json
+!systems/lotus/requirements.txt
 
 # =========================
 # Keep templates

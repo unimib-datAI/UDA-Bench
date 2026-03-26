@@ -16,12 +16,15 @@ class LotusPipeline:
         self.domain = domain
         self.use_cascade = use_cascade
         
-        os.environ["OPENAI_API_BASE"] = settings.OPENAI_API_BASE
-        os.environ["OPENAI_API_KEY"] = settings.OPENAI_API_KEY
+        os.environ["GEMINI_API_KEY"] = settings.GEMINI_API_KEY 
         
-        self.lm_main = LM(model="gpt-4.1-mini" if not use_cascade else "gpt-4.1")
+        model_mini = "gemini/gemini-2.0-flash"
+        model_pro = "gemini/gemini-2.5-flash"
+        
+        self.lm_main = LM(model=model_mini if not use_cascade else model_pro)
+        
         if self.use_cascade:
-            self.lm_helper = LM(model="gpt-4.1-mini")
+            self.lm_helper = LM(model=model_mini)
             lotus.settings.configure(lm=self.lm_main, helper_lm=self.lm_helper)
         else:
             lotus.settings.configure(lm=self.lm_main)

@@ -8,11 +8,10 @@ from config.settings import settings
 def main():
     parser = argparse.ArgumentParser(description="Lotus LLM Data Extractor/Filter")
     parser.add_argument("--domain", type=str, required=True, help="Domain (e.g., finance, institutes)")
-    parser.add_argument("--query-type", type=str, choices=["SF", "SFW"], required=True, help="Type of query")
     parser.add_argument("--cascade", action="store_true", help="Use LM cascade strategy")
+    parser.add_argument("--query-type", type=str, choices=["SF", "SFW"], required=False, help="Type of query", default="SF")
     args = parser.parse_args()
 
-    # Carica le query SQL
     sql_path = settings.BENCHMARK_DIR / f"Query/{args.domain}/{args.query_type}.sql"
     
     if not os.path.exists(sql_path):
@@ -22,10 +21,8 @@ def main():
         sql_blocks = f.read().split('\n')
         queries = [sql_block.strip() for sql_block in sql_blocks if sql_block.strip()]
 
-    # Inizializza la pipeline
     pipeline = LotusPipeline(domain=args.domain, use_cascade=args.cascade)
 
-    # Esegue le query
     for i, sql in enumerate(queries):
         print(f"Esecuzione Query SQL {i}/{len(queries)}...")
         out_folder = settings.RESULTS_DIR / args.domain / args.query_type / f"SQL{i}"

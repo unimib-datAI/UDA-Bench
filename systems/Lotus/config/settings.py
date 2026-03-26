@@ -16,7 +16,6 @@ class Settings:
         self.BENCHMARK_DIR.mkdir(parents=True, exist_ok=True)
         self.RESULTS_DIR.mkdir(parents=True, exist_ok=True)
         
-        self.OPENAI_API_BASE = os.getenv("OPENAI_API_BASE", "")
-        self.OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
+        self.GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 
 settings = Settings()

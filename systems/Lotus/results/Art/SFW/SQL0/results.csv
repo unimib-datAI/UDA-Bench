@@ -1,31 +1,31 @@
 ﻿id,birth_date,field
-1,1917/6/4,Painting||Drawing
-2,1927/4/10,Sculpture
-3,1944/5/3,Painting || Sculpture
-4,1920/2/1,Painting || Calligraphy || Drawing
-5,1921,Painting||Graphic Design||Textile Art
+1,1917/6/4,Painting||Drawing||Sculpture
+2,1927/4/10,Sculpture||Painting||Printmaking
+3,1944/5/3,Painting||Sculpture
+4,1920/2/1,Painting||Calligraphy||Sculpture
+5,1921//,Painting||Graphic Design||Textile Art
 6,1916/1/24,Painting||Sculpture||Drawing||Illustration
 7,1934/1/5,Painting||Photography
-8,1937/3/16,Painting || Printmaking || Textile Art
+8,1937/3/16,Painting||Printmaking||Textile Art
 9,1915/6/17,Painting
 10,1924/1/10,Sculpture
-11,1945/12/31,Painting || Jewelry Design || Textile Art
+11,1945/12/31,Painting||Textile Art||Illustration||Graphic Design
 12,1921/4/25,Painting||Sculpture
-13,1914/11/8,Painting || Drawing || Illustration || Graphic Design
+13,1914/11/8,Painting||Drawing||Illustration
 14,1934/10/12,Painting
-15,1930/8/29,Painting || Drawing
-16,1903/1/20,Painting||Drawing||Sculpture
+15,1930/8/29,Painting||Drawing
+16,1903/1/20,Painting||Sculpture
 17,1928/12/12,Painting||Sculpture
-18,1929/7/22,Painting||Drawing
-19,1916/4/26,Painting || Illustration || Sculpture || Drawing || Printmaking
-20,1916/12/2,Painting||Sculpture||Installation||Graphic Design
-21,1936/3/12,Painting||Printmaking||Drawing
+18,1929/7/22,Painting
+19,1916/4/26,Painting||Illustration||Drawing||Sculpture
+20,1916/12/2,Painting||Sculpture
+21,1936/3/12,Painting||Drawing||Printmaking||Illustration
 22,1915/8/14,Painting
-23,1932/10/29,Painting||Drawing
-24,1911/12/25,Sculpture || Installation || Painting || Printmaking
+23,1932/10/29,Painting||Drawing||Printmaking
+24,1911/12/25,Sculpture||Installation||Painting||Printmaking
 25,1929/4/28,Painting||Drawing||Printmaking||Illustration
 26,1928/8/21,Painting||Sculpture
-27,1904/12/21,Painting||Drawing
+27,1904/12/21,Painting||Drawing||Sculpture
 28,1926/5/6,Painting
 29,1936/1/29,Painting||Printmaking
-30,1915/9/17,Painting||Drawing||Printmaking||Photography||Calligraphy
+30,1915/9/17,Painting||Drawing||Printmaking||Photography||Illustration||Calligraphy

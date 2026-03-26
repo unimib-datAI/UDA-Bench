@@ -1,0 +1,14 @@
+# Requires-Python >=3.10,<3.13
+
+pandas>=2.0.0
+numpy>=1.24.0
+
+lotus-ai
+
+litellm
+litellm[google]
+pydantic
+tqdm
+tokenizers
+
+python-dotenv
