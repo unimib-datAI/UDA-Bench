@@ -71,7 +71,6 @@ class ApiEmbeddings(Embeddings):
             temp_api_base = os.environ.pop("API_BASE", None)
 
             try:
-                # Facciamo la chiamata mentre le variabili sono nascoste
                 response = litellm.embedding(**kwargs, num_retries=5)
             except Exception as e:
                 print(f"❌ Errore durante l'embedding: {e}")    
@@ -82,7 +81,7 @@ class ApiEmbeddings(Embeddings):
                 if temp_api_base is not None:
                     os.environ["API_BASE"] = temp_api_base
             
-            embeddings = [item["embedding"] for item in response["data"]]
+            embeddings = [item["embedding"] for item in response["data"]] if response and "data" in response else []
             all_embeddings.extend(embeddings)
 
         return np.array(all_embeddings)
