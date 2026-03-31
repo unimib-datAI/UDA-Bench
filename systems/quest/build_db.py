@@ -19,17 +19,17 @@ if os.path.exists(DATASET_ROOT):
 os.makedirs(DATASET_ROOT, exist_ok=True)
 
 drive_links = [
-    "https://drive.google.com/file/d/14s0kjBXO8_Zr2yDhJFjNFjqVq8-91X3J/view?usp=drive_link", # Art
-    "https://drive.google.com/file/d/1fTpZU60IIfoumlqHuArmLv7zW3hCMMzV/view?usp=drive_link", # Player
-    "https://drive.google.com/file/d/1SscnlaJd52ZfaorjfRbOSQfphRighcqh/view?usp=drive_link", # Player
-    "https://drive.google.com/file/d/1UKDwY861mlcSpT_CchRFZI1i_xdTccYO/view?usp=drive_link", # Player
-    "https://drive.google.com/file/d/1KEO8o5OBf9JJtdPR46hAvqf_YgO21iXO/view?usp=drive_link", # Player
-    "https://drive.google.com/file/d/1q6jZaUrNuYOeTfombi3dsc8k40GZ2tcU/view?usp=drive_link", # Legal
-    "https://drive.google.com/file/d/1fnfxA3oS4RE1su7x8JjHfvvskakvMvUz/view?usp=drive_link", # Finance
-    "https://drive.google.com/file/d/1RLd2sagpY5-cIFGAII3gxtHEdAHT9_hf/view?usp=sharing", # Healthcare
-    "https://drive.google.com/file/d/1shmOOyI9LRMYm8N16tcsSen0AmAz9eY-/view?usp=sharing", # Healthcare
-    "https://drive.google.com/file/d/1i2w_7U8jEgM_Nz-GxwRvtTVicC3FNF_j/view?usp=sharing", # Healthcare
-    #"https://drive.google.com/file/d/1ScmZHsRLTDbgKxL22PDU4P5VrNXct9pi/view?usp=drive_link", # RAG
+    #"https://drive.google.com/file/d/14s0kjBXO8_Zr2yDhJFjNFjqVq8-91X3J/view?usp=drive_link", # Art
+    #"https://drive.google.com/file/d/1fTpZU60IIfoumlqHuArmLv7zW3hCMMzV/view?usp=drive_link", # Player
+    #"https://drive.google.com/file/d/1SscnlaJd52ZfaorjfRbOSQfphRighcqh/view?usp=drive_link", # Player
+    #"https://drive.google.com/file/d/1UKDwY861mlcSpT_CchRFZI1i_xdTccYO/view?usp=drive_link", # Player
+    #"https://drive.google.com/file/d/1KEO8o5OBf9JJtdPR46hAvqf_YgO21iXO/view?usp=drive_link", # Player
+    #"https://drive.google.com/file/d/1q6jZaUrNuYOeTfombi3dsc8k40GZ2tcU/view?usp=drive_link", # Legal
+    #"https://drive.google.com/file/d/1fnfxA3oS4RE1su7x8JjHfvvskakvMvUz/view?usp=drive_link", # Finance
+    #"https://drive.google.com/file/d/1RLd2sagpY5-cIFGAII3gxtHEdAHT9_hf/view?usp=sharing", # Healthcare
+    #"https://drive.google.com/file/d/1shmOOyI9LRMYm8N16tcsSen0AmAz9eY-/view?usp=sharing", # Healthcare
+    #"https://drive.google.com/file/d/1i2w_7U8jEgM_Nz-GxwRvtTVicC3FNF_j/view?usp=sharing", # Healthcare
+    "https://drive.google.com/file/d/1ScmZHsRLTDbgKxL22PDU4P5VrNXct9pi/view?usp=drive_link", # RAG
 ]
 
 print("📥 Starting the download and extraction of files from Google Drive...\n")
@@ -57,31 +57,7 @@ for i, link in enumerate(drive_links, 1):
         print(f"❌ Error downloading file {i}.\n")
         
 
-rag_folder = os.path.join(DATASET_ROOT, "rag_papers")
-if os.path.exists(rag_folder):
-    new_folder = os.path.join(DATASET_ROOT, "cspaper")
-    os.makedirs(new_folder, exist_ok=True)
-    
-    for filename in os.listdir(rag_folder):
-        old_file_path = os.path.join(rag_folder, filename)
-        
-        if filename.endswith(".pdf"):
-            print(f"📦 Converting {filename}...")
-            new_file_path = os.path.join(new_folder, filename.replace(".pdf", ".txt"))
-                    
-            text = ""
-
-            with pdfplumber.open(old_file_path) as pdf:
-                text = "\n".join(page.extract_text() or "" for page in pdf.pages)
-
-            with open(new_file_path, "w", encoding="utf-8") as f:
-                f.write(text)
-        else:
-            new_file_path = os.path.join(new_folder, filename)
-            os.copy(old_file_path, new_file_path)
-    
-    shutil.rmtree(rag_folder)
-    print("✅ RAG papers processed and renamed to 'cspaper' folder.\n")
+print("✅ Download and extraction completed!\n")
             
 print("-" * 50)
 print("⚙️ Starting the indexing phase...\n")
@@ -90,16 +66,20 @@ for folder in os.listdir(DATASET_ROOT):
     DATASET_PATH = os.path.join(DATASET_ROOT, folder)
     
     if os.path.isdir(DATASET_PATH):
+        print(f"📂 Processing folder: {folder}...")
+        
         doc_dirs = [DATASET_PATH]
         
         if folder == "wikiart":
             tables_name = ["art"]
         elif folder == "legal_case":
             tables_name = ["legal"]
+        elif folder == 'rag_papers':
+            tables_name = ["cspaper"]
         else:
             tables_name = [folder]
         
-        types = ["TextDoc"]
+        types = ["ZenDBDoc"]
 
         print(f"Indexing folder: {DATASET_PATH}...")
 

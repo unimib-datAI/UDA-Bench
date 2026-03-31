@@ -32,6 +32,8 @@ This will build and start all required services in the background.
 
 The system is ready when the `.db_built` file is created.
 
+##### To force a re-indexing of the dataset when you run `docker compose up --build -d` you need to delete the `.db_built` file.
+
 ---
 
 ## ▶️ Run a Query

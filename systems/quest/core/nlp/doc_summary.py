@@ -12,7 +12,18 @@ from quest.core.chunker.splitter import spacyCutStep
 
 nltk_user_path = os.path.join(ABS_PROJECT_ROOT_PATH, "model/nltk_data")
 nltk.data.path.clear()
-nltk.data.path.append(nltk_user_path)  # 将数据路径设置为当前目录下的data文件夹   
+nltk.data.path.append(nltk_user_path)  # 将数据路径设置为当前目录下的data文件夹
+
+# Download required NLTK data if not present
+try:
+    nltk.data.find('tokenizers/punkt_tab')
+except LookupError:
+    nltk.download('punkt_tab', download_dir=nltk_user_path, quiet=True)
+
+try:
+    nltk.data.find('corpora/stopwords')
+except LookupError:
+    nltk.download('stopwords', download_dir=nltk_user_path, quiet=True)   
 
 spacy_splitter = spacyCutStep()
 

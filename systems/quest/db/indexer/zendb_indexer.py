@@ -285,6 +285,12 @@ class ZenDBDocIndexer(SingleIndexer):
             "docs_meta": self.docs_meta,
             "sht_trees": sht_dict
         }
+        
+        dir = [os.path.dirname(path), os.path.dirname(self.embedding_save_path)]
+        for d in dir:
+            if not os.path.exists(d):
+                os.makedirs(d, exist_ok=True)
+            
         with open(path, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
         

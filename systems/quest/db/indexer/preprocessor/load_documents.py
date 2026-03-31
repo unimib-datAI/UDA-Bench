@@ -69,7 +69,7 @@ def load_ZenDBDoc_from_directory(docs_dir: str, table_name: str, start_doc_id = 
     
     # 获取目录下所有.txt文件和pdf文件，然后合并
     txt_files = glob.glob(os.path.join(docs_dir, "*.txt"))
-    pdf_files = glob.glob(os.path.join(docs_dir, "*.md")) 
+    pdf_files = glob.glob(os.path.join(docs_dir, "*.pdf")) 
 
     txt_files.extend(pdf_files)
     txt_files.sort()  # 确保文件顺序一致
