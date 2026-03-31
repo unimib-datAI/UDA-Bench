@@ -30,9 +30,23 @@
 .vscode/
 
 # =========================
+# Python cache
+# =========================
+__pycache__/
+**/__pycache__/
+*.pyc
+
+# =========================
 # Virtual env
 # =========================
 .venv/
+.venv-evaporate/
+venv/
+venv-evaporate/
+**/.venv/
+**/.venv-evaporate/
+**/venv/
+**/venv-evaporate/
 
 # =========================
 # UDA-Bench specific ignores
@@ -44,14 +58,8 @@
 # =========================
 # DocETL - IGNORA DATI E OUTPUT
 # =========================
-
-# ❌ Documenti raw (txt)
 systems/DocETL/real/data/player_docs/
-
-# ❌ JSON generati
 systems/DocETL/real/data/player_docs.json
-
-# ❌ Outputs
 systems/DocETL/outputs/
 systems/DocETL/real/outputs/
 
@@ -72,3 +80,6 @@ systems/DocETL/real/outputs/
 # =========================
 /Evidence
 /Code
+
+.env
+.env.local
