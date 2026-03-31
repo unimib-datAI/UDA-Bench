@@ -69,13 +69,24 @@ pip install -r requirements.txt
 ### 3. Configure API Key
 
 Evaporate uses an LLM (e.g. Gemini via Together AI).
-
-Set your API key:
+The API key is **not hardcoded in the code**, but loaded from an environment variable inside:
+```python
+systems/Evaporate/utils.py
+TOGETHER_API_KEY = os.environ.get("TOGETHER_API_KEY")
+```
+#### Set your API key
+Windows (PowerShell)
+```bash
+$env:TOGETHER_API_KEY="your_key_here"
+```
+Windows (CMD)
 ```bash
 set TOGETHER_API_KEY=your_key_here
 ```
-(or use .env if supported)
----
+Linux/macOS
+```bash
+export TOGETHER_API_KEY=your_key_here
+```
 
 ## ▶️ Running Evaporate
 From:
