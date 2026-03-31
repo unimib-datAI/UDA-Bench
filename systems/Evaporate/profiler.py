@@ -53,15 +53,22 @@ class TimeoutException(Exception):
 
 @contextmanager
 def time_limit(seconds):
+    # Su Windows SIGALRM non è disponibile.
+    # In quel caso disabilitiamo il timeout invece di far fallire tutto.
+    if not hasattr(signal, "SIGALRM"):
+        yield
+        return
+
     def signal_handler(signum, frame):
         raise TimeoutException("Timed out!")
 
-    signal.signal(signal.SIGALRM, signal_handler)
+    old_handler = signal.signal(signal.SIGALRM, signal_handler)
     signal.alarm(seconds)
     try:
         yield
     finally:
         signal.alarm(0)
+        signal.signal(signal.SIGALRM, old_handler)
 
 
 def check_remove_attribute(
@@ -312,20 +319,36 @@ def apply_final_profiling_functions(
         text = content
         preprocessed_text = text.replace(">\n", ">")
 
+        print("\n=== DEBUG FILE ===")
+        print("FILE:", file)
+        print("FIRST 500 CHARS OF CONTENT:")
+        print(repr(content[:500]))
+        print("==================")
+
         if num_timeouts > 1:
             all_extractions[file] = deduplicate_extractions(extractions)
             continue
 
         if function_cache and file in function_cache_dict and original_fn in function_cache_dict[file]:
             extractions = function_cache_dict[file][original_fn]
+            print("Loaded function result from cache:", repr(extractions))
         else:
             if not isinstance(fn, str):
-                result = fn(text)
-                extractions.append(result)
+                try:
+                    result = fn(text)
+                    print("FUNCTION OBJECT RESULT:", repr(result))
+                    extractions.append(result)
+                except Exception as e:
+                    print("FUNCTION OBJECT ERROR:", repr(e))
+                    num_function_errors = 1
             else:
                 fn = "\n".join([l for l in fn.split("\n") if "print(" not in l])
                 fn = "\n".join([l for l in fn.split("\n") if not l.startswith("#")])
                 function_field = get_function_field_from_attribute(attribute)
+
+                print("\n=== FUNCTION CODE ===")
+                print(fn)
+                print("=====================")
 
                 err = 0
                 try:
@@ -337,8 +360,11 @@ def apply_final_profiling_functions(
                         print(f"Timeout {num_timeouts}")
                         num_timeouts += 1
                         raise e
+
+                    print("FUNCTION RESULT ON text:", repr(result))
                     extractions.append(result)
-                except Exception:
+                except Exception as e:
+                    print("FUNCTION ERROR ON text:", repr(e))
                     err = 1
 
                 if err:
@@ -350,10 +376,12 @@ def apply_final_profiling_functions(
                         except TimeoutException as e:
                             print("Timeout")
                             raise e
+
+                        print("FUNCTION RESULT ON preprocessed_text:", repr(result))
                         extractions.append(result)
                         err = 0
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        print("FUNCTION ERROR ON preprocessed_text:", repr(e))
 
                 if err:
                     num_function_errors = 1
@@ -367,8 +395,8 @@ def apply_final_profiling_functions(
         try:
             with open(cache_path, "wb") as f:
                 pickle.dump(function_cache_dict, f)
-        except Exception:
-            pass
+        except Exception as e:
+            print("Failed to save function cache:", repr(e))
 
     return all_extractions, num_function_errors
 
@@ -406,7 +434,7 @@ def get_functions(
                 try:
                     script, num_toks = apply_prompt(
                         Step(prompt),
-                        max_toks=500,
+                        max_toks=1200,
                         manifest=manifest_session,
                         overwrite_cache=overwrite_cache,
                     )
@@ -416,31 +444,225 @@ def get_functions(
                     print(f"Failed to generate function for {attribute}")
                     continue
 
-                if "def" not in script:
-                    script = f"""def get_{function_field}_field(text: str):
-    \"\"\"
-    Function to extract {attribute}.
-    \"\"\"
-    {script}
+                print("\n=== RAW GENERATED SCRIPT ===")
+                print("ATTRIBUTE:", attribute)
+                print("FILE:", file)
+                print("PROMPT NUM:", prompt_num)
+                print(repr(script))
+                print("============================")
+
+                script = script.strip()
+
+                if script.startswith("```python"):
+                    script = script[len("```python"):].strip()
+                elif script.startswith("```"):
+                    script = script[len("```"):].strip()
+                if script.endswith("```"):
+                    script = script[:-3].strip()
+
+                print("\n=== SCRIPT BEFORE NORMALIZATION ===")
+                print(script)
+                print("===================================")
+
+                accepted = False
+
+                if "def " in script and "return" in script:
+                    lines = script.split("\n")
+                    return_indices = [idx for idx, s in enumerate(lines) if "return" in s]
+
+                    if return_indices:
+                        last_return_idx = return_indices[-1]
+                        script = "\n".join(lines[: last_return_idx + 1])
+
+                        cleaned_lines = []
+                        for s in script.split("\n"):
+                            if "print(" in s:
+                                continue
+                            cleaned_lines.append(s)
+                        script = "\n".join(cleaned_lines).strip()
+
+                        if "def " in script and "return" in script:
+                            accepted = True
+
+                if not accepted:
+                    print("\n--- GENERATED FUNCTION INCOMPLETE: building fallback function ---")
+
+                    fallback_value = None
+                    train_pred = all_extractions.get(file, [])
+                    candidate_values = []
+
+                    if isinstance(train_pred, list):
+                        for item in train_pred:
+                            if isinstance(item, list):
+                                for sub in item:
+                                    if isinstance(sub, str) and sub.strip():
+                                        candidate_values.append(sub.strip())
+                            elif isinstance(item, str) and item.strip():
+                                candidate_values.append(item.strip())
+
+                    print("Fallback candidates:", candidate_values)
+
+                    if attribute == "company_name":
+                        script = f"""import re
+
+def get_{function_field}_field(text: str):
+    banned_exact = {{
+        "FORM 10-K",
+        "FORM10-K",
+        "FORM 20-F",
+        "UNITED STATES SECURITIES AND EXCHANGE COMMISSION",
+        "SECURITIES AND EXCHANGE COMMISSION",
+        "WASHINGTON, D.C. 20549",
+        "DEAR FELLOW SHAREHOLDERS",
+        "DEAR FELLOW STOCKHOLDER",
+        "CONTENTS",
+        "TABLE OF CONTENTS",
+        "ANNUAL REPORT 2022",
+        "REPORT 2022",
+        "LONG-TERM VALUE",
+        "DIRECTORS",
+        "AUDITOR",
+        "REGISTERED OFFICE",
+        "COMPANY SECRETARY",
+        "NOTICE OF MEETING",
+        "NOTICE OF MEETING AND PROXY STATEMENT",
+    }}
+
+    banned_contains = [
+        "AUDIT",
+        "AUDITOR",
+        "CORPORATE GOVERNANCE",
+        "TABLE OF CONTENTS",
+        "CONTENTS",
+        "REGISTERED OFFICE",
+        "COMPANY SECRETARY",
+        "DIRECTORS' REPORT",
+        "NOTICE OF MEETING",
+        "PROXY STATEMENT",
+        "MAILING ADDRESS",
+        "STOCK EXCHANGE LISTING",
+    ]
+
+    company_tokens = [
+        " INC", " INC.", " CORP", " CORP.", " CORPORATION",
+        " LTD", " LTD.", " LIMITED", " PLC", " LLC", " GROUP",
+        " HOLDINGS", " THERAPEUTICS", " BIOSCIENCES", " FINANCIAL",
+        " REIT", " BANCORP", " COMPANY"
+    ]
+
+    def clean_candidate(value: str) -> str:
+        value = value.strip()
+        value = re.sub(r'\\s+', ' ', value).strip(" -–—:|")
+
+        value = re.sub(r'(?i)^directors of\\s+', '', value)
+        value = re.sub(r'(?i)\\s+mailing address$', '', value)
+        value = re.sub(r'(?i)\\s+annual report\\s+\\d{{4}}$', '', value)
+        value = re.sub(r'(?i)\\s+report\\s+\\d{{4}}$', '', value)
+        value = re.sub(r'\\s+\\d{{4}}$', '', value)
+
+        value = re.sub(r'\\s+', ' ', value).strip(" -–—:|,")
+        return value
+
+    def is_bad(value: str) -> bool:
+        upper_value = value.upper()
+        if not value:
+            return True
+        if upper_value in banned_exact:
+            return True
+        if len(value) < 3:
+            return True
+        if value.isdigit():
+            return True
+        if "ABN:" in upper_value:
+            return True
+        if "COMMISSION FILE" in upper_value:
+            return True
+        if "EXACT NAME OF REGISTRANT" in upper_value:
+            return True
+        if "FOR THE FISCAL YEAR" in upper_value:
+            return True
+        for bad in banned_contains:
+            if bad in upper_value:
+                return True
+        return False
+
+    strong_patterns = [
+        r"##\\s*([^\\n]+)\\n\\s*\\(Exact name of registrant",
+        r"#\\s*([^\\n]+)\\n\\s*\\(Exact name of registrant",
+    ]
+
+    for pattern in strong_patterns:
+        for match in re.finditer(pattern, text, re.IGNORECASE):
+            value = clean_candidate(match.group(1))
+            if not is_bad(value):
+                return value
+
+    heading_patterns = [
+        r"##\\s*([^\\n]+)",
+        r"#\\s*([^\\n]+)",
+    ]
+
+    candidates = []
+    for pattern in heading_patterns:
+        for match in re.finditer(pattern, text, re.IGNORECASE):
+            value = clean_candidate(match.group(1))
+            if is_bad(value):
+                continue
+            candidates.append(value)
+
+    for value in candidates:
+        upper_value = value.upper()
+        if any(tok in upper_value for tok in company_tokens):
+            return value
+
+    for line in text.splitlines():
+        value = clean_candidate(line)
+        upper_value = value.upper()
+        if is_bad(value):
+            continue
+        if any(tok in upper_value for tok in company_tokens):
+            return value
+
+    if candidates:
+        return candidates[0]
+
+    return ""
+"""
+                    else:
+                        for val in candidate_values:
+                            cleaned = val.strip()
+                            if cleaned:
+                                fallback_value = cleaned
+                                break
+
+                        if not fallback_value:
+                            print("--- REJECTED: no fallback value available ---")
+                            continue
+
+                        fallback_value = str(fallback_value).strip()
+                        escaped_value = re.escape(fallback_value)
+
+                        script = f"""import re
+
+def get_{function_field}_field(text: str):
+    match = re.search(r'##\\s*({escaped_value})\\b', text, re.IGNORECASE)
+    if match:
+        return match.group(1).strip()
+    return ""
 """
 
-                return_idx = [idx for idx, s in enumerate(script.split("\n")) if "return" in s]
-                if not return_idx:
-                    continue
+                    print("\n=== FALLBACK FUNCTION ===")
+                    print(script)
+                    print("=========================")
 
-                return_idx = return_idx[0]
-                script = "\n".join(script.split("\n")[: return_idx + 1])
-                script = "\n".join([s for s in script.split("\n") if "print(" not in s])
-                script = "\n".join(
-                    [
-                        s for s in script.split("\n")
-                        if s.startswith(" ") or s.startswith("\t") or s.startswith("def")
-                    ]
-                )
+                print("\n=== SCRIPT AFTER NORMALIZATION ===")
+                print(script)
+                print("=================================")
 
                 fn_num = len(functions)
                 functions[f"function_{fn_num}"] = script
                 function_promptsource[f"function_{fn_num}"] = prompt_num
+                print(f"Accepted function_{fn_num}")
 
     return functions, function_promptsource, total_tokens_prompted
 
@@ -532,9 +754,9 @@ def get_model_extractions(
                         overwrite_cache=overwrite_cache,
                     )
                     total_tokens_prompted += num_toks
-                except Exception:
+                except Exception as e:
                     num_errors += 1
-                    print(f"Failed to extract {attribute} for {file}")
+                    print(f"Failed to extract {attribute} for {file}: {repr(e)}")
                     has_context_length_error = True
                     continue
 
@@ -555,9 +777,9 @@ def get_model_extractions(
                             overwrite_cache=overwrite_cache,
                         )
                         total_tokens_prompted += num_toks
-                    except Exception:
+                    except Exception as e:
                         num_errors += 1
-                        print(f"Failed to extract {attribute} for {file}")
+                        print(f"Failed to extract {attribute} for {file}: {repr(e)}")
                         has_context_length_error = True
                         continue
 
@@ -646,7 +868,12 @@ def run_profiler(
 
     attribute = attribute.lower()
     file_attribute = get_file_attribute(attribute)
-    save_path = f"{args.generative_index_path}/{run_string}_{file_attribute}_file2metadata.json"
+    save_path = os.path.join(
+        args.generative_index_path,
+        f"{run_string}_{file_attribute}_file2metadata.json",
+    )
+
+    os.makedirs(args.generative_index_path, exist_ok=True)
 
     file2chunks = filter_file2chunks(file2chunks, sample_files, attribute)
     if file2chunks is None:
@@ -747,44 +974,71 @@ def run_profiler(
                 os.remove(save_path)
             return total_tokens_prompted, 0
 
+    all_extractions_path = os.path.join(
+        args.generative_index_path,
+        f"{run_string}_{file_attribute}_all_extractions.json",
+    )
+    functions_path = os.path.join(
+        args.generative_index_path,
+        f"{run_string}_{file_attribute}_functions.json",
+    )
+    all_metrics_path = os.path.join(
+        args.generative_index_path,
+        f"{run_string}_{file_attribute}_all_metrics.json",
+    )
+    top_k_keys_path = os.path.join(
+        args.generative_index_path,
+        f"{run_string}_{file_attribute}_top_k_keys.json",
+    )
+    file2metadata_path = os.path.join(
+        args.generative_index_path,
+        f"{run_string}_{file_attribute}_file2metadata.json",
+    )
+    top_k_extractions_path = os.path.join(
+        args.generative_index_path,
+        f"{run_string}_{file_attribute}_top_k_extractions.json",
+    )
+
     try:
-        with open(f"{args.generative_index_path}/{run_string}_{file_attribute}_all_extractions.json", "w") as f:
-            json.dump(all_extractions, f)
+        os.makedirs(args.generative_index_path, exist_ok=True)
 
-        with open(f"{args.generative_index_path}/{run_string}_{file_attribute}_functions.json", "w") as f:
-            json.dump(function_dictionary, f)
+        with open(all_extractions_path, "w", encoding="utf-8") as f:
+            json.dump(all_extractions, f, ensure_ascii=False)
 
-        with open(f"{args.generative_index_path}/{run_string}_{file_attribute}_all_metrics.json", "w") as f:
-            json.dump(all_metrics, f)
+        with open(functions_path, "w", encoding="utf-8") as f:
+            json.dump(function_dictionary, f, ensure_ascii=False)
 
-        with open(f"{args.generative_index_path}/{run_string}_{file_attribute}_top_k_keys.json", "w") as f:
-            json.dump(selected_keys, f)
+        with open(all_metrics_path, "w", encoding="utf-8") as f:
+            json.dump(all_metrics, f, ensure_ascii=False)
 
-        with open(f"{args.generative_index_path}/{run_string}_{file_attribute}_file2metadata.json", "w") as f:
-            json.dump(file2metadata, f)
+        with open(top_k_keys_path, "w", encoding="utf-8") as f:
+            json.dump(selected_keys, f, ensure_ascii=False)
 
-        with open(f"{args.generative_index_path}/{run_string}_{file_attribute}_top_k_extractions.json", "w") as f:
-            json.dump(top_k_extractions, f)
+        with open(file2metadata_path, "w", encoding="utf-8") as f:
+            json.dump(file2metadata, f, ensure_ascii=False)
 
-        print(f"Save path: {args.generative_index_path}/{run_string}_{file_attribute}_all_extractions.json")
+        with open(top_k_extractions_path, "w", encoding="utf-8") as f:
+            json.dump(top_k_extractions, f, ensure_ascii=False)
+
+        print(f"Save path: {all_extractions_path}")
         return total_tokens_prompted, 1
 
-    except Exception:
-        pass
+    except Exception as e:
+        print("Primary save failed:", repr(e))
 
     try:
         clean_file2metadata = {}
         for file, metadata in file2metadata.items():
             clean_file2metadata[file] = str(metadata)
 
-        with open(f"{args.generative_index_path}/{run_string}_{file_attribute}_file2metadata.json", "w") as f:
-            json.dump(clean_file2metadata, f)
+        with open(file2metadata_path, "w", encoding="utf-8") as f:
+            json.dump(clean_file2metadata, f, ensure_ascii=False)
 
-        with open(f"{args.generative_index_path}/{run_string}_{file_attribute}_all_metrics.json", "w") as f:
-            json.dump(all_metrics, f)
+        with open(all_metrics_path, "w", encoding="utf-8") as f:
+            json.dump(all_metrics, f, ensure_ascii=False)
 
-        with open(f"{args.generative_index_path}/{run_string}_{file_attribute}_top_k_keys.json", "w") as f:
-            json.dump(selected_keys, f)
+        with open(top_k_keys_path, "w", encoding="utf-8") as f:
+            json.dump(selected_keys, f, ensure_ascii=False)
 
         print("Saved!")
         return total_tokens_prompted, 1

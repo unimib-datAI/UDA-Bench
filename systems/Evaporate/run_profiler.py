@@ -117,16 +117,27 @@ def get_run_string(
     dynamicbackoff,
     models,
 ):
-    body = profiler_args.body_only
+    body = int(bool(profiler_args.body_only))
+    remove_tables = int(bool(profiler_args.remove_tables))
+    cascading = int(bool(do_end_to_end))
+    backoff = int(bool(dynamicbackoff))
+
     model_ct = len(models)
-    if profiler_args.use_qa_model:
+    if getattr(profiler_args, "use_qa_model", False):
         model_ct += 1
+
     run_string = (
-        f"dataLake{data_lake}_date{today}_fileSize{len(file_groups)}"
-        f"_trainSize{train_size}_numAggregate{profiler_args.num_top_k_scripts}"
-        f"_chunkSize{profiler_args.chunk_size}_removeTables{profiler_args.remove_tables}"
-        f"_body{body}_cascading{do_end_to_end}_useBackoff{dynamicbackoff}"
-        f"_MODELS{model_ct}"
+        f"dl{data_lake}"
+        f"_d{today}"
+        f"_fs{len(file_groups)}"
+        f"_ts{train_size}"
+        f"_k{profiler_args.num_top_k_scripts}"
+        f"_cs{profiler_args.chunk_size}"
+        f"_rt{remove_tables}"
+        f"_b{body}"
+        f"_c{cascading}"
+        f"_ub{backoff}"
+        f"_m{model_ct}"
     )
     return run_string
 
@@ -467,6 +478,8 @@ def run_experiment(profiler_args):
     today = datetime.datetime.today().strftime("%m%d%Y")
 
     _, _, _, _, args = get_structure(data_lake, profiler_args)
+    print("args.generative_index_path =", repr(args.generative_index_path))
+    print("args.cache_dir =", repr(args.cache_dir))
 
     os.makedirs(args.generative_index_path, exist_ok=True)
     os.makedirs(args.cache_dir, exist_ok=True)
@@ -500,6 +513,7 @@ def run_experiment(profiler_args):
         profiler_args.use_dynamic_backoff,
         profiler_args.EXTRACTION_MODELS,
     )
+    print("run_string =", repr(run_string))
 
     sample_files = sample_scripts(
         file_groups,
