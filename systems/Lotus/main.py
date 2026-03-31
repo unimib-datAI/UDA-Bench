@@ -23,10 +23,13 @@ def main():
 
     pipeline = LotusPipeline(domain=args.domain, use_cascade=args.cascade)
 
-    for i, sql in enumerate(queries):
-        print(f"Esecuzione Query SQL {i}/{len(queries)}...")
-        out_folder = settings.RESULTS_DIR / args.domain / args.query_type / f"SQL{i}"
-        pipeline.run_sql_task(sql, out_folder)
+    try:
+        for i, sql in enumerate(queries):
+            print(f"Execution Query SQL {i}/{len(queries)}...")
+            out_folder = settings.RESULTS_DIR / args.domain / args.query_type / f"SQL{i}"
+            pipeline.run_sql_task(sql, out_folder)
+    except Exception as e:
+        print(f"Error during \"{sql}\": {e}")
 
 if __name__ == "__main__":
     main()
