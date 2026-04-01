@@ -52,6 +52,7 @@ venv-evaporate/
 # UDA-Bench specific ignores
 # =========================
 **/result/
+**/Dataset/
 **/sql_eval/
 **/evaluation/demo_acc_result/
 
