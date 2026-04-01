@@ -9,7 +9,7 @@ from sql_metadata import Parser
 def main():
     parser = argparse.ArgumentParser(description="Lotus LLM Data Extractor/Filter")
     parser.add_argument("--query", type=str, nargs="+", required=True, help="SQL query")
-    parser.add_argument("--limit", type=int, nargs="+", required=True, help="Limit for the dataset rows")
+    parser.add_argument("--limit", type=int, required=False, default=-1,help="Limit for the dataset rows")
     parser.add_argument("--cascade", action="store_true", help="Use LM cascade strategy")
     args = parser.parse_args()
         
@@ -26,7 +26,7 @@ def main():
         domains.add(domain)
         queries.append((query, domain))
 
-    pipelines = {domain: LotusPipeline(domain=domain, use_cascade=args.cascade) for domain in domains}
+    pipelines = {domain: LotusPipeline(domain=domain, use_cascade=args.cascade, limit=args.limit) for domain in domains}
     
     try:
         timestamp = int(time.time())
