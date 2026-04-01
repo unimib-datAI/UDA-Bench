@@ -1,5 +1,5 @@
 {
-    "Wiki_Text":[
+    "art":[
         "name: full name of the artist",
         "nationality: artist's nationality (e.g., french, japanese)",
         "art_movement: art movement contributed to (e.g., impressionism)",

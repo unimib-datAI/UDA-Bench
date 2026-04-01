@@ -1,35 +1,47 @@
 import argparse
-import os
-from pathlib import Path
-from core.pipeline import LotusPipeline
+import time
 
 from config.settings import settings
 
+from core.pipeline import LotusPipeline
+from sql_metadata import Parser
+
 def main():
     parser = argparse.ArgumentParser(description="Lotus LLM Data Extractor/Filter")
-    parser.add_argument("--domain", type=str, required=True, help="Domain (e.g., finance, institutes)")
+    parser.add_argument("--query", type=str, nargs="+", required=True, help="SQL query")
+    parser.add_argument("--limit", type=int, nargs="+", required=True, help="Limit for the dataset rows")
     parser.add_argument("--cascade", action="store_true", help="Use LM cascade strategy")
-    parser.add_argument("--query-type", type=str, choices=["SF", "SFW"], required=False, help="Type of query", default="SF")
     args = parser.parse_args()
-
-    sql_path = settings.BENCHMARK_DIR / f"Query/{args.domain}/{args.query_type}.sql"
+        
+    if not args.query and len(args.query) < 1:
+        print("Error: No SQL query provided. Use --query to specify the SQL query.")
+        return
     
-    if not os.path.exists(sql_path):
-        raise FileNotFoundError(f"SQL file not found at {sql_path}")
+    domains = set()
+    queries = []
     
-    with open(sql_path, 'r', encoding='utf-8') as f:
-        sql_blocks = f.read().split('\n')
-        queries = [sql_block.strip() for sql_block in sql_blocks if sql_block.strip()]
+    for query in args.query:
+        domain = Parser(query).tables
+        domain = domain[0] if domain else ""
+        domains.add(domain)
+        queries.append((query, domain))
 
-    pipeline = LotusPipeline(domain=args.domain, use_cascade=args.cascade)
-
+    pipelines = {domain: LotusPipeline(domain=domain, use_cascade=args.cascade) for domain in domains}
+    
     try:
-        for i, sql in enumerate(queries):
-            print(f"Execution Query SQL {i}/{len(queries)}...")
-            out_folder = settings.RESULTS_DIR / args.domain / args.query_type / f"SQL{i}"
-            pipeline.run_sql_task(sql, out_folder)
+        timestamp = int(time.time())
+        for i, sql_info in enumerate(queries):
+            query, domain = sql_info
+            
+            print(f"Execution Query SQL {i+1}/{len(queries)}: {query} (Domain: {domain})")
+            
+            pipeline = pipelines[domain]
+            out_folder = settings.RESULTS_DIR / f"{timestamp}" / f"{i}"
+            pipeline.run_sql_task(query, out_folder)
+            
+            print("Execution completed. Results saved to:", out_folder)
     except Exception as e:
-        print(f"Error during \"{sql}\": {e}")
+        print(f"Error during \"{query}\": {e}")
 
 if __name__ == "__main__":
     main()

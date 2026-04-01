@@ -65,10 +65,11 @@ systems/DocETL/outputs/
 systems/DocETL/real/outputs/
 
 # =========================
-# Lotus - Allow
+# Lotus
 # =========================
 !systems/lotus/*/*.json
 !systems/lotus/requirements.txt
+**/systems/lotus/results/
 
 # =========================
 # Keep templates

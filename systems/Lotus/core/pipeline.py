@@ -12,14 +12,15 @@ from utils.sql_parser import parse_sql
 from utils.io import load_json
 
 class LotusPipeline:
-    def __init__(self, domain: str, use_cascade: bool = False):
+    def __init__(self, domain: str, use_cascade: bool = False, limit: int = -1):
         self.domain = domain
         self.use_cascade = use_cascade
-        
+        self.limit = limit
+
         os.environ["GEMINI_API_KEY"] = settings.GEMINI_API_KEY 
         
-        model_mini = "gemini/gemini-2.0-flash"
-        model_pro = "gemini/gemini-2.5-flash"
+        model_mini = settings.MODEL_MINI
+        model_pro = settings.MODEL_PRO
         
         self.lm_main = LM(model=model_mini if not use_cascade else model_pro)
         
@@ -33,27 +34,46 @@ class LotusPipeline:
         self._load_data()
 
     def _load_configs(self):        
-        self.extractions = load_json('extractions.json', self.domain)
-        self.descriptions = load_json('descriptions.json', self.domain)
-        self.examples = load_json('examples.json', self.domain)
+        self.extractions = load_json(os.path.join(settings.BENCHMARK_DIR, 'extractions.json'), self.domain)
+        self.descriptions = load_json(os.path.join(settings.BENCHMARK_DIR, 'descriptions.json'), self.domain)
+        self.examples = load_json(os.path.join(settings.BENCHMARK_DIR, 'examples.json'), self.domain)
 
     def _load_data(self):
-        csv_path = settings.BENCHMARK_DIR / f"ground_truth/{self.domain}.csv"
+        dataset_folder = settings.PROJECT_ROOT / "Dataset"
         
-        if not os.path.exists(csv_path):
+        if not os.path.exists(dataset_folder):
+            raise FileNotFoundError(f"Dataset folder not found at {dataset_folder}")
+
+        domain_folder = dataset_folder / self.domain
+        if os.path.exists(domain_folder):
+            csv_path = dataset_folder / self.domain / "GT.csv"
+        else:
+            csv_path = None
+            for folder in dataset_folder.iterdir():
+                for subfolder in folder.iterdir():
+                    if subfolder.is_dir() and subfolder.name.lower() == self.domain.lower():
+                        csv_path = subfolder / "GT.csv"
+                        domain_folder = subfolder
+                        break
+                    
+        if not csv_path or not os.path.exists(csv_path):
             raise FileNotFoundError(f"Ground truth CSV not found at {csv_path}")
         
         self.df_truth = pd.read_csv(csv_path)
-        self.ids = self.df_truth["id"].dropna().astype(str).tolist()[:30]
-
-        base_dir = settings.BENCHMARK_DIR / f"datasets/{self.domain}"
         
-        if not os.path.exists(base_dir):
-            raise FileNotFoundError(f"Dataset directory not found at {base_dir}")
+        if self.limit > 0:
+            self.df_truth = self.df_truth[:self.limit]
+            
+        if "id" in self.df_truth:
+            self.ids = self.df_truth["id"].dropna().astype(str).tolist()
+        elif "ID" in self.df_truth:
+            self.ids = self.df_truth["ID"].dropna().astype(str).tolist()
+        else:
+            raise ValueError(f"Column 'id' or 'ID' not found in {csv_path}")
         
         contexts = []
         for id_value in self.ids:
-            file_path = base_dir / f"{id_value}.txt"
+            file_path = domain_folder / "files" / f"{id_value}.txt"
             if file_path.exists():
                 with open(file_path, "r", encoding="utf-8") as f:
                     contexts.append(f.read().strip())
