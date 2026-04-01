@@ -18,29 +18,5 @@ services:
       timeout: 5s
       retries: 5
 
-  app:
-    build: .
-    container_name: quest_app
-    depends_on:
-      vectordb:
-        condition: service_healthy 
-    environment:
-      - DB_HOST=vectordb
-      - PYTHONPATH=/ 
-    working_dir: /
-    volumes:
-      - .:/quest
-    command: >
-      sh -c "
-      if [ ! -f /quest/.db_built ]; then
-        echo 'Database not found. Building database...';
-        python /quest/build_db.py && touch /quest/.db_built;
-        echo 'Database built successfully.';
-      else
-        echo 'Database already built.';
-      fi;
-      tail -f /dev/null
-      "
-
 volumes:
   pgvector_data:

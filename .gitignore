@@ -71,6 +71,11 @@ systems/DocETL/real/outputs/
 !systems/lotus/requirements.txt
 
 # =========================
+# Quest
+# =========================
+**systems/quest/results/
+
+# =========================
 # Keep templates
 # =========================
 !**/template_api_key.yaml
