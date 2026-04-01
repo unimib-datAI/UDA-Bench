@@ -1,10 +1,10 @@
 from .aggregation import Aggregation
-from quest.core.datapack import *
-from quest.utils import *
+from core.datapack import *
+from utils import *
 import pandas as pd
 import copy
-from quest.utils.log import print_log
-from quest.conf import sqlconst
+from utils.log import print_log
+from conf import sqlconst
 
 class AggregationText(Aggregation):
     """

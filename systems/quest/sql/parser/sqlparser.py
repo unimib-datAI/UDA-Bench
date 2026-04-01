@@ -1,8 +1,8 @@
 
 import ply.lex as lex
 import ply.yacc as yacc
-from quest.core.node import ast_node as astn
-from quest.conf import sqlconst
+from core.node import ast_node as astn
+from conf import sqlconst
 
 #import myast.ast_node as astn
 #import myparser.consts as const

@@ -1,18 +1,18 @@
 import os
+from pathlib import Path
 from dotenv import load_dotenv
 import google.generativeai as genai
 import tiktoken
 
 load_dotenv()
 
-from quest.db.connector.connector import create_opengauss_engine
+from db.connector.connector import create_opengauss_engine
 
 opengauss_conn = create_opengauss_engine()
 
-current_file_path = os.path.abspath(__file__)
-dir_name= os.path.dirname(current_file_path)
-
-ABS_PROJECT_ROOT_PATH = "/quest"  
+FILE_PATH = Path(__file__).resolve()
+SYSTEM_ROOT = FILE_PATH.parent.parent
+PROJECT_ROOT = SYSTEM_ROOT.parent.parent
 
 # THRESHOLD
 JOIN_EDIT_DISTANCE_THRESHOLD = 0.8
@@ -20,22 +20,21 @@ JOIN_SEMANTIC_THRESHOLD = 0.9
 RETRIEVE_FULL_THRESHOLD = 0.1
 
 # LOG
-RELATIVE_PROJECT_ROOT_PATH = os.path.join(dir_name)
-LOG_DIR = os.path.join(dir_name, "/tests/log")
-LOG_DIR_NAME = os.path.join(LOG_DIR, "log_sampling.log")
+LOG_DIR = SYSTEM_ROOT / "tests" / "log"
+LOG_DIR_NAME = LOG_DIR / "log_sampling.log"
 
 # local small model
-LOCAL_MODEL_DIR = os.path.join(ABS_PROJECT_ROOT_PATH, "model/")
-DATASET_DIR = os.path.join(ABS_PROJECT_ROOT_PATH, "data/dataset/")
+LOCAL_MODEL_DIR = SYSTEM_ROOT / "model/"
+DATASET_DIR = PROJECT_ROOT / "Dataset"
 
 # index file
-INDEX_ROOT_DIR = os.path.join(RELATIVE_PROJECT_ROOT_PATH, "data/index/")
+INDEX_ROOT_DIR = PROJECT_ROOT / "Data" / "Index/"
 OLLAMA_BASE =  "http://localhost:11434"
 
 API_BASE = os.getenv("API_BASE", "https://generativelanguage.googleapis.com")
 GEMINI_API_BASE = os.getenv("GEMINI_API_BASE", API_BASE)
 
-LLM_MODEL = 'gemini/gemini-2.0-flash'
+LLM_MODEL = 'gemini/gemini-2.5-flash'
 
 API_EMB_MODEL = "gemini/gemini-embedding-001"  
 API_EMB_API_BASE = GEMINI_API_BASE

@@ -13,7 +13,7 @@ import litellm
 sys.path.append('/data/QUEST/jzshe/project/quest')
 from tqdm import tqdm
 
-from quest.utils.acc.mod_acc_test_copy import cal_sql_acc, clean_pd
+from utils.acc.mod_acc_test_copy import cal_sql_acc, clean_pd
 
 from dotenv import load_dotenv
 

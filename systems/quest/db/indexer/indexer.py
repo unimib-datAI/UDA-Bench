@@ -1,23 +1,23 @@
 import json
 import os
 from typing import Tuple, Dict
-from quest.core.datapack.doc import Doc, TextDoc, ZenDBDoc
-from quest.db.indexer.single_indexer import SingleIndexer, TextDocIndexer
-from quest.db.indexer.zendb_indexer import ZenDBDocIndexer
+from core.datapack.doc import Doc, TextDoc, ZenDBDoc
+from db.indexer.single_indexer import SingleIndexer, TextDocIndexer
+from db.indexer.zendb_indexer import ZenDBDocIndexer
 
-from quest.conf.settings import RELATIVE_PROJECT_ROOT_PATH, API_EMB_API_BASE, API_EMB_MODEL, API_EMB_API_KEY
-from quest.db.indexer.preprocessor.load_documents import load_TextDocs_from_directory, load_ZenDBDoc_from_directory
+from conf.settings import SYSTEM_ROOT, API_EMB_API_BASE, API_EMB_MODEL, API_EMB_API_KEY
+from db.indexer.preprocessor.load_documents import load_TextDocs_from_directory, load_ZenDBDoc_from_directory
 
 
-from quest.core.embedding.e5Embedding import batchedE5Embeddings, batchedBGEEmbeddings
-from quest.core.embedding.apiEmbedding import ApiEmbeddings
+from core.embedding.e5Embedding import batchedE5Embeddings, batchedBGEEmbeddings
+from core.embedding.apiEmbedding import ApiEmbeddings
 
 # SingleIndexer默认使用的Embedding方法:
 
 api_emb_model = ApiEmbeddings(model = API_EMB_MODEL, api_base= API_EMB_API_BASE, api_key=API_EMB_API_KEY, batch_size=64)
 
 # SingleIndexer默认使用的chunker方法
-from quest.core.chunker.chunker import GrammarSemanticChunker, SentenceTransformerTokenTextChunker, RecursiveTokenTextChunker, TokenTextChunker
+from core.chunker.chunker import GrammarSemanticChunker, SentenceTransformerTokenTextChunker, RecursiveTokenTextChunker, TokenTextChunker
 TOKEN_CHUNKER = TokenTextChunker(chunk_size=20000, chunk_overlap=128)
 
 RECURSIVE_TOKEN_CHUNKER = RecursiveTokenTextChunker(chunk_size=512, chunk_overlap=128)
@@ -33,7 +33,7 @@ class GlobalIndexer:
     全局索引器类，负责管理所有表的索引
     """
 
-    def __init__(self, config_save_path: str = os.path.join(RELATIVE_PROJECT_ROOT_PATH, "data/global_index/global_index.json"), chunker = None, embedding_model = None):
+    def __init__(self, config_save_path: str = os.path.join(SYSTEM_ROOT, "data/global_index/global_index.json"), chunker = None, embedding_model = None):
         """
         初始化GlobalIndexer实例
 

@@ -1,12 +1,12 @@
 from .filter import Filter
-from quest.core.datapack import *
-from quest.utils import *
+from core.datapack import *
+from utils import *
 import pandas as pd
 import copy
-from quest.core.llm.llm_query import TextLLMQuerier
-from quest.core.node.logical_node import BinaryNode, FilterNode
-from quest.core.node import ast_node as astn
-from quest.utils.log import print_log
+from core.llm.llm_query import TextLLMQuerier
+from core.node.logical_node import BinaryNode, FilterNode
+from core.node import ast_node as astn
+from utils.log import print_log
 
 def list_and(x, y):
     if x == None:

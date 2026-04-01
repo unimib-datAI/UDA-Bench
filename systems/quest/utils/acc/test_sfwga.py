@@ -2,7 +2,7 @@
 import pandas as pd
 import sys
 sys.path.append("/data/QUEST/jzshe/project/quest")
-from quest.utils.acc.mod_acc_test import cal_sql_acc
+from utils.acc.mod_acc_test import cal_sql_acc
 
 sql = "SELECT team, COUNT(*) FROM player WHERE draft_year<=1979 OR olympic_gold_medals==3 GROUP BY team;"
 

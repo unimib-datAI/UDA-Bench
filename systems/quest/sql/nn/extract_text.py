@@ -1,11 +1,11 @@
 from .base import Base
 from .extract import Extract
-from quest.core.datapack import *
-from quest.utils import *
+from core.datapack import *
+from utils import *
 import pandas as pd
 import copy
-from quest.core.llm.llm_query import TextLLMQuerier
-from quest.utils.log import print_log
+from core.llm.llm_query import TextLLMQuerier
+from utils.log import print_log
 
 class ExtractText(Extract):
     """

@@ -4,7 +4,7 @@ from numpy.typing import NDArray
 from langchain_core.embeddings import Embeddings
 from tqdm import tqdm
 import litellm  # 确保你已安装 litellm
-from quest.conf.settings import count_tokens, API_EMB_MODEL, API_EMB_API_BASE, API_EMB_API_KEY
+from conf.settings import count_tokens, API_EMB_MODEL, API_EMB_API_BASE, API_EMB_API_KEY
 
 import os
 

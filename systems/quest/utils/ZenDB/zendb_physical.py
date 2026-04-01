@@ -1,9 +1,9 @@
-from quest.sql.nn import *
-from quest.core.node import ast_node as astn
-from quest.conf import sqlconst
+from sql.nn import *
+from core.node import ast_node as astn
+from conf import sqlconst
 import copy
 
-from quest.sql.nn.zendb_retrieve_text import ZendbRetrieveText
+from sql.nn.zendb_retrieve_text import ZendbRetrieveText
 
 
 class ZendbTextPhysicalPlanner(object):

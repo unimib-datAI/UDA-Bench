@@ -6,11 +6,11 @@ from heapq import nlargest
 import nltk
 
 import os
-from quest.conf.settings import ABS_PROJECT_ROOT_PATH
-from quest.core.chunker.splitter import spacyCutStep
+from conf.settings import SYSTEM_ROOT
+from core.chunker.splitter import spacyCutStep
 
 
-nltk_user_path = os.path.join(ABS_PROJECT_ROOT_PATH, "model/nltk_data")
+nltk_user_path = os.path.join(SYSTEM_ROOT, "model/nltk_data")
 nltk.data.path.clear()
 nltk.data.path.append(nltk_user_path)  # 将数据路径设置为当前目录下的data文件夹
 

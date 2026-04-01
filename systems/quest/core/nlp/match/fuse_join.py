@@ -1,8 +1,8 @@
 
-from quest.core.nlp.match.table_matcher.table_join import pd_join_by_column, create_advanced_join_matcher
-from quest.core.nlp.match.table_matcher.modular_matcher import MatchingConfig, create_comprehensive_matcher
+from core.nlp.match.table_matcher.table_join import pd_join_by_column, create_advanced_join_matcher
+from core.nlp.match.table_matcher.modular_matcher import MatchingConfig, create_comprehensive_matcher
 
-from quest.core.nlp.match.table_matcher.table_join import pd_join_by_column_with_join_type
+from core.nlp.match.table_matcher.table_join import pd_join_by_column_with_join_type
 advanced_matcher = create_advanced_join_matcher()
 
 def pd_fuse_join(left_table, right_table, left_on, right_on, column_type = 'TEXT', join_type='inner', matcher=advanced_matcher):

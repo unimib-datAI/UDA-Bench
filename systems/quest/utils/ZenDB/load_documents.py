@@ -5,7 +5,7 @@ from typing import Dict, List
 from pathlib import Path
 import pdfplumber
 
-from quest.core.datapack.doc import TextDoc, ZenDBDoc
+from core.datapack.doc import TextDoc, ZenDBDoc
 
 # SHT
 def util_load_zendb_docs(paths, debug_flag=False, topK = 1, start_doc_id = 1) -> List[ZenDBDoc]:

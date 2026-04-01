@@ -1,6 +1,6 @@
 from abc import ABCMeta, abstractmethod
 from decimal import Decimal
-from quest.conf import sqlconst
+from conf import sqlconst
 
 
 class ASTNode(object):

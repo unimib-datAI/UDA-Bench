@@ -8,7 +8,7 @@ import numpy as np
 from typing import Dict, List, Union, Tuple, Optional
 import re
 import warnings
-from quest.core.nlp.match.table_matcher.match_strategies import (
+from core.nlp.match.table_matcher.match_strategies import (
     MatchStrategy, MatchingEngine, MatchResult,
     ExactMatchStrategy, EditDistanceStrategy, 
     SemanticSimilarityStrategy, LLMJudgeStrategy

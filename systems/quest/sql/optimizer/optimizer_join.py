@@ -1,10 +1,10 @@
-from quest.sql.nn import *
-from quest.utils import *
-from quest.core.node import ast_node as astn
-from quest.core.node.logical_node import FilterNode, BinaryNode
-from quest.conf import sqlconst
+from sql.nn import *
+from utils import *
+from core.node import ast_node as astn
+from core.node.logical_node import FilterNode, BinaryNode
+from conf import sqlconst
 import copy
-from quest.utils.log import print_log
+from utils.log import print_log
 import functools
 import pandas as pd
 import numpy as np

@@ -1,9 +1,9 @@
 from .join import Join
-from quest.utils import *
-from quest.core.datapack import *
+from utils import *
+from core.datapack import *
 import pandas as pd
-from quest.core.nlp.match.fuse_join import pd_fuse_join
-from quest.utils.log import print_log
+from core.nlp.match.fuse_join import pd_fuse_join
+from utils.log import print_log
 import copy
 
 class JoinText(Join):

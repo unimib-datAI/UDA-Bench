@@ -5,14 +5,23 @@ from tqdm import tqdm
 import tiktoken
 import os
 import logging
-import quest.conf.settings as settings
+import conf.settings as settings
 import copy
 import random
-from quest.core.llm.llm_query import LLMInfo
+from core.llm.llm_query import LLMInfo
+
+
+def normalize_api_base(api_base):
+    if not api_base:
+        return None
+    api_base = str(api_base).strip()
+    if "generativelanguage.googleapis.com" in api_base:
+        return None
+    return api_base
 
 import re
 
-from quest.db.indexer.single_indexer import SingleIndexer, TextDocIndexer
+from db.indexer.single_indexer import SingleIndexer, TextDocIndexer
 
 def extract_attr_descriptions_from_schema(attr_schema):
     # 从attr_schema字符串中提取属性描述列表
@@ -142,7 +151,7 @@ def parse_xyz_with_chunkid(input_str, attr_names=None):
 class AttrSampler:
 
     def __init__(self, schema = "", llm = settings.GPT_MODEL, api_base= settings.GPT_API_BASE, max_tokens = 1024):
-        self.api_base = settings.GPT_API_BASE # api_base
+        self.api_base = normalize_api_base(api_base)
         self.llm =  settings.GPT_MODEL # llm        
         self.extract_task_prompt = """
             Your Task is to extract key-value pairs from text chunks with following guides:
@@ -245,14 +254,25 @@ class AttrSampler:
                 for v in talk.values():
                     LLMInfo.add_input_tokens(len(settings.enc.encode(v)))
 
-        response = completion(
-                model=self.llm, 
-                messages=final_prompt,
-                max_tokens=self.max_tokens,
-                stop=None,
-                temperature=0,
-                api_base=self.api_base
-            )
+        api_kwargs = {
+                "model": self.llm,
+                "messages": final_prompt,
+                "max_tokens": self.max_tokens,
+                "stop": None,
+                "temperature": 0,
+        }
+        if self.api_base:
+            api_kwargs["api_base"] = self.api_base
+
+        temp_gemini_base = os.environ.pop("GEMINI_API_BASE", None)
+        temp_api_base = os.environ.pop("API_BASE", None)
+        try:
+            response = completion(**api_kwargs)
+        finally:
+            if temp_gemini_base is not None:
+                os.environ["GEMINI_API_BASE"] = temp_gemini_base
+            if temp_api_base is not None:
+                os.environ["API_BASE"] = temp_api_base
 
         result = response.choices[0].message['content'].strip()     
         LLMInfo.add_output_tokens(len(settings.enc.encode(result)))

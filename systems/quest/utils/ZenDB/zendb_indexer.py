@@ -21,11 +21,11 @@ from datetime import datetime
 import time
 from openai import OpenAI
 import random
-from quest.core.datapack.doc import ZenDBDoc
-from quest.core.llm.llm_query import LLMInfo
-from quest.core.nlp.doc_summary import tfidf_summary
-from quest.db.indexer.single_indexer import SingleIndexer
-from quest.db.querier.querier import OpenGaussQuerier
+from core.datapack.doc import ZenDBDoc
+from core.llm.llm_query import LLMInfo
+from core.nlp.doc_summary import tfidf_summary
+from db.indexer.single_indexer import SingleIndexer
+from db.querier.querier import OpenGaussQuerier
 import wordninja
 import pyparsing as pp
 import os
@@ -112,12 +112,12 @@ class SHTNode:
         """is leaf"""
         return len(self.children) == 0
 
-from quest.conf.settings import ABS_PROJECT_ROOT_PATH, count_tokens
+from conf.settings import SYSTEM_ROOT, count_tokens
 
 class ZenDBDocIndexer(SingleIndexer):
     """ZenDBIndexer"""
     
-    def __init__(self, table_name: str, type: str = "ZenDBDoc", root_save_path = os.path.join(ABS_PROJECT_ROOT_PATH, "data/single_index"), need_clean_chunk = False, embedding_model = None, **kwargs):
+    def __init__(self, table_name: str, type: str = "ZenDBDoc", root_save_path = os.path.join(SYSTEM_ROOT, "data/single_index"), need_clean_chunk = False, embedding_model = None, **kwargs):
         print("build ZenDB-singleIndex...")
         self.embedding_size = embedding_model.emb_size 
         self.embedding_model = embedding_model

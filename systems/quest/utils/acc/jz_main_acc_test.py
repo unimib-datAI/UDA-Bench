@@ -17,7 +17,7 @@ load_dotenv()
 sys.path.append('/data/QUEST/jzshe/project/quest')
 from tqdm import tqdm
 
-from quest.utils.acc.mod_acc_test import cal_sql_acc, clean_pd
+from utils.acc.mod_acc_test import cal_sql_acc, clean_pd
 
 os.environ["OPENAI_API_BASE"] = os.getenv("DEEPSEEK_BASE_URL")
 os.environ["OPENAI_API_KEY"] = os.getenv("DEEPSEEK_API_KEY")

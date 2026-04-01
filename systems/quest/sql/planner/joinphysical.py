@@ -1,8 +1,8 @@
-from quest.sql.nn import *
-from quest.core.node import ast_node as astn
-from quest.conf import sqlconst
+from sql.nn import *
+from core.node import ast_node as astn
+from conf import sqlconst
 import copy
-from quest.utils.log import print_log
+from utils.log import print_log
 
 
 class JoinPhysicalPlanner(object):

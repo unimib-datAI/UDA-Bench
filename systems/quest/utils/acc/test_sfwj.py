@@ -3,7 +3,7 @@ import pandas as pd
 import sys
 sys.path.append("/data/QUEST/jzshe/project/quest")
 
-from quest.utils.acc.mod_acc_test import cal_sql_acc
+from utils.acc.mod_acc_test import cal_sql_acc
 
 
 # 请根据下面的SQL语句为我写一个简单的测试抽取表格准确率的测试程序
