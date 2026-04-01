@@ -9,29 +9,12 @@ DATASET_ROOT = os.path.join(BASE_DIR, "Dataset")
 os.makedirs(DATASET_ROOT, exist_ok=True)
 
 DRIVE_LINKS = {
-    "art": [
-        ("art", "https://drive.google.com/file/d/14s0kjBXO8_Zr2yDhJFjNFjqVq8-91X3J/view?usp=drive_link")
-    ], # Art
-    "player": [
-        ("team", "https://drive.google.com/file/d/1fTpZU60IIfoumlqHuArmLv7zW3hCMMzV/view?usp=drive_link"),
-        ("player", "https://drive.google.com/file/d/1SscnlaJd52ZfaorjfRbOSQfphRighcqh/view?usp=drive_link"),
-        ("owner", "https://drive.google.com/file/d/1UKDwY861mlcSpT_CchRFZI1i_xdTccYO/view?usp=drive_link"),
-        ("city", "https://drive.google.com/file/d/1KEO8o5OBf9JJtdPR46hAvqf_YgO21iXO/view?usp=drive_link")
-    ], # Player
-    "legal": [
-        ("legal", "https://drive.google.com/file/d/1q6jZaUrNuYOeTfombi3dsc8k40GZ2tcU/view?usp=drive_link")
-    ], # Legal
-    "finance": [
-        ("finance", "https://drive.google.com/file/d/1fnfxA3oS4RE1su7x8JjHfvvskakvMvUz/view?usp=drive_link")
-    ], # Finance
-    "healthcare": [
-        ("institutes", "https://drive.google.com/file/d/1RLd2sagpY5-cIFGAII3gxtHEdAHT9_hf/view?usp=sharing"),
-        ("drug", "https://drive.google.com/file/d/1shmOOyI9LRMYm8N16tcsSen0AmAz9eY-/view?usp=sharing"),
-        ("disease", "https://drive.google.com/file/d/1i2w_7U8jEgM_Nz-GxwRvtTVicC3FNF_j/view?usp=sharing")
-    ], # Healthcare
-    "cspaper": [
-        ("cspaper", "https://drive.google.com/file/d/1ScmZHsRLTDbgKxL22PDU4P5VrNXct9pi/view?usp=drive_link")
-    ] # RAG
+    "art": "https://drive.google.com/file/d/1YXzcLd4pGVBk-S5mIhjpBwOD51AbIYNs/view?usp=sharing", # Art
+    "nba": "https://drive.google.com/file/d/1FYIH1n2hFO6Ziz_DerYZf_tb3qz7QmVB/view?usp=sharing", # NBA
+    "legal": "https://drive.google.com/file/d/1JgRB8hTRKny7IHFbvNMGE5Off32b2cL8/view?usp=sharing", # Legal
+    "finance": "https://drive.google.com/file/d/1yMI-kn9WfAk-g-LSrWycvDDkwVtGhCaK/view?usp=sharing", # Finance
+    "medical": "https://drive.google.com/file/d/1byJT-z2r_rX5wFiAy5Os2jP6bYfFb9nq/view?usp=sharing", # Healthcare
+    "cspaper": "https://drive.google.com/file/d/1uMy7Q-95YMrLoQcthoK2F1Ayh2qvnvZe/view?usp=sharing" # RAG
 }
 
 def download_and_extract(dataset: list[tuple[str, str]]) -> None:
@@ -106,7 +89,7 @@ if __name__ == "__main__":
     
     links_to_download = []
     for dataset in args.dataset:
-        links_to_download.extend(DRIVE_LINKS.get(dataset.lower(), []))
+        links_to_download.append((dataset.lower(), DRIVE_LINKS.get(dataset.lower(), [])))
     
     print(f"🚀 Starting script for dataset(s): {', '.join(args.dataset).upper()}\n")
     

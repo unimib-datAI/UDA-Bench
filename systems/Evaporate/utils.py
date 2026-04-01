@@ -4,64 +4,100 @@ import time  # NEW ADDITION: Added for performance tracking
 from collections import Counter, defaultdict
 
 from manifest import Manifest
-from evaporate.configs import get_args
-from evaporate.prompts import Step
+from configs import get_args
+from prompts import Step
 from openai import OpenAI
-from evaporate.llm_metrics import LLMCallMetrics, get_global_tracker  # NEW ADDITION: Added for LLM call tracking
+from llm_metrics import LLMCallMetrics, get_global_tracker  # NEW ADDITION: Added for LLM call tracking
 
 cur_idx = 0
 TOGETHER_API_KEY = os.environ.get("TOGETHER_API_KEY")
 #If using together AI, you will need to set the TOGETHER_API_KEY to your API key
 
 
-def together_call(prompt, model, streaming = False, max_tokens = 1024):
-    """使用OpenAI兼容API调用LLM，包含统计跟踪"""
-    # NEW ADDITION: Enhanced version with performance tracking and error handling
-    start_time = time.time()
-    
-    client = OpenAI(
-        api_key="sk-Ofkb1628f45c85c2d4675fe3abee601214346d0fa73I8p3w",
-        #"sk-gqGLgNma0ENAPxcl4246B8F660F348E89356024b57CdDc40"
-        #"sk-Ofkb1628f45c85c2d4675fe3abee601214346d0fa73I8p3w"
-        base_url='https://api.gptsapi.net/v1',
-        #https://aihubmix.com/v1
-        #https://api.gptsapi.net/v1
+import os
+from openai import OpenAI
 
+def together_call(prompt, model, streaming=False, max_tokens=1024):
+    """Call Gemini through Google's OpenAI-compatible endpoint and track usage metrics."""
+    start_time = time.time()
+
+    api_key = os.environ.get("GEMINI_API_KEY")
+    if not api_key:
+        raise ValueError("Missing GEMINI_API_KEY environment variable")
+
+    client = OpenAI(
+        api_key=api_key,
+        base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
     )
-    # OLD VERSION:
-    # client = OpenAI(
-    #     api_key="sk-gqGLgNma0ENAPxcl4246B8F660F348E89356024b57CdDc40",
-    #     base_url='https://aihubmix.com/v1',
-    # )
-    messages = [{
-        "role": "system",
-        "content": "You are an AI assistant",
-    }, {
-        "role": "user",
-        "content": prompt,
-    }]
-    
+
+    messages = [
+        {
+            "role": "system",
+            "content": "You are an AI assistant",
+        },
+        {
+            "role": "user",
+            "content": prompt,
+        },
+    ]
+
     try:
         chat_completion = client.chat.completions.create(
             messages=messages,
             model=model,
             max_tokens=max_tokens,
-            #response_format={ "type": "json_object" },
-            stream=streaming
+            stream=streaming,
         )
-        
+
         end_time = time.time()
         latency = end_time - start_time
-        
-        response = chat_completion.choices[0].message.content
-        
-        # 获取token使用统计
-        usage = chat_completion.usage
-        prompt_tokens = usage.prompt_tokens if usage else 0
-        completion_tokens = usage.completion_tokens if usage else 0
-        total_tokens = usage.total_tokens if usage else 0
-        
-        # 记录统计信息
+
+        # Non-streaming path
+        if not streaming:
+            response = chat_completion.choices[0].message.content or ""
+
+            usage = getattr(chat_completion, "usage", None)
+            prompt_tokens = usage.prompt_tokens if usage else 0
+            completion_tokens = usage.completion_tokens if usage else 0
+            total_tokens = usage.total_tokens if usage else (prompt_tokens + completion_tokens)
+
+            metrics = LLMCallMetrics(
+                model=model,
+                prompt_tokens=prompt_tokens,
+                completion_tokens=completion_tokens,
+                total_tokens=total_tokens,
+                latency=latency,
+                call_id=f"together_call_{int(time.time())}"
+            )
+            get_global_tracker().add_call(metrics)
+
+            return response, total_tokens
+
+        # Streaming path
+        collected_chunks = []
+        prompt_tokens = 0
+        completion_tokens = 0
+        total_tokens = 0
+
+        for chunk in chat_completion:
+            try:
+                delta = chunk.choices[0].delta.content
+                if delta:
+                    collected_chunks.append(delta)
+            except Exception:
+                pass
+
+            usage = getattr(chunk, "usage", None)
+            if usage:
+                prompt_tokens = getattr(usage, "prompt_tokens", prompt_tokens) or prompt_tokens
+                completion_tokens = getattr(usage, "completion_tokens", completion_tokens) or completion_tokens
+                total_tokens = getattr(usage, "total_tokens", total_tokens) or total_tokens
+
+        response = "".join(collected_chunks)
+
+        if total_tokens == 0:
+            total_tokens = prompt_tokens + completion_tokens
+
         metrics = LLMCallMetrics(
             model=model,
             prompt_tokens=prompt_tokens,
@@ -70,23 +106,13 @@ def together_call(prompt, model, streaming = False, max_tokens = 1024):
             latency=latency,
             call_id=f"together_call_{int(time.time())}"
         )
-        
         get_global_tracker().add_call(metrics)
-        
+
         return response, total_tokens
-        
+
     except Exception as e:
         print(f"LLM调用错误: {e}")
         return "", 0
-    
-    # OLD VERSION:
-    # chat_completion = client.chat.completions.create(messages=messages,
-    #                                                 model=model,
-    #                                                 max_tokens=max_tokens,
-    #                                                 #response_format={ "type": "json_object" },
-    #                                                 stream=streaming)
-    # response = chat_completion.choices[0].message.content
-    # return response
 
 def apply_prompt(step : Step, max_toks = 50, do_print=False, manifest=None, overwrite_cache=False):
     global cur_idx 
