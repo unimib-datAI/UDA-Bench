@@ -1,7 +1,10 @@
 docetl==0.2.6
 litellm==1.82.4
-pyrate-limiter==3.6.1
+pyrate-limiter==3.7.0
 
-# dipendenze utili (non strettamente obbligatorie ma comuni)
 pandas>=2.0.0
 numpy>=1.24.0
+
+python-dotenv
+sqlglot
+duckdb
