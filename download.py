@@ -17,6 +17,20 @@ DRIVE_LINKS = {
     "cspaper": "https://drive.google.com/file/d/1uMy7Q-95YMrLoQcthoK2F1Ayh2qvnvZe/view?usp=sharing" # RAG
 }
 
+REDIRECT_LINKS = {
+    "art": "art",
+    "cspaper": "rag",
+    "finance": "finance",
+    "legal": "legal",
+    "disease": "medical",
+    "drug": "medical",
+    "institution": "medical",
+    "city": "nba",
+    "manager": "nba",
+    "player": "nba",
+    "team": "nba"
+}
+
 def download_and_extract(dataset: list[tuple[str, str]]) -> None:
     print("📥 Starting the download and extraction of files from Google Drive...\n")
 
@@ -70,10 +84,36 @@ def download_and_extract(dataset: list[tuple[str, str]]) -> None:
                 print(f"❌ Error: The downloaded file is not a valid zip. Check the link.\n")
         else:
             print(f"❌ Error downloading file {i}.\n")
+            
+
+def download_from_datasets(datasets: list[str]) -> None:
+    links_to_download = []
+    for dataset in datasets:
+        if dataset.lower() in DRIVE_LINKS:
+            links_to_download.append((dataset.lower(), DRIVE_LINKS[dataset.lower()]))
+        else:
+            new_dataset = REDIRECT_LINKS.get(dataset.lower(), None)
+            if new_dataset:
+                new_dataset = new_dataset.lower()
+                if new_dataset in DRIVE_LINKS:
+                    links_to_download.append((new_dataset, DRIVE_LINKS[new_dataset]))
+    
+    print(f"🚀 Starting script for dataset(s): {', '.join(datasets).upper()}\n")
+    
+    download_and_extract(links_to_download)
+    
+    
+def download_all_datasets() -> None:
+    all_datasets = list(DRIVE_LINKS.keys())
+    download_from_datasets(all_datasets)
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Download and extract specific datasets from Google Drive.")
+    
+    keys = list(DRIVE_LINKS.keys())
+    keys.extend(list(REDIRECT_LINKS.keys()))
+    unique_keys = sorted(set(keys))
     
     parser.add_argument(
         "--dataset",
@@ -81,16 +121,10 @@ if __name__ == "__main__":
         required=False,
         nargs='+',
         default=list(DRIVE_LINKS.keys()),
-        choices=list(DRIVE_LINKS.keys()),
-        help=f"Specify which dataset to download. Allowed values: {', '.join(DRIVE_LINKS.keys())}"
+        choices=unique_keys,
+        help=f"Specify which dataset to download. Allowed values: {', '.join(unique_keys)}"
     )
     
     args = parser.parse_args()
     
-    links_to_download = []
-    for dataset in args.dataset:
-        links_to_download.append((dataset.lower(), DRIVE_LINKS.get(dataset.lower(), [])))
-    
-    print(f"🚀 Starting script for dataset(s): {', '.join(args.dataset).upper()}\n")
-    
-    download_and_extract(links_to_download)
+    download_from_datasets(args.dataset)

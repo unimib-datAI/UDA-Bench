@@ -2,9 +2,9 @@ import pandas as pd
 import copy
 
 from .projection import Projection
-from quest.utils import column_util, table_util
-from quest.core.datapack import *
-from quest.conf import sqlconst
+from utils import column_util, table_util
+from core.datapack import *
+from conf import sqlconst
 
 class ProjectionText(Projection):
     """

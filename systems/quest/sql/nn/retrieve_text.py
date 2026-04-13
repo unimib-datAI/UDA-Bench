@@ -1,7 +1,7 @@
 from .retrieve import Retrieve
-from quest.utils import *
-from quest.core.datapack import *
-import quest.conf.settings as settings
+from utils import *
+from core.datapack import *
+import conf.settings as settings
 
 
 class RetrieveText(Retrieve):

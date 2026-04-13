@@ -1,8 +1,8 @@
 import pandas as pd
 import numpy as np
-from quest.utils.log import print_log
+from utils.log import print_log
 import copy
-from quest.conf import sqlconst
+from conf import sqlconst
 
 def merge_table(U : pd.DataFrame, V : pd.DataFrame, key):
     """

@@ -1,11 +1,11 @@
 from typing import List
-from quest.db.indexer.preprocessor.preprocessor import DocPreprocessor
-from quest.db.indexer.storage.text_index_storage import VectorDBTextIndexStorage
-from quest.db.querier.querier import OpenGaussQuerier
-from quest.core.datapack.doc import Doc
-from quest.core.chunker.chunker import RecursiveCharacterTextChunker, GrammarSemanticChunker, SentenceTransformerTokenTextChunker
-from quest.core.embedding.e5Embedding import batchedE5Embeddings
-from quest.conf import settings
+from db.indexer.preprocessor.preprocessor import DocPreprocessor
+from db.indexer.storage.text_index_storage import VectorDBTextIndexStorage
+from db.querier.querier import OpenGaussQuerier
+from core.datapack.doc import Doc
+from core.chunker.chunker import RecursiveCharacterTextChunker, GrammarSemanticChunker, SentenceTransformerTokenTextChunker
+from core.embedding.e5Embedding import batchedE5Embeddings
+from conf import settings
 from numpy.typing import NDArray
 
 class SingleIndexer:

@@ -1,5 +1,5 @@
-from quest.core.node import ast_node as astn
-from quest.conf import sqlconst
+from core.node import ast_node as astn
+from conf import sqlconst
 
 def parse_full(x):
     if isinstance(x, list):

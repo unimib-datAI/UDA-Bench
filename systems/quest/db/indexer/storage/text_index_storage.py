@@ -12,7 +12,7 @@ from sqlalchemy import text, MetaData, Table, Column, Integer, Text, Boolean
 from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.exc import SQLAlchemyError
 
-from quest.db.connector.connector import create_opengauss_engine
+from db.connector.connector import create_opengauss_engine
 
 from .index_storage import IndexStorage
 

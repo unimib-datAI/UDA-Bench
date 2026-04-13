@@ -1,6 +1,6 @@
 import logging
 import os
-import quest.conf.settings as settings
+import conf.settings as settings
 
 # 创建 logger
 logger = logging.getLogger("quest")

@@ -5,10 +5,19 @@ from tqdm import tqdm
 import tiktoken
 import os
 import logging
-import quest.conf.settings as settings
-from quest.utils import table_util
-from quest.utils.log import print_log
+import conf.settings as settings
+from utils import table_util
+from utils.log import print_log
 import copy
+
+
+def normalize_api_base(api_base):
+    if not api_base:
+        return None
+    api_base = str(api_base).strip()
+    if "generativelanguage.googleapis.com" in api_base:
+        return None
+    return api_base
 
 def parse_result(text, doc_id, attributeList):
     #dic = dict(re.findall(r"(\w+):\s*(.*)", text))
@@ -35,13 +44,21 @@ class LLMInfo(object):
     @staticmethod
     def add_output_tokens(tokens):
         LLMInfo.tot_output_tokens += tokens
+    
+    @staticmethod
+    def get_dict_info():
+        return {
+            "query_times": LLMInfo.tot_query_times,
+            "input_tokens": LLMInfo.tot_input_tokens,
+            "output_tokens": LLMInfo.tot_output_tokens
+        }
 
 class TextLLMQuerier(object):
     """
     used for extract attributes with LLMs
     """
-    def __init__(self, prompt, llm=settings.LLM_MODEL, api_base=settings.API_BASE):
-        self.api_base= api_base
+    def __init__(self, prompt, llm=settings.LLM_MODEL, api_base=settings.GEMINI_API_BASE):
+        self.api_base = normalize_api_base(api_base)
         self.llm = llm
         self.attr_descriptions = prompt
         self.parse_attr_descriptions()
@@ -281,14 +298,25 @@ class TextLLMQuerier(object):
         results = []
         LLMInfo.add_query_times(len(prompts))
         for prompt in tqdm(prompts):
-            response = completion(
-                    model=self.llm, 
-                    messages=prompt,
-                    max_tokens=128,
-                    stop=None,
-                    temperature=0,
-                    api_base=self.api_base
-                )
+            api_kwargs = {
+                "model": self.llm,
+                "messages": prompt,
+                "max_tokens": 128,
+                "stop": None,
+                "temperature": 0,
+            }
+            if self.api_base:
+                api_kwargs["api_base"] = self.api_base
+
+            temp_gemini_base = os.environ.pop("GEMINI_API_BASE", None)
+            temp_api_base = os.environ.pop("API_BASE", None)
+            try:
+                response = completion(**api_kwargs)
+            finally:
+                if temp_gemini_base is not None:
+                    os.environ["GEMINI_API_BASE"] = temp_gemini_base
+                if temp_api_base is not None:
+                    os.environ["API_BASE"] = temp_api_base
 
             results.append(response.choices[0].message.content)
         
@@ -306,14 +334,25 @@ class TextLLMQuerier(object):
         results = []
         LLMInfo.add_query_times(len(prompts))
 
-        batch_responses = batch_completion(
-                model=self.llm, 
-                messages=prompts,
-                max_tokens=128,
-                stop=None,
-                temperature=0,
-                api_base=self.api_base
-            )
+        api_kwargs = {
+                "model": self.llm,
+                "messages": prompts,
+                "max_tokens": 128,
+                "stop": None,
+                "temperature": 0,
+        }
+        if self.api_base:
+            api_kwargs["api_base"] = self.api_base
+
+        temp_gemini_base = os.environ.pop("GEMINI_API_BASE", None)
+        temp_api_base = os.environ.pop("API_BASE", None)
+        try:
+            batch_responses = batch_completion(**api_kwargs)
+        finally:
+            if temp_gemini_base is not None:
+                os.environ["GEMINI_API_BASE"] = temp_gemini_base
+            if temp_api_base is not None:
+                os.environ["API_BASE"] = temp_api_base
         
         for response in batch_responses:
             results.append(response.choices[0].message.content)

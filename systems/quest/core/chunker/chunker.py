@@ -1,11 +1,11 @@
 from langchain_core.documents import Document
 from typing import List, Dict, Optional
 from abc import ABC, abstractmethod
-from quest.core.datapack.doc import Doc
+from core.datapack.doc import Doc
 
-from quest.conf.settings import ABS_PROJECT_ROOT_PATH
+from conf.settings import SYSTEM_ROOT
 import os
-from quest.conf.settings import Enc_token_cnt
+from conf.settings import Enc_token_cnt
 
 # 基于Character的TextSplitter，最小单元是单个字符，比如'a'
 from langchain.text_splitter import RecursiveCharacterTextSplitter, CharacterTextSplitter
@@ -84,7 +84,7 @@ class SentenceTransformerTokenTextChunker(BaseChunker):
     def __init__(self, 
                  tokens_per_chunk: int = 356, 
                  chunk_overlap: int = 100,
-                 model_name = os.path.join(ABS_PROJECT_ROOT_PATH, "model/sentence-transformers/all-mpnet-base-v2")
+                 model_name = os.path.join(SYSTEM_ROOT, "model/sentence-transformers/all-mpnet-base-v2")
                  ):
         
         self.text_splitter = SentenceTransformersTokenTextSplitter(

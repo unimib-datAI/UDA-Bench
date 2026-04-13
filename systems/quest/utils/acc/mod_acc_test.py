@@ -18,7 +18,7 @@ load_dotenv()
 os.environ["OPENAI_API_BASE"] = os.getenv("DEEPSEEK_BASE_URL")
 os.environ["OPENAI_API_KEY"] = os.getenv("DEEPSEEK_API_KEY")
 
-from quest.core.nlp.match.table_matcher.table_join import create_advanced_group_by_matcher
+from core.nlp.match.table_matcher.table_join import create_advanced_group_by_matcher
 
 
 import random

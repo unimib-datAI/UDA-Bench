@@ -1,10 +1,10 @@
-from quest.sql.nn import *
-from quest.core.node import ast_node as astn
-from quest.conf import sqlconst
-from quest.core.node.logical_node import FilterNode, BinaryNode
+from sql.nn import *
+from core.node import ast_node as astn
+from conf import sqlconst
+from core.node.logical_node import FilterNode, BinaryNode
 import copy
-from quest.utils.log import print_log
-from quest.utils import *
+from utils.log import print_log
+from utils import *
 
 def remove_duplicates(lst):
     return list(dict.fromkeys(lst))

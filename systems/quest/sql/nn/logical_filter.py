@@ -1,5 +1,5 @@
 from .base import Logical
-from quest.core.node.logical_node import BinaryNode 
+from core.node.logical_node import BinaryNode 
 
 class LogicalFilter(Logical):
     """
