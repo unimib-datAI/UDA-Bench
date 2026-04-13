@@ -5,7 +5,7 @@ from typing import Dict, List
 from pathlib import Path
 import pdfplumber
 
-from quest.core.datapack.doc import TextDoc, ZenDBDoc
+from core.datapack.doc import TextDoc, ZenDBDoc
 
 # 模块1: 文档处理与SHT构建
 def util_load_zendb_docs(paths, debug_flag=False, topK = 1, start_doc_id = 1) -> List[ZenDBDoc]:
@@ -69,7 +69,7 @@ def load_ZenDBDoc_from_directory(docs_dir: str, table_name: str, start_doc_id = 
     
     # 获取目录下所有.txt文件和pdf文件，然后合并
     txt_files = glob.glob(os.path.join(docs_dir, "*.txt"))
-    pdf_files = glob.glob(os.path.join(docs_dir, "*.md")) 
+    pdf_files = glob.glob(os.path.join(docs_dir, "*.pdf")) 
 
     txt_files.extend(pdf_files)
     txt_files.sort()  # 确保文件顺序一致

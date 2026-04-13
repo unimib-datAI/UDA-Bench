@@ -2,9 +2,9 @@ from typing import List, Union
 import numpy as np
 from numpy.typing import NDArray
 from abc import ABC, abstractmethod
-from quest.core.datapack.doc import Doc
-from quest.core.chunker.chunker import BaseChunker, GrammarSemanticChunker
-from quest.core.embedding.e5Embedding import Embeddings, batchedE5Embeddings
+from core.datapack.doc import Doc
+from core.chunker.chunker import BaseChunker, GrammarSemanticChunker
+from core.embedding.e5Embedding import Embeddings, batchedE5Embeddings
 
 class DocPreprocessor:
     def __init__(self, chunker: 'BaseChunker', embedding_model: 'Embeddings' = batchedE5Embeddings):

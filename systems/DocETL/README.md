@@ -10,7 +10,7 @@ Questa non è l’esecuzione completa del benchmark UDA-Bench, ma una **pipeline
 
 * verificare il funzionamento di DocETL su dati non strutturati
 * testare l’estrazione di informazioni (es. `draft_pick`)
-* simulare il comportamento dei sistemi del benchmark
+* lo confronta con la ground truth ufficiale
 
 👉 **I dati NON sono inclusi nella repository** (per mantenere il progetto leggero e riproducibile)
 
@@ -24,7 +24,7 @@ Questa non è l’esecuzione completa del benchmark UDA-Bench, ma una **pipeline
 Installare le dipendenze:
 
 ```bash
-pip install docetl litellm "pyrate-limiter<4"
+pip install -r requirements.txt
 ```
 
 ---
@@ -34,116 +34,171 @@ pip install docetl litellm "pyrate-limiter<4"
 ```text
 DocETL/
 ├── real/
-│   ├── data/
-│   │   ├── player_docs/              # documenti .txt (NON inclusi)
-│   │   ├── player_docs.json          # dataset generato (NON incluso)
-│   │   └── build_player_docs_json.py
-│   │
-│   ├── pipelines/
-│   │   └── player_docs_select_q1.yaml
-│   │
-│   └── outputs/                     # output generati (NON inclusi)
+│   ├── finance/
+│   │   ├── data/
+│   │   │   ├── finance_docs.json
+│   │   │   └── build_docs_json.py
+│   │   │
+│   │   ├── generated/              # YAML generati automaticamente
+│   │   ├── outputs/                # JSON e CSV prodotti
+│   │   ├── eval/                   # risultati evaluation
+│   │   │   └── select_q1/
+│   │   │       ├── sql.json
+│   │   │       └── acc_result/
+│   │   │
+│   │   ├── generate_yaml.py        # 🔥 genera YAML da SQL
+│   │   ├── export_to_csv.py        # 🔥 converte JSON → CSV
+│   │   └── build_docs_json.py
 │
-├── api.py
-├── README.md
+├── evaluation/                    # UDA evaluation engine
+├── Query/                         # query SQL benchmark
 └── requirements.txt
+```
+## 🔑 Configurazione API Key
+DocETL usa LiteLLM → serve una chiave.
+Metodo consigliato: .env
+
+Crea un file .env nella root:
+```
+GEMINI_API_KEY=your_key_here
 ```
 
 ---
 
-## 📥 Preparazione dei dati
+### Workflow completo (IMPORTANTE)
+Workflow completo (IMPORTANTE)
 
 ### 1️⃣ Inserire i documenti
 
-Posizionare i file `.txt` in:
-
-```text
-systems/DocETL/real/data/player_docs/
-```
+Caricare i file `.txt`
 
 Ogni file deve contenere un documento testuale (es. Wikipedia di un giocatore).
 
 ---
 
-### 2️⃣ Generare il dataset JSON
 
-Eseguire lo script:
+## 2️⃣ Generare lo YAML automaticamente
+Esempio: query 1
 
 ```bash
-python systems/DocETL/real/data/build_player_docs_json.py
+python systems/DocETL/real/finance/generate_yaml.py --sql-file Query/Finan/Select/select_queries.sql --query-id 1
+```
+Output
+```bash
+systems/DocETL/real/finance/generated/select_q1.yaml
 ```
 
-Questo script:
-
-* legge tutti i `.txt`
-* costruisce un dataset strutturato
-* salva:
-
-```text
-systems/DocETL/real/data/player_docs.json
+## 3️⃣ Eseguire DocETL
+```bash
+docetl run systems/DocETL/real/finance/generated/select_q1.yaml
+```
+Output
+```bash
+systems/DocETL/real/finance/outputs/select_q1.json
 ```
 
-Formato esempio:
+## 4️⃣ Convertire JSON → CSV
+```bash
+python systems/DocETL/real/finance/export_to_csv.py --query-id 1
+```
+Output
+```bash
+systems/DocETL/real/finance/outputs/select_q1.csv
+```
 
-```json
+## 5️⃣ Preparare SQL per evaluation
+Creare file:
+```bash
+systems/DocETL/real/finance/eval/select_q1/sql.json
+```
+Contenuto
+```bash
 {
-  "id": "5",
-  "filename": "5.txt",
-  "content": "Mark Price ..."
+  "sql": "SELECT earnings_per_share, id FROM Finan"
 }
 ```
+⚠️ Importante:
 
----
+* usare Finan (nome dataset UDA)
+* NON finance
 
-## 🔑 Configurazione API Key
-
-DocETL utilizza **LiteLLM**, quindi il provider dipende dal modello scelto nello YAML.
-
----
-
-### ✔️ Gemini
-
+## 6️⃣Lanciare evaluation
 ```bash
-$env:GEMINI_API_KEY="your_api_key"
+python -m evaluation.run_eval --dataset Finan --task Select --sql-file systems/DocETL/real/finance/eval/select_q1/sql.json --result-csv systems/DocETL/real/finance/outputs/select_q1.csv --attributes-file Query/Finan/Finan_attributes.json --gt-dir Query/Finan --output-dir systems/DocETL/real/finance/eval/select_q1/acc_result
 ```
 
----
-
-### ✔️ OpenAI
-
+## Leggere i risultati
+File:
 ```bash
-$env:OPENAI_API_KEY="your_api_key"
+acc.json
 ```
-
----
-
-### ✔️ Claude
-
+Esempio:
 ```bash
-$env:ANTHROPIC_API_KEY="your_api_key"
+{
+  "macro_precision": 0.40,
+  "macro_recall": 0.41,
+  "macro_f1": 0.4059
+}
 ```
-
+👉 Questa è la metrica principale del benchmark.
 ---
 
-## ⚙️ Configurazione modello
+## 🔁 Workflow per una nuova query
 
-Nel file YAML:
+Per esempio query 10:
+```bash
+# 1. YAML
+python generate_yaml.py --query-id 10
 
-```yaml
-default_model: gemini/gemini-2.5-flash
+# 2. DocETL
+docetl run generated/select_q10.yaml
+
+# 3. CSV
+python export_to_csv.py --query-id 10
+
+# 4. crea sql.json
+
+# 5. evaluation
+python -m evaluation.run_eval ...
+```
+## 🧠 Cosa sta succedendo dietro le quinte
+
+Pipeline completa:
+```bash
+# 1. YAML
+python generate_yaml.py --query-id 10
+
+# 2. DocETL
+docetl run generated/select_q10.yaml
+
+# 3. CSV
+python export_to_csv.py --query-id 10
+
+# 4. crea sql.json
+
+# 5. evaluation
+python -m evaluation.run_eval ...
 ```
 
-Puoi cambiarlo con:
+## 🧠 Cosa sta succedendo dietro le quinte
 
-| Provider | Modello esempio         |
-| -------- | ----------------------- |
-| Gemini   | gemini/gemini-2.5-flash |
-| OpenAI   | gpt-4o-mini             |
-| Claude   | claude-3-haiku-20240307 |
-
----
-
-## ▶️ Esecuzione pipeline
+Pipeline completa:
+```
+SQL (UDA)
+   ↓
+generate_yaml.py
+   ↓
+DocETL (LLM su documenti)
+   ↓
+JSON
+   ↓
+CSV
+   ↓
+evaluation.run_eval
+   ↓
+F1 score
+```
+## ▶️ Esecuzione pipeline (vecchia pipeline su Player)
 
 Dalla root del progetto:
 

@@ -3,7 +3,7 @@ import pandas as pd
 import sys
 sys.path.append("/data/QUEST/jzshe/project/quest")
 
-from quest.utils.acc.mod_acc_test import cal_sql_acc
+from utils.acc.mod_acc_test import cal_sql_acc
 
 
 # sql = "SELECT position, AVG(age) FROM player GROUP BY position;"

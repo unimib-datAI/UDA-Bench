@@ -2,7 +2,7 @@
 匹配策略模块
 定义了各种文本匹配策略的接口和实现
 """
-from quest.conf.settings import LOCAL_MODEL_DIR
+from conf.settings import LOCAL_MODEL_DIR
 ROOT_MODEL_PATH = LOCAL_MODEL_DIR
 THRESHOLD_JACCARD_EDIT_DISTANCE = 0.5
 

@@ -1,13 +1,13 @@
 from .base import Base
 from .group import Group
-from quest.core.datapack import *
-from quest.utils import *
+from core.datapack import *
+from utils import *
 import pandas as pd
 import copy
-from quest.core.llm.llm_query import TextLLMQuerier
-from quest.utils.log import print_log
-from quest.core.nlp import text_cluster
-from quest.conf import settings
+from core.llm.llm_query import TextLLMQuerier
+from utils.log import print_log
+from core.nlp import text_cluster
+from conf import settings
 import random
 import numpy as np
 from collections import Counter

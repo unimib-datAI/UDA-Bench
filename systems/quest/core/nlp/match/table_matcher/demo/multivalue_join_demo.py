@@ -9,13 +9,13 @@ import sys
 
 sys.path.append("/data/QUEST/jzshe/project/quest")
 
-from quest.core.nlp.match.table_matcher.table_join import pd_join_by_column, create_advanced_join_matcher, pd_join_by_column_with_join_type
+from core.nlp.match.table_matcher.table_join import pd_join_by_column, create_advanced_join_matcher, pd_join_by_column_with_join_type
 
-from quest.core.nlp.match.fuse_join import  pd_fuse_join
+from core.nlp.match.fuse_join import  pd_fuse_join
 
-from quest.core.nlp.match.table_matcher.modular_matcher import MatchingConfig,  create_llm_judge_matcher
+from core.nlp.match.table_matcher.modular_matcher import MatchingConfig,  create_llm_judge_matcher
 
-from quest.conf.settings import JOIN_EDIT_DISTANCE_THRESHOLD, JOIN_SEMANTIC_THRESHOLD
+from conf.settings import JOIN_EDIT_DISTANCE_THRESHOLD, JOIN_SEMANTIC_THRESHOLD
 
 DATA_ROOT_DIR = "/data/QUEST/jzshe/project/quest/log"
 LEFT_TABLE_NAME = "drug.csv"

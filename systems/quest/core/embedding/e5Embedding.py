@@ -6,7 +6,7 @@ from transformers import AutoModel, AutoTokenizer
 import torch
 from tqdm import tqdm
 
-from quest.conf.settings import LOCAL_MODEL_DIR
+from conf.settings import LOCAL_MODEL_DIR
 
 import os
 

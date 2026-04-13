@@ -65,7 +65,7 @@ def create_opengauss_engine(db_config=None, config_file=None):
         if db_config is None:
             db_config = {
                 "host": os.getenv("HOST"),
-                "port": int(os.getenv("DB_PORT_INTERNAL")),
+                "port": int(os.getenv("DB_PORT_EXTERNAL")),
                 "database": os.getenv("DATABASE"),
                 "user": os.getenv("USER"),
                 "password": os.getenv("PASSWORD")

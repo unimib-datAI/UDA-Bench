@@ -72,6 +72,12 @@ systems/DocETL/real/outputs/
 **/systems/lotus/results/
 
 # =========================
+# Quest
+# =========================
+**systems/quest/results/
+!systems/quest/.env.example
+
+# =========================
 # Keep templates
 # =========================
 !**/template_api_key.yaml

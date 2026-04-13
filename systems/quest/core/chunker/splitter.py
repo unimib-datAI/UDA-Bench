@@ -18,7 +18,7 @@ from typing import Any, List
 
 from langchain_text_splitters.base import TextSplitter
 
-from quest.conf.settings import Enc_token_cnt
+from conf.settings import Enc_token_cnt
 
 
 import re

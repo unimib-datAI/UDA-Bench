@@ -6,7 +6,7 @@
 import pandas as pd
 from typing import Dict, List, Tuple, Optional, Set
 import sys
-from quest.conf.settings import JOIN_EDIT_DISTANCE_THRESHOLD, JOIN_SEMANTIC_THRESHOLD
+from conf.settings import JOIN_EDIT_DISTANCE_THRESHOLD, JOIN_SEMANTIC_THRESHOLD
 
 import os
 
@@ -15,7 +15,7 @@ import os
 # parent_dir = os.path.dirname(current_dir)
 # sys.path.append(parent_dir)
 
-from quest.core.nlp.match.table_matcher.modular_matcher import ModularTableMatcher, MatchingConfig
+from core.nlp.match.table_matcher.modular_matcher import ModularTableMatcher, MatchingConfig
 
 
 def pd_join_by_column(left_table: pd.DataFrame, 

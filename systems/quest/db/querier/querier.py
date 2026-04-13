@@ -14,8 +14,8 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.sql import select, insert, update, delete
 import logging
 
-from quest.db.connector.connector import create_opengauss_engine
-from quest.db.indexer.storage.text_index_storage import numpy_to_pgvector, pgvector_to_numpy
+from db.connector.connector import create_opengauss_engine
+from db.indexer.storage.text_index_storage import numpy_to_pgvector, pgvector_to_numpy
 
 logger = logging.getLogger(__name__)
 
