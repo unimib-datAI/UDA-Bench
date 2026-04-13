@@ -1,7 +1,3 @@
-Ecco il README completo in inglese, pronto per GitHub:
-
----
-
 # 🚀 Quest – Quick Start Guide
 
 This guide explains how to set up the project and run a test execution.
