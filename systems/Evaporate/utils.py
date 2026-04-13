@@ -1,7 +1,9 @@
 import os
 import json
+from pathlib import Path
 import time  # NEW ADDITION: Added for performance tracking
 from collections import Counter, defaultdict
+from dotenv import load_dotenv
 
 from manifest import Manifest
 from configs import get_args
@@ -9,13 +11,15 @@ from prompts import Step
 from openai import OpenAI
 from llm_metrics import LLMCallMetrics, get_global_tracker  # NEW ADDITION: Added for LLM call tracking
 
+# Carica il file .env dalla root della repo UDA-Bench
+REPO_ROOT = Path(__file__).resolve().parents[2]
+load_dotenv(REPO_ROOT / ".env")
+
 cur_idx = 0
+
 TOGETHER_API_KEY = os.environ.get("TOGETHER_API_KEY")
-#If using together AI, you will need to set the TOGETHER_API_KEY to your API key
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
 
-
-import os
-from openai import OpenAI
 
 def together_call(prompt, model, streaming=False, max_tokens=1024):
     """Call Gemini through Google's OpenAI-compatible endpoint and track usage metrics."""

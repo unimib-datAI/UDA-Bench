@@ -41,12 +41,16 @@ __pycache__/
 # =========================
 .venv/
 .venv-evaporate/
+.venv-docetl/
 venv/
 venv-evaporate/
+venv-docetl/
 **/.venv/
 **/.venv-evaporate/
+**/.venv-docetl/
 **/venv/
 **/venv-evaporate/
+**/venv-docetl/
 
 # =========================
 # UDA-Bench specific ignores
@@ -63,6 +67,21 @@ systems/DocETL/real/data/player_docs/
 systems/DocETL/real/data/player_docs.json
 systems/DocETL/outputs/
 systems/DocETL/real/outputs/
+Data/*/txt/
+
+# Generic Python/Tool caches
+.pytest_cache/
+**/.pytest_cache/
+.mypy_cache/
+**/.mypy_cache/
+.ruff_cache/
+**/.ruff_cache/
+.ipynb_checkpoints/
+**/.ipynb_checkpoints/
+
+# Evaporate artifacts/temp
+systems/Evaporate/**/results_dumps/
+systems/Evaporate/scratch/
 
 # =========================
 # Lotus - Allow

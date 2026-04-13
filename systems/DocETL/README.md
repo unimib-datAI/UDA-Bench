@@ -1,326 +1,169 @@
-# DocETL – Esecuzione Pipeline su Documenti (UDA-Bench)
+# DocETL Orchestrator (UDA-Bench)
 
-Questa cartella contiene un esempio di esecuzione di **DocETL** su un dataset **non strutturato** (documenti testuali di giocatori NBA), utilizzando modelli LLM (Gemini, OpenAI, Claude).
+Questa cartella contiene l'integrazione DocETL per UDA-Bench con orchestrazione batch:
 
----
+- generazione pipeline DocETL per ogni query SQL del dataset
+- esecuzione DocETL
+- post-processing SQL deterministico sui risultati estratti
+- valutazione batch con evaluator ufficiale
 
-## ⚠️ Nota importante
+L'obiettivo e' ottenere metriche confrontabili con gli altri sistemi del benchmark.
 
-Questa non è l’esecuzione completa del benchmark UDA-Bench, ma una **pipeline reale su documenti** per:
+## Requisiti
 
-* verificare il funzionamento di DocETL su dati non strutturati
-* testare l’estrazione di informazioni (es. `draft_pick`)
-* lo confronta con la ground truth ufficiale
-
-👉 **I dati NON sono inclusi nella repository** (per mantenere il progetto leggero e riproducibile)
-
----
-
-## 📦 Requisiti
-
-* Python 3.10+
-* ambiente virtuale attivo (`.venv` consigliato)
-
-Installare le dipendenze:
+- Python 3.10+
+- ambiente virtuale attivo (es. `.venv-docetl`)
+- dipendenze:
 
 ```bash
-pip install -r requirements.txt
+pip install -r systems/DocETL/requirements.txt
 ```
 
----
+## Configurazione API key
 
-## 📁 Struttura della cartella
+DocETL usa LiteLLM. Configura almeno una chiave nel file `.env` in root progetto:
+
+```env
+GEMINI_API_KEY=...
+# oppure OPENAI_API_KEY=...
+```
+
+Modello di default orchestrator:
+
+- `gemini/gemini-2.5-flash` (override con `DOCETL_DEFAULT_MODEL`)
+
+## Struttura attuale
 
 ```text
-DocETL/
-├── real/
-│   ├── finance/
-│   │   ├── data/
-│   │   │   ├── finance_docs.json
-│   │   │   └── build_docs_json.py
-│   │   │
-│   │   ├── generated/              # YAML generati automaticamente
-│   │   ├── outputs/                # JSON e CSV prodotti
-│   │   ├── eval/                   # risultati evaluation
-│   │   │   └── select_q1/
-│   │   │       ├── sql.json
-│   │   │       └── acc_result/
-│   │   │
-│   │   ├── generate_yaml.py        # 🔥 genera YAML da SQL
-│   │   ├── export_to_csv.py        # 🔥 converte JSON → CSV
-│   │   └── build_docs_json.py
-│
-├── evaluation/                    # UDA evaluation engine
-├── Query/                         # query SQL benchmark
-└── requirements.txt
-```
-## 🔑 Configurazione API Key
-DocETL usa LiteLLM → serve una chiave.
-Metodo consigliato: .env
-
-Crea un file .env nella root:
-```
-GEMINI_API_KEY=your_key_here
+systems/DocETL/
+  api.py
+  README.md
+  requirements.txt
+  orchestrator/
+    main.py
+    evaluate_all.py
+    yaml_builder.py
+    ...
+  outputs/
+    <dataset>/
+      yaml/          # pipeline generate per query
+      json/          # output DocETL raw
+      csv/           # output finale query-level (post-processed con SQL)
+      evaluation/    # acc.json per query + summary.json
 ```
 
----
+Input documenti (nuova convenzione):
 
-### Workflow completo (IMPORTANTE)
-Workflow completo (IMPORTANTE)
+- `Data/<Dataset>/txt/*.txt`
+- esempio: `Data/Finan/txt/*.txt`, `Data/Player/txt/*.txt`
 
-### 1️⃣ Inserire i documenti
+## Workflow completo
 
-Caricare i file `.txt`
-
-Ogni file deve contenere un documento testuale (es. Wikipedia di un giocatore).
-
----
-
-
-## 2️⃣ Generare lo YAML automaticamente
-Esempio: query 1
+### 1) Esecuzione DocETL su tutte le query del dataset
 
 ```bash
-python systems/DocETL/real/finance/generate_yaml.py --sql-file Query/Finan/Select/select_queries.sql --query-id 1
-```
-Output
-```bash
-systems/DocETL/real/finance/generated/select_q1.yaml
+python systems/DocETL/orchestrator/main.py --dataset Finan
 ```
 
-## 3️⃣ Eseguire DocETL
-```bash
-docetl run systems/DocETL/real/finance/generated/select_q1.yaml
-```
-Output
-```bash
-systems/DocETL/real/finance/outputs/select_q1.json
-```
-
-## 4️⃣ Convertire JSON → CSV
-```bash
-python systems/DocETL/real/finance/export_to_csv.py --query-id 1
-```
-Output
-```bash
-systems/DocETL/real/finance/outputs/select_q1.csv
-```
-
-## 5️⃣ Preparare SQL per evaluation
-Creare file:
-```bash
-systems/DocETL/real/finance/eval/select_q1/sql.json
-```
-Contenuto
-```bash
-{
-  "sql": "SELECT earnings_per_share, id FROM Finan"
-}
-```
-⚠️ Importante:
-
-* usare Finan (nome dataset UDA)
-* NON finance
-
-## 6️⃣Lanciare evaluation
-```bash
-python -m evaluation.run_eval --dataset Finan --task Select --sql-file systems/DocETL/real/finance/eval/select_q1/sql.json --result-csv systems/DocETL/real/finance/outputs/select_q1.csv --attributes-file Query/Finan/Finan_attributes.json --gt-dir Query/Finan --output-dir systems/DocETL/real/finance/eval/select_q1/acc_result
-```
-
-## Leggere i risultati
-File:
-```bash
-acc.json
-```
-Esempio:
-```bash
-{
-  "macro_precision": 0.40,
-  "macro_recall": 0.41,
-  "macro_f1": 0.4059
-}
-```
-👉 Questa è la metrica principale del benchmark.
----
-
-## 🔁 Workflow per una nuova query
-
-Per esempio query 10:
-```bash
-# 1. YAML
-python generate_yaml.py --query-id 10
-
-# 2. DocETL
-docetl run generated/select_q10.yaml
-
-# 3. CSV
-python export_to_csv.py --query-id 10
-
-# 4. crea sql.json
-
-# 5. evaluation
-python -m evaluation.run_eval ...
-```
-## 🧠 Cosa sta succedendo dietro le quinte
-
-Pipeline completa:
-```bash
-# 1. YAML
-python generate_yaml.py --query-id 10
-
-# 2. DocETL
-docetl run generated/select_q10.yaml
-
-# 3. CSV
-python export_to_csv.py --query-id 10
-
-# 4. crea sql.json
-
-# 5. evaluation
-python -m evaluation.run_eval ...
-```
-
-## 🧠 Cosa sta succedendo dietro le quinte
-
-Pipeline completa:
-```
-SQL (UDA)
-   ↓
-generate_yaml.py
-   ↓
-DocETL (LLM su documenti)
-   ↓
-JSON
-   ↓
-CSV
-   ↓
-evaluation.run_eval
-   ↓
-F1 score
-```
-## ▶️ Esecuzione pipeline (vecchia pipeline su Player)
-
-Dalla root del progetto:
+Forza rebuild completo:
 
 ```bash
-docetl run systems/DocETL/real/pipelines/player_docs_select_q1.yaml
+python systems/DocETL/orchestrator/main.py --dataset Finan --rebuild
 ```
 
----
+Output principali:
 
-## 📊 Output
+- `systems/DocETL/outputs/finan/yaml/*.yaml`
+- `systems/DocETL/outputs/finan/json/*.json`
+- `systems/DocETL/outputs/finan/csv/*.csv`
 
-Il risultato viene salvato in:
+Significato pratico:
 
-```text
-systems/DocETL/real/outputs/player_docs_select_q1.json
+- `yaml/<query_id>.yaml`
+  - cosa contiene: pipeline DocETL generata per una singola query
+  - a cosa serve: debug/riproducibilita' del piano (campi estratti, step, modello, output path)
+  - quando guardarlo: se una query fallisce in run DocETL o vuoi capire come e' stata tradotta la SQL
+
+- `json/<query_id>.json`
+  - cosa contiene: output raw di DocETL per documento (estrazione campo-per-documento)
+  - a cosa serve: ispezione qualita' estrazione LLM (valori mancanti, formati sporchi, coerenza tipi)
+  - nota: non e' ancora il risultato finale SQL della query
+
+- `csv/<query_id>.csv`
+  - cosa contiene: risultato finale query-level usato per benchmark
+  - a cosa serve: input diretto dell'evaluator
+  - come viene prodotto: post-processing SQL in DuckDB applicato al JSON estratto (quindi include filtri/aggregazioni/proiezioni finali)
+
+### 2) Evaluation batch su tutte le query
+
+```bash
+python systems/DocETL/orchestrator/evaluate_all.py --dataset Finan
 ```
 
-Formato esempio:
+Forza rebuild evaluation:
 
-```json
-[
-  {
-    "id": "5",
-    "draft_pick": "25th overall"
-  },
-  {
-    "id": "6",
-    "draft_pick": ""
-  }
-]
+```bash
+python systems/DocETL/orchestrator/evaluate_all.py --dataset Finan --rebuild
 ```
 
----
+Output evaluation:
 
-## 🔍 Cosa fa questa pipeline
+- `systems/DocETL/outputs/finan/evaluation/<query_id>/acc.json`
+- `systems/DocETL/outputs/finan/evaluation/summary.json`
+- `systems/DocETL/outputs/finan/evaluation/_logs/*.log` (errori)
 
-Pipeline DocETL dichiarativa composta da:
+Significato pratico:
 
-### Input
+- `evaluation/<query_id>/acc.json`
+  - cosa contiene: metriche della singola query (precision/recall/f1 per colonna + macro)
+  - a cosa serve: capire quali query/colonne stanno degradando il punteggio
 
-* dataset JSON (`player_docs.json`)
-* documenti testuali non strutturati
+- `evaluation/<query_id>/gold_result.csv`
+  - cosa contiene: risultato ground-truth ottenuto eseguendo la SQL sul GT benchmark
+  - a cosa serve: riferimento "vero" per confronti puntuali
 
-### Operazione principale
+- `evaluation/<query_id>/matched_result.csv`
+  - cosa contiene: risultato modello riallineato alle chiavi di matching
+  - a cosa serve: debug di mismatch di righe/chiavi
 
-```yaml
-type: map
-```
+- `evaluation/<query_id>/matched_gold_result.csv`
+  - cosa contiene: ground truth riallineata rispetto al matching con il risultato modello
+  - a cosa serve: confronto riga-a-riga coerente con il metodo di scoring
 
-Per ogni documento:
+- `evaluation/summary.json`
+  - cosa contiene: riepilogo dataset-level (`ok/skip/errori`, `macro_f1_mean`, dettagli per query)
+  - a cosa serve: metrica finale da confrontare con altri modelli/sistemi
 
-* invia il contenuto al modello LLM
-* estrae:
+- `evaluation/_logs/<query_id>.log`
+  - cosa contiene: stdout/stderr completi in caso di errore evaluation
+  - a cosa serve: root-cause analysis rapida quando una query fallisce
 
-  * `id`
-  * `draft_pick`
+## Cosa fa l'orchestrator
 
-### Output
+Per ogni query SQL:
 
-* record strutturati JSON
+1. parse SQL e pianificazione campi da estrarre
+2. generazione YAML DocETL
+3. estrazione LLM su documenti
+4. retry automatici su errori transitori (`content_filter`/`No tool calls`)
+5. post-processing SQL in DuckDB sul risultato estratto
+6. export CSV finale per evaluator
 
----
+Note tecniche importanti:
 
-## 🧠 Comportamento del modello
+- filtri finali applicati in SQL post-processing (deterministico)
+- casting numerico guidato da `Query/<Dataset>/*_attributes.json`
+- supporto a condizioni complesse (`IN`, `LIKE`, `BETWEEN`)
+- iniezione colonne `id` per allineamento corretto con evaluator
 
-Regole di estrazione:
+## Riesecuzione singola query (consigliata per debug)
 
-* `"undrafted"` se esplicitamente indicato
-* stringa vuota se non presente
-* nessuna inferenza oltre il testo
+Se vuoi rieseguire solo una query:
 
-👉 Questo rende la pipeline coerente con un task di **information extraction controllata**
+1. rimuovi i file di quella query in `outputs/<dataset>/json|csv|evaluation`
+2. rilancia senza `--rebuild` (il resto viene skippato)
 
----
+## Note su summary evaluation
 
-## ⚠️ Limiti
-
-Questa pipeline:
-
-* esegue un singolo step (`map`)
-* non utilizza:
-
-  * join
-  * aggregazioni
-  * multi-step reasoning
-* dipende fortemente dal modello LLM
-* può produrre output non normalizzati (es. formati diversi di draft pick)
-
----
-
-## 🧪 Scopo
-
-Questo setup serve per:
-
-* testare DocETL su documenti reali
-* simulare task del benchmark UDA
-* confrontare con altri sistemi (QUEST, DQL)
-
----
-
-## 🚀 Possibili estensioni
-
-* normalizzazione output (es. parsing numerico draft pick)
-* pipeline multi-step
-* integrazione evaluator (F1 score)
-* confronto automatico con ground truth
-* supporto multi-query
-
----
-
-## 📌 Riproducibilità
-
-La repository non include:
-
-* documenti `.txt`
-* dataset JSON generati
-* output
-
-👉 Per riprodurre i risultati:
-
-1. aggiungere i documenti
-2. generare il dataset JSON
-3. eseguire la pipeline
-
----
+Se esegui senza `--rebuild`, molte query risultano `SKIP`.  
+Il riepilogo include comunque le metriche lette dagli `acc.json` esistenti.

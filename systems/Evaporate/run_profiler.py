@@ -660,11 +660,11 @@ def main():
     profiler_args.combiner_mode = "mv"
     profiler_args.do_end_to_end = False
 
-    profiler_args.train_size = 1
-    profiler_args.num_top_k_scripts = 1
-    profiler_args.num_attr_to_cascade = 1
+    profiler_args.train_size = 20
+    profiler_args.num_top_k_scripts = 2
+    profiler_args.num_attr_to_cascade = len(get_gold_metadata(profiler_args))
     profiler_args.chunk_size = 2000
-    profiler_args.max_chunks_per_file = 1
+    profiler_args.max_chunks_per_file = 3
     profiler_args.overwrite_cache = True
 
     print("data_lake:", profiler_args.data_lake)
