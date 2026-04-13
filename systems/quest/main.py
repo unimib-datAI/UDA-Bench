@@ -169,5 +169,4 @@ if __name__ == "__main__":
     # Call the run function with the parsed arguments
     for i, sql in enumerate(args.sql):
         print_log(f"\n=== Running Query {i+1}/{len(args.sql)} ===")
-        print(args.debug)
         run(sql, str(i), args.debug)

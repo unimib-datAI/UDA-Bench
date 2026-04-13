@@ -72,6 +72,8 @@ python main.py \
 * `--sql` → list of SQL queries to execute
 * `--debug` → if present, only 5 documents are indexed (useful for quick testing)
 
+⚠️ Note: When switching between debug and non-debug mode, you must manually empty the database.
+
 ---
 
 ### 7. Output
