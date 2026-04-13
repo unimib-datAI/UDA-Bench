@@ -28,7 +28,7 @@ def get_attributes_info(path, attr, table):
     
     return None
 
-def run(sql, id):
+def run(sql, id, debug=False):
     print(f"SQL Query: {sql}")
     
     parser = Parser(sql)
@@ -50,7 +50,7 @@ def run(sql, id):
         raise Exception(f"Error during database interaction: {e}")
     
     print(f"Datasets to index: {datasets_to_index}")
-    index_tables(datasets_to_index)
+    index_tables(datasets_to_index, debug)
     
     attributes = []
     for c in columns:
@@ -84,6 +84,9 @@ def run(sql, id):
     
     print("Attributes Info:\n", prompt)
     
+    print("Starting Execution...\n")
+    start_time = time.perf_counter()
+    
     # Build AST
     ast = sqlparser.parse_sql(sql)
     jsonConverter = ClassToJson()
@@ -116,13 +119,19 @@ def run(sql, id):
     # Process
     processer = Processer()
     result = processer.process(physical)
+    end_time = time.perf_counter()
+    print("Execution Ended.")
     print_log("Result Table:\n", result)
+    
+    query_info = LLMInfo.get_dict_info()
+    query_info["execution_time_ms"] = (end_time - start_time) * 1000
 
     # LLM Latency & Usage Stats
-    print("\n--- LLM Statistics ---")
-    print("Query Times   : ", LLMInfo.tot_query_times)
-    print("Input Tokens  : ", LLMInfo.tot_input_tokens)
-    print("Output Tokens : ", LLMInfo.tot_output_tokens)
+    print("\n--- Statistics ---")
+    print("Execution Time : ", query_info["execution_time_ms"], "ms")
+    print("Query Times   : ", query_info["query_times"])
+    print("Input Tokens  : ", query_info["input_tokens"])
+    print("Output Tokens : ", query_info["output_tokens"])
 
     # Save results
     output_dir = os.path.join(SYSTEM_ROOT, "results", f"{int(time.time())}")
@@ -131,6 +140,11 @@ def run(sql, id):
         
     output_path = os.path.join(output_dir, f"{id}.csv")
     result.to_csv(output_path)
+    
+    output_path = os.path.join(output_dir, f"{id}_info.json")
+    with open(output_path, "w", encoding="utf-8") as f:
+        json.dump(query_info, f, indent=4)
+        
     print(f"Success! Result saved to: {output_path}")
 
     return result
@@ -145,6 +159,9 @@ if __name__ == "__main__":
                         nargs='+',
                         required=True,
                         help="The SQL queries to execute")
+    parser.add_argument("--debug", 
+                        action="store_true",
+                        help="Enable debug mode: this will index only 5 documents per dataset for a faster execution")
 
     # Parse arguments from command line
     args = parser.parse_args()
@@ -152,4 +169,5 @@ if __name__ == "__main__":
     # Call the run function with the parsed arguments
     for i, sql in enumerate(args.sql):
         print_log(f"\n=== Running Query {i+1}/{len(args.sql)} ===")
-        run(sql, str(i))
+        print(args.debug)
+        run(sql, str(i), args.debug)

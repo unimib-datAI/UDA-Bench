@@ -31,13 +31,11 @@ DATASET_DIR = PROJECT_ROOT / "Dataset"
 INDEX_ROOT_DIR = PROJECT_ROOT / "Data" / "Index/"
 OLLAMA_BASE =  "http://localhost:11434"
 
-API_BASE = os.getenv("API_BASE", "https://generativelanguage.googleapis.com")
-GEMINI_API_BASE = os.getenv("GEMINI_API_BASE", API_BASE)
+GEMINI_API_BASE = os.getenv("GEMINI_API_BASE", "https://generativelanguage.googleapis.com")
 
 LLM_MODEL = 'gemini/gemini-2.5-flash'
 
-API_EMB_MODEL = "gemini/gemini-embedding-001"  
-API_EMB_API_BASE = GEMINI_API_BASE
+API_EMB_MODEL = "gemini/gemini-embedding-001" 
 
 API_EMB_API_KEY = os.getenv("GEMINI_API_KEY")
 if not API_EMB_API_KEY:

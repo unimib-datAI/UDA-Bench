@@ -11,7 +11,7 @@ from db.indexer.indexer import build_all_indexer
 
 DATASET_ROOT = os.path.join(PROJECT_ROOT, "Dataset")
 
-def index_tables(table_names: list):
+def index_tables(table_names: list, debug_flag: bool = False):
     print("📥 Starting the download and extraction of files from Google Drive...\n")
     
     table_names = [t.lower() for t in table_names if t.lower() in DRIVE_LINKS or t.lower() in REDIRECT_LINKS]
@@ -43,7 +43,7 @@ def index_tables(table_names: list):
             doc_dirs=doc_dirs, 
             tables_name=tables_name, 
             types=types,
-            debug_flag=False
+            debug_flag=debug_flag
         )
         
         print(f"✅ Indexing of completed successfully!")

@@ -5,7 +5,7 @@ from core.datapack.doc import Doc, TextDoc, ZenDBDoc
 from db.indexer.single_indexer import SingleIndexer, TextDocIndexer
 from db.indexer.zendb_indexer import ZenDBDocIndexer
 
-from conf.settings import SYSTEM_ROOT, API_EMB_API_BASE, API_EMB_MODEL, API_EMB_API_KEY
+from conf.settings import SYSTEM_ROOT, GEMINI_API_BASE, API_EMB_MODEL, API_EMB_API_KEY
 from db.indexer.preprocessor.load_documents import load_TextDocs_from_directory, load_ZenDBDoc_from_directory
 
 
@@ -14,7 +14,7 @@ from core.embedding.apiEmbedding import ApiEmbeddings
 
 # SingleIndexer默认使用的Embedding方法:
 
-api_emb_model = ApiEmbeddings(model = API_EMB_MODEL, api_base= API_EMB_API_BASE, api_key=API_EMB_API_KEY, batch_size=64)
+api_emb_model = ApiEmbeddings(model = API_EMB_MODEL, api_base= GEMINI_API_BASE, api_key=API_EMB_API_KEY, batch_size=64)
 
 # SingleIndexer默认使用的chunker方法
 from core.chunker.chunker import GrammarSemanticChunker, SentenceTransformerTokenTextChunker, RecursiveTokenTextChunker, TokenTextChunker

@@ -44,12 +44,20 @@ class LLMInfo(object):
     @staticmethod
     def add_output_tokens(tokens):
         LLMInfo.tot_output_tokens += tokens
+    
+    @staticmethod
+    def get_dict_info():
+        return {
+            "query_times": LLMInfo.tot_query_times,
+            "input_tokens": LLMInfo.tot_input_tokens,
+            "output_tokens": LLMInfo.tot_output_tokens
+        }
 
 class TextLLMQuerier(object):
     """
     used for extract attributes with LLMs
     """
-    def __init__(self, prompt, llm=settings.LLM_MODEL, api_base=settings.API_BASE):
+    def __init__(self, prompt, llm=settings.LLM_MODEL, api_base=settings.GEMINI_API_BASE):
         self.api_base = normalize_api_base(api_base)
         self.llm = llm
         self.attr_descriptions = prompt
@@ -291,11 +299,11 @@ class TextLLMQuerier(object):
         LLMInfo.add_query_times(len(prompts))
         for prompt in tqdm(prompts):
             api_kwargs = {
-                    "model": self.llm,
-                    "messages": prompt,
-                    "max_tokens": 128,
-                    "stop": None,
-                    "temperature": 0,
+                "model": self.llm,
+                "messages": prompt,
+                "max_tokens": 128,
+                "stop": None,
+                "temperature": 0,
             }
             if self.api_base:
                 api_kwargs["api_base"] = self.api_base
