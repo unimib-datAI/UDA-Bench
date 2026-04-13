@@ -1,12 +1,16 @@
-# 🚀 UDA-Bench Quest – Quick Start
+Ecco il README completo in inglese, pronto per GitHub:
 
-This guide explains how to start the project and run a test execution.
+---
+
+# 🚀 Quest – Quick Start Guide
+
+This guide explains how to set up the project and run a test execution.
 
 ---
 
 ## 📂 Setup & Run
 
-From the root of the repository (UDA-Bench):
+From the root of the repository (`UDA-Bench`):
 
 ### 1. Navigate to the project directory
 
@@ -16,95 +20,60 @@ cd systems/quest
 
 ---
 
-### 2. Start Docker containers
+### 2. Create and activate the Conda environment
+
+```bash
+conda create -n quest_env python=3.10.16
+conda activate quest_env
+```
+
+---
+
+### 3. Install dependencies
+
+```bash
+pip install torch==2.1.2 torchvision==0.16.2 torchaudio==2.1.2 \
+  --index-url https://download.pytorch.org/whl/cu121
+
+pip install -r requirements.txt
+
+python -m spacy download en_core_web_sm
+python -m spacy download en_core_web_md
+```
+
+---
+
+### 4. Configure the `.env` file
+
+Use the `.env.example` file to create your personal `.env` file in the root of quest
+
+⚠️ Note: the credentials of deepseek in the original repository were exposed in plain text.
+
+---
+
+### 5. Build and start the database
 
 ```bash
 docker compose up --build -d
 ```
 
-This will build and start all required services in the background.
-
 ---
 
-### 3. Wait for initialization
-
-⚠️ Wait until the database and indexes are fully built before running any test.
-
-The system is ready when the `.db_built` file is created.
-
-##### To force a re-indexing of the dataset when you run `docker compose up --build -d` you need to delete the `.db_built` file.
-
----
-
-## ▶️ Run a Query
-
-Execute the script inside the container:
+### 6. Run a query
 
 ```bash
-docker exec quest_app python tests/sf1.py \
-  --id ... \
-  --sql ... \
-  --doc ... \
-  --prompt ...
+python main.py \
+  --sql "<your_sql_query>" \
+  --debug
 ```
+
+#### Parameters:
+
+* `--sql` → list of SQL queries to execute
+* `--debug` → if present, only 5 documents are indexed (useful for quick testing)
 
 ---
 
-## ⚙️ Parameters Explanation
+### 7. Output
 
-### `--sql` (SQL Query)
-
-Defines the SQL query to execute.
-
-* Must follow standard SQL syntax
-* Specifies which fields to retrieve and from which table
-
-Example:
-
-```sql
-SELECT birth_date, olympic_gold_medals FROM player
-```
-
----
-
-### `--doc` (Document / Table Name)
-
-Specifies the target document (or table) used in the query.
-
-* Must match the dataset/index name loaded in the system
-* Typically corresponds to the table referenced in the SQL query
-
-Example:
-
-```bash
---doc player
-```
-
----
-
-### `--prompt` (Schema Description for LLM)
-
-Provides a natural language schema description used by the LLM.
-
-* Describes each attribute requested in the query
-* Helps the model understand how to interpret and extract data
-* Should include formatting instructions when needed
-
-Example:
-
-```
-birth_date: birth date of the player; use format YYYY/%-m/%-d (e.g., 1984/1/30).
-olympic_gold_medals: number of Olympic gold medals the player has won (e.g., 3).
-```
-
----
-
-## ✅ Full Example
-
-```bash
-docker exec quest_app python tests/sf1.py \
-  --id sf1 \
-  --sql "SELECT birth_date, olympic_gold_medals FROM player" \
-  --doc player \
-  --prompt "birth_date: birth date of the player; use format YYYY/%-m/%-d (e.g., 1984/1/30).\nolympic_gold_medals: number of Olympic gold medals the player has won (e.g., 3)."
-```
+Results are available in the folder `results`

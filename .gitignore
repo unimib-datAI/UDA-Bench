@@ -74,6 +74,7 @@ systems/DocETL/real/outputs/
 # Quest
 # =========================
 **systems/quest/results/
+!systems/quest/.env.example
 
 # =========================
 # Keep templates
