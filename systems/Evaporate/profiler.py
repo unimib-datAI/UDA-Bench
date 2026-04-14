@@ -12,6 +12,8 @@ import re
 import json
 import math
 import time
+import ast
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
 import pandas as pd
 import numpy as np
 from bs4 import BeautifulSoup
@@ -49,6 +51,186 @@ except ImportError:
 
 class TimeoutException(Exception):
     pass
+
+
+def _is_reasonable_fallback_value(value: str, attribute: str) -> bool:
+    if not isinstance(value, str):
+        return False
+    v = value.strip()
+    if not v:
+        return False
+    if len(v) > 80:
+        return False
+    if len(v.split()) > 10:
+        return False
+    if sum(ch in v for ch in [".", ";", "?", "!", "\n"]) > 1:
+        return False
+    if attribute.lower().replace("_", " ") in v.lower():
+        return True
+    # Short label-like values can still be useful.
+    if len(v.split()) <= 4:
+        return True
+    return False
+
+
+def _build_keyword_fallback_function(function_field: str, attribute: str) -> str:
+    attr_words = [w for w in re.split(r"[_\s]+", attribute.lower()) if len(w) > 2]
+    words_literal = repr(attr_words)
+    return f"""import re
+
+def get_{function_field}_field(text: str):
+    words = {words_literal}
+    lines = text.splitlines()
+
+    def norm(s: str) -> str:
+        s = re.sub(r'\\s+', ' ', s).strip(' -:|\\t')
+        return s
+
+    for i, raw in enumerate(lines):
+        line = norm(raw)
+        low = line.lower()
+        if not line:
+            continue
+        if words and sum(1 for w in words if w in low) < min(2, len(words)):
+            continue
+
+        # Pattern: "Attribute: value"
+        m = re.search(r':\\s*(.+)$', line)
+        if m and m.group(1).strip():
+            return norm(m.group(1))
+
+        # Heading-like line, try next non-empty line.
+        for j in range(i + 1, min(i + 4, len(lines))):
+            nxt = norm(lines[j])
+            if nxt:
+                return nxt
+
+        return line
+
+    return ""
+"""
+
+
+def _validate_generated_function(script: str, function_field: str, sample_text: str) -> bool:
+    try:
+        parsed = ast.parse(script)
+    except Exception:
+        return False
+
+    fn_name = f"get_{function_field}_field"
+    target_fn = None
+    for node in parsed.body:
+        if isinstance(node, ast.FunctionDef) and node.name == fn_name:
+            target_fn = node
+            break
+    if target_fn is None:
+        return False
+
+    has_return = any(isinstance(n, ast.Return) for n in ast.walk(target_fn))
+    if not has_return:
+        return False
+
+    local_env = {}
+    try:
+        exec(script, local_env, local_env)
+        fn = local_env.get(fn_name)
+        if not callable(fn):
+            return False
+        out = fn(sample_text if isinstance(sample_text, str) else str(sample_text))
+    except Exception:
+        return False
+
+    if out is None:
+        return True
+    if isinstance(out, (str, list)):
+        return True
+    return False
+
+
+def _normalize_function_output_for_check(value):
+    if value is None:
+        return ""
+    if isinstance(value, list):
+        flat = []
+        for item in value:
+            if isinstance(item, list):
+                flat.extend([str(x) for x in item if x is not None])
+            elif item is not None:
+                flat.append(str(item))
+        return " ".join(flat).strip()
+    return str(value).strip()
+
+
+def _is_low_quality_extraction_text(text: str) -> bool:
+    if not text:
+        return False
+    t = text.lower().strip()
+    boilerplate_markers = [
+        "provided text",
+        "sample text",
+        "does not contain",
+        "cannot extract",
+        "trick question",
+        "if this field",
+        "typically include",
+        "there is no explicit",
+        "would need to be adjusted",
+    ]
+    if any(m in t for m in boilerplate_markers):
+        return True
+    if len(t) > 260:
+        return True
+    return False
+
+
+def _passes_behavioral_quality_gate(script: str, function_field: str, sample_text: str) -> bool:
+    """
+    Second-level quality gate:
+    run function and reject obvious explanatory / malformed outputs.
+    """
+    fn_name = f"get_{function_field}_field"
+    local_env = {}
+    try:
+        exec(script, local_env, local_env)
+        fn = local_env.get(fn_name)
+        if not callable(fn):
+            return False
+        out = fn(sample_text if isinstance(sample_text, str) else str(sample_text))
+    except Exception:
+        return False
+
+    normalized = _normalize_function_output_for_check(out)
+    if _is_low_quality_extraction_text(normalized):
+        return False
+    return True
+
+
+def _run_generated_function_with_timeout(
+    fn_code: str,
+    function_field: str,
+    input_text: str,
+    timeout_seconds: float = 1.0,
+):
+    """
+    Cross-platform timeout guard for generated functions.
+    Returns: (result, timed_out)
+    """
+    fn_name = f"get_{function_field}_field"
+
+    def _runner():
+        local_env = {}
+        exec(fn_code, local_env, local_env)
+        fn_obj = local_env.get(fn_name)
+        if not callable(fn_obj):
+            raise ValueError(f"Generated function not found: {fn_name}")
+        return fn_obj(input_text)
+
+    with ThreadPoolExecutor(max_workers=1) as executor:
+        future = executor.submit(_runner)
+        try:
+            return future.result(timeout=timeout_seconds), False
+        except FuturesTimeoutError:
+            return None, True
 
 
 @contextmanager
@@ -319,7 +501,7 @@ def apply_final_profiling_functions(
         text = content
         preprocessed_text = text.replace(">\n", ">")
 
-        print("\n=== DEBUG FILE ===")
+        print(f"\n=== DEBUG FILE [{i+1}/{len(sample_files)}] ===")
         print("FILE:", file)
         print("FIRST 500 CHARS OF CONTENT:")
         print(repr(content[:500]))
@@ -352,15 +534,13 @@ def apply_final_profiling_functions(
 
                 err = 0
                 try:
-                    try:
-                        with time_limit(1):
-                            exec(fn, globals())
-                            exec(f"result = get_{function_field}_field(text)", globals())
-                    except TimeoutException as e:
+                    result, timed_out = _run_generated_function_with_timeout(
+                        fn, function_field, text, timeout_seconds=1.0
+                    )
+                    if timed_out:
                         print(f"Timeout {num_timeouts}")
                         num_timeouts += 1
-                        raise e
-
+                        raise TimeoutException("Generated function timeout on text")
                     print("FUNCTION RESULT ON text:", repr(result))
                     extractions.append(result)
                 except Exception as e:
@@ -369,14 +549,12 @@ def apply_final_profiling_functions(
 
                 if err:
                     try:
-                        try:
-                            with time_limit(1):
-                                exec(fn, globals())
-                                exec(f"result = get_{function_field}_field(preprocessed_text)", globals())
-                        except TimeoutException as e:
+                        result, timed_out = _run_generated_function_with_timeout(
+                            fn, function_field, preprocessed_text, timeout_seconds=1.0
+                        )
+                        if timed_out:
                             print("Timeout")
-                            raise e
-
+                            raise TimeoutException("Generated function timeout on preprocessed_text")
                         print("FUNCTION RESULT ON preprocessed_text:", repr(result))
                         extractions.append(result)
                         err = 0
@@ -631,18 +809,15 @@ def get_{function_field}_field(text: str):
                     else:
                         for val in candidate_values:
                             cleaned = val.strip()
-                            if cleaned:
+                            if cleaned and _is_reasonable_fallback_value(cleaned, attribute):
                                 fallback_value = cleaned
                                 break
 
-                        if not fallback_value:
-                            print("--- REJECTED: no fallback value available ---")
-                            continue
+                        if fallback_value:
+                            fallback_value = str(fallback_value).strip()
+                            escaped_value = re.escape(fallback_value)
 
-                        fallback_value = str(fallback_value).strip()
-                        escaped_value = re.escape(fallback_value)
-
-                        script = f"""import re
+                            script = f"""import re
 
 def get_{function_field}_field(text: str):
     match = re.search(r'##\\s*({escaped_value})\\b', text, re.IGNORECASE)
@@ -650,10 +825,20 @@ def get_{function_field}_field(text: str):
         return match.group(1).strip()
     return ""
 """
+                        else:
+                            print("--- INFO: using keyword-based fallback extractor ---")
+                            script = _build_keyword_fallback_function(function_field, attribute)
 
                     print("\n=== FALLBACK FUNCTION ===")
                     print(script)
                     print("=========================")
+
+                if not _validate_generated_function(script, function_field, chunk):
+                    print("--- REJECTED: script validation failed ---")
+                    continue
+                if not _passes_behavioral_quality_gate(script, function_field, chunk):
+                    print("--- REJECTED: behavioral quality gate failed ---")
+                    continue
 
                 print("\n=== SCRIPT AFTER NORMALIZATION ===")
                 print(script)
@@ -703,6 +888,125 @@ def deduplicate_extractions(extractions):
         if not duplicate:
             deduplicated_extractions.append(extraction)
     return deduplicated_extractions
+
+
+def _score_clean_text_for_selection(text: str, attribute: str | None = None) -> float:
+    if not text:
+        return 0.0
+    t = text.lower()
+    penalties = [
+        "provided text",
+        "sample text",
+        "does not contain",
+        "cannot extract",
+        "table of contents",
+        "forward-looking",
+        "annual report",
+        "exact name of registrant",
+        "sample text",
+        "cannot extract",
+        "does not contain",
+    ]
+    score = 1.0
+    for p in penalties:
+        if p in t:
+            score -= 0.25
+    if len(t) > 180:
+        score -= 0.20
+    if t.startswith("#"):
+        score -= 0.20
+    if "```" in t or "def get_" in t:
+        score -= 0.50
+
+    attr = (attribute or "").lower().strip()
+    if attr == "company_name":
+        if re.search(r"\b(inc|corp|corporation|ltd|limited|plc|group|holdings|sa|nv)\b", t):
+            score += 0.45
+        words = len(text.split())
+        if 1 <= words <= 8:
+            score += 0.20
+        if words > 14:
+            score -= 0.35
+    elif attr in {"major_equity_changes"}:
+        if t in {"yes", "no"}:
+            score += 0.35
+        else:
+            score -= 0.20
+    elif attr in {"the_highest_ownership_stake"}:
+        if "%" in text or "percent" in t or "per cent" in t:
+            score += 0.30
+    elif any(k in attr for k in ["revenue", "profit", "cost", "asset", "debt", "cash", "earnings", "dividend"]):
+        if re.search(r"-?\d", text):
+            score += 0.30
+        else:
+            score -= 0.25
+
+    return max(0.0, score)
+
+
+def _select_functions_unsupervised(
+    all_extractions: dict,
+    function_dictionary: dict,
+    attribute: str,
+    k: int = 2,
+) -> tuple[list[str], dict]:
+    """
+    Fair selection without GT/pseudo-gold leakage.
+    Scores functions using only internal extraction quality signals.
+    """
+    candidates = [key for key in all_extractions.keys() if "function" in str(key)]
+    ranked = []
+    internal_metrics = {}
+
+    for key in candidates:
+        file2pred = all_extractions.get(key, {})
+        if not isinstance(file2pred, dict) or not file2pred:
+            continue
+
+        cleaned = {}
+        for fp, pred in file2pred.items():
+            cleaned_val = clean_function_predictions(pred, attribute=attribute)
+            cleaned[fp] = cleaned_val
+
+        vals = list(cleaned.values())
+        non_empty = [v for v in vals if isinstance(v, str) and v.strip()]
+        non_empty_ratio = len(non_empty) / len(vals) if vals else 0.0
+        unique_ratio = (len(set(non_empty)) / len(non_empty)) if non_empty else 0.0
+        quality = (
+            sum(_score_clean_text_for_selection(v, attribute=attribute) for v in non_empty) / len(non_empty)
+        ) if non_empty else 0.0
+
+        score = (0.50 * non_empty_ratio) + (0.20 * unique_ratio) + (0.30 * quality)
+
+        if non_empty_ratio < 0.10:
+            score -= 0.20
+        if non_empty and len(set(non_empty)) == 1:
+            score -= 0.20
+
+        internal_metrics[key] = {
+            "average_f1": 0.0,
+            "median_f1": 0.0,
+            "extraction_fraction": float(non_empty_ratio),
+            "selection_score": float(score),
+            "quality_score": float(quality),
+            "unique_ratio": float(unique_ratio),
+        }
+
+        ranked.append((key, score))
+
+    ranked.sort(key=lambda x: x[1], reverse=True)
+
+    if not ranked:
+        return [], internal_metrics
+
+    if k == -1:
+        selected = [key for key, score in ranked if score >= max(0.12, ranked[0][1] - 0.08)]
+        if not selected:
+            selected = [ranked[0][0]]
+    else:
+        selected = [key for key, _ in ranked[: max(1, k)]]
+
+    return selected, internal_metrics
 
 
 def get_model_extractions(
@@ -896,27 +1200,43 @@ def run_profiler(
     if not all_extractions:
         return total_tokens_prompted, 0
 
-    all_metrics, key2golds, num_toks = evaluate(
-        all_extractions,
-        profiler_args.GOLD_KEY,
-        field=attribute,
-        manifest_session=manifest_sessions[profiler_args.GOLD_KEY],
-        overwrite_cache=profiler_args.overwrite_cache,
-        combiner_mode=profiler_args.combiner_mode,
-        extraction_fraction_thresh=profiler_args.extraction_fraction_thresh,
-        use_abstension=profiler_args.use_abstension,
-    )
-    total_tokens_prompted += num_toks
+    # Fair mode: avoid pseudo-gold feedback loops in function selection.
+    use_pseudo_gold = str(os.environ.get("EVAPORATE_USE_PSEUDOGOLD", "0")).lower() in {"1", "true", "yes"}
+    if use_pseudo_gold:
+        all_metrics, key2golds, num_toks = evaluate(
+            all_extractions,
+            profiler_args.GOLD_KEY,
+            field=attribute,
+            manifest_session=manifest_sessions[profiler_args.GOLD_KEY],
+            overwrite_cache=profiler_args.overwrite_cache,
+            combiner_mode=profiler_args.combiner_mode,
+            extraction_fraction_thresh=profiler_args.extraction_fraction_thresh,
+            use_abstension=profiler_args.use_abstension,
+        )
+        total_tokens_prompted += num_toks
 
-    selected_keys = get_topk_scripts_per_field(
-        all_metrics,
-        function_dictionary,
-        all_extractions,
-        gold_key=profiler_args.GOLD_KEY,
-        k=profiler_args.num_top_k_scripts,
-        do_end_to_end=profiler_args.do_end_to_end,
-        combiner_mode=profiler_args.combiner_mode,
-    )
+        selected_keys = get_topk_scripts_per_field(
+            all_metrics,
+            function_dictionary,
+            all_extractions,
+            gold_key=profiler_args.GOLD_KEY,
+            k=profiler_args.num_top_k_scripts,
+            do_end_to_end=profiler_args.do_end_to_end,
+            combiner_mode=profiler_args.combiner_mode,
+        )
+        if isinstance(all_metrics, dict):
+            all_metrics = {k: v for k, v in all_metrics.items() if k in selected_keys}
+    else:
+        selected_keys, all_metrics = _select_functions_unsupervised(
+            all_extractions,
+            function_dictionary,
+            attribute,
+            k=profiler_args.num_top_k_scripts,
+        )
+        if isinstance(all_metrics, dict):
+            all_metrics = {k: v for k, v in all_metrics.items() if k in selected_keys}
+        key2golds = {}
+        print(f"[FairSelect] selected keys for {attribute}: {selected_keys}")
 
     if not selected_keys and profiler_args.do_end_to_end:
         print(f"Removing {file_attribute}")
@@ -928,6 +1248,10 @@ def run_profiler(
         f"Apply the scripts to the data lake and save the metadata. "
         f"Taking the top {profiler_args.num_top_k_scripts} scripts per field."
     )
+    use_function_cache = not bool(profiler_args.overwrite_cache)
+    if not use_function_cache:
+        print("[Cache] overwrite_cache=True -> function cache disabled for this run")
+
     top_k_extractions, num_toks = apply_final_ensemble(
         group_files,
         file2chunks,
@@ -938,7 +1262,7 @@ def run_profiler(
         function_dictionary,
         data_lake=args.data_lake,
         manifest_sessions=manifest_sessions,
-        function_cache=True,
+        function_cache=use_function_cache,
         MODELS=profiler_args.EXTRACTION_MODELS,
         overwrite_cache=profiler_args.overwrite_cache,
         do_end_to_end=profiler_args.do_end_to_end,
@@ -950,9 +1274,9 @@ def run_profiler(
         top_k_extractions,
         all_metrics,
         combiner_mode=profiler_args.combiner_mode,
-        train_extractions=all_extractions,
+        train_extractions=all_extractions if use_pseudo_gold else None,
         attribute=attribute,
-        gold_key=profiler_args.GOLD_KEY,
+        gold_key=profiler_args.GOLD_KEY if use_pseudo_gold else None,
         extraction_fraction_thresh=profiler_args.extraction_fraction_thresh,
     )
     total_tokens_prompted += num_toks

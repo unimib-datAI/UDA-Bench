@@ -80,6 +80,8 @@ Data/*/txt/
 **/.ipynb_checkpoints/
 
 # Evaporate artifacts/temp
+systems/Evaporate/outputs/
+systems/Evaporate/function_cache/
 systems/Evaporate/**/results_dumps/
 systems/Evaporate/scratch/
 

@@ -8,6 +8,7 @@ import pickle
 import argparse
 from collections import defaultdict, Counter
 import pandas as pd
+from pathlib import Path
 
 from utils import get_structure, get_manifest_sessions, get_file_attribute
 from profiler_utils import chunk_file, sample_scripts
@@ -143,6 +144,27 @@ def get_run_string(
 
 
 def get_gold_metadata(args):
+    """
+    Resolve schema attributes from gold file when available, otherwise fallback.
+    Supported formats:
+    - { "1.txt": { "attr_a": "...", "attr_b": "..." }, ... }
+    - { "attr_a": "...", "attr_b": "..." }
+    """
+    gold_path = getattr(args, "gold_extractions_file", None)
+    if gold_path and os.path.isfile(gold_path):
+        try:
+            with open(gold_path, "r", encoding="utf-8") as f:
+                payload = json.load(f)
+
+            if isinstance(payload, dict) and payload:
+                first_val = next(iter(payload.values()))
+                if isinstance(first_val, dict):
+                    return list(first_val.keys())
+                if all(not isinstance(v, dict) for v in payload.values()):
+                    return list(payload.keys())
+        except Exception:
+            pass
+
     return [
         "company_name",
         "registered_office",
@@ -637,35 +659,61 @@ def run_experiment(profiler_args):
 
     stats_file = f"{result_path_dir}/{run_string}_llm_metrics.json"
     tracker.save_to_file(stats_file)
+    latest_run_path = os.path.join(result_path_dir, "latest_run.txt")
+    with open(latest_run_path, "w", encoding="utf-8") as f:
+        f.write(run_string + "\n")
+    return run_string
 
 
 def main():
     profiler_args = get_experiment_args()
 
-    base_dir = os.path.dirname(os.path.abspath(__file__))
-    finance_dir = os.path.join(base_dir, "data", "finance")
-    docs_dir = os.path.join(finance_dir, "docs")
-    gold_file = os.path.join(finance_dir, "table.json")
+    base_dir = Path(__file__).resolve().parent
+    repo_root = base_dir.parent.parent
 
-    profiler_args.data_lake = "finance"
-    profiler_args.data_dir = docs_dir
-    profiler_args.base_data_dir = finance_dir
-    profiler_args.gold_extractions_file = gold_file
+    if not profiler_args.data_lake:
+        profiler_args.data_lake = "finance"
 
-    profiler_args.MODELS = ["gemini-2.5-flash"]
-    profiler_args.EXTRACTION_MODELS = ["gemini-2.5-flash"]
-    profiler_args.MODEL2URL = {}
-    profiler_args.KEYS = []
-    profiler_args.GOLD_KEY = "gemini-2.5-flash"
-    profiler_args.combiner_mode = "mv"
-    profiler_args.do_end_to_end = False
+    if not profiler_args.data_dir:
+        data_dataset_dir = repo_root / "Data" / profiler_args.data_lake
+        txt_dir = data_dataset_dir / "txt"
+        fallback_docs = base_dir / "data" / profiler_args.data_lake.lower() / "docs"
+        profiler_args.data_dir = str(txt_dir if txt_dir.is_dir() else fallback_docs)
 
-    profiler_args.train_size = 20
-    profiler_args.num_top_k_scripts = 2
+    if not profiler_args.base_data_dir or profiler_args.base_data_dir == "/":
+        profiler_args.base_data_dir = str(base_dir / "data" / profiler_args.data_lake.lower())
+
+    if not profiler_args.gold_extractions_file:
+        data_dataset_dir = repo_root / "Data" / profiler_args.data_lake
+        table_json = data_dataset_dir / "table.json"
+        fallback_gold = Path(profiler_args.base_data_dir) / "table.json"
+        profiler_args.gold_extractions_file = str(table_json if table_json.is_file() else fallback_gold)
+
+    default_model = os.environ.get("EVAPORATE_MODEL", "gemini-2.5-flash")
+    if not profiler_args.MODELS or profiler_args.MODELS == ["gpt-4"]:
+        profiler_args.MODELS = [default_model]
+    if not profiler_args.EXTRACTION_MODELS or profiler_args.EXTRACTION_MODELS == ["gpt-4"]:
+        profiler_args.EXTRACTION_MODELS = [default_model]
+    if not getattr(profiler_args, "GOLD_KEY", None) or profiler_args.GOLD_KEY == "gpt-4":
+        profiler_args.GOLD_KEY = default_model
+
+    profiler_args.MODEL2URL = profiler_args.MODEL2URL if isinstance(profiler_args.MODEL2URL, dict) else {}
+    profiler_args.KEYS = profiler_args.KEYS if isinstance(profiler_args.KEYS, list) else []
+    profiler_args.combiner_mode = profiler_args.combiner_mode or "mv"
+
+    if not isinstance(profiler_args.train_size, int) or profiler_args.train_size <= 0:
+        profiler_args.train_size = 20
+    if not isinstance(profiler_args.num_top_k_scripts, int) or profiler_args.num_top_k_scripts <= 0:
+        profiler_args.num_top_k_scripts = 2
+    if not isinstance(profiler_args.chunk_size, int) or profiler_args.chunk_size <= 0:
+        profiler_args.chunk_size = 2000
+    if not isinstance(profiler_args.max_chunks_per_file, int) or profiler_args.max_chunks_per_file == 0:
+        profiler_args.max_chunks_per_file = 3
+
+    # Keep Evaporate in schema-driven extraction mode by default.
+    profiler_args.do_end_to_end = bool(getattr(profiler_args, "do_end_to_end", False))
+    profiler_args.overwrite_cache = bool(getattr(profiler_args, "overwrite_cache", False))
     profiler_args.num_attr_to_cascade = len(get_gold_metadata(profiler_args))
-    profiler_args.chunk_size = 2000
-    profiler_args.max_chunks_per_file = 3
-    profiler_args.overwrite_cache = True
 
     print("data_lake:", profiler_args.data_lake)
     print("data_dir:", profiler_args.data_dir)
@@ -680,7 +728,8 @@ def main():
     if not os.path.isfile(profiler_args.gold_extractions_file):
         raise FileNotFoundError(f"Gold file not found: {profiler_args.gold_extractions_file}")
 
-    run_experiment(profiler_args)
+    run_string = run_experiment(profiler_args)
+    print("RUN_STRING:", run_string)
 
 
 if __name__ == "__main__":

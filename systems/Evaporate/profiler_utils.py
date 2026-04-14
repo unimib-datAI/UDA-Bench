@@ -1,4 +1,4 @@
-import re
+﻿import re
 import argparse
 import random
 import os
@@ -587,50 +587,268 @@ def filter_file2chunks(file2chunks, sample_files, attribute):
 
 
 def clean_function_predictions(extraction, attribute=None):
+    def _flatten_to_strings(value):
+        if value is None:
+            return []
+        if isinstance(value, list):
+            out = []
+            for item in value:
+                out.extend(_flatten_to_strings(item))
+            return out
+        s = str(value).strip()
+        return [s] if s else []
+
+    def _dedup_keep_order(items):
+        seen = set()
+        out = []
+        for item in items:
+            key = item.strip().lower()
+            if not key or key in seen:
+                continue
+            seen.add(key)
+            out.append(item.strip())
+        return out
+
+    def _is_numeric_attribute(attr_name):
+        if not attr_name:
+            return False
+        a = attr_name.lower()
+        numeric_markers = [
+            'revenue',
+            'profit',
+            'cost',
+            'asset',
+            'debt',
+            'cash',
+            'earnings',
+            'dividend',
+            'stake',
+            'segments_num',
+            'count_',
+            'sum_',
+            'avg_',
+            'min_',
+            'max_',
+        ]
+        return any(m in a for m in numeric_markers)
+
+    def _normalize_number(text):
+        cleaned = str(text).strip()
+        cleaned = cleaned.replace(',', '')
+        cleaned = cleaned.replace('$', '')
+        cleaned = cleaned.replace('€', '')
+        cleaned = cleaned.replace('£', '')
+        cleaned = cleaned.replace('¥', '')
+        cleaned = cleaned.replace('%', '')
+        match = re.search(r'-?\d+(?:\.\d+)?', cleaned)
+        if not match:
+            return ''
+        try:
+            number = float(match.group(0))
+            if abs(number - int(number)) < 1e-9:
+                return str(int(number))
+            return str(number)
+        except Exception:
+            return ''
+
+    def _normalize_percent(text):
+        s = str(text).strip()
+        m = re.search(r'(\d+(?:\.\d+)?)\s*(?:%|percent|per cent)\b', s, flags=re.IGNORECASE)
+        if not m:
+            return ''
+        try:
+            v = float(m.group(1))
+            if abs(v - int(v)) < 1e-9:
+                return f'{int(v)}%'
+            return f'{v}%'
+        except Exception:
+            return ''
+
+    def _normalize_bool(text):
+        t = str(text).lower().strip()
+        if t in {'yes', 'y', 'true', '1', 'present', 'significant', 'major'}:
+            return 'Yes'
+        if t in {'no', 'n', 'false', '0', 'none', 'absent'}:
+            return 'No'
+        return ''
+
+    def _is_junk_phrase(s):
+        low = str(s).lower().strip()
+        if not low:
+            return True
+        junk = [
+            'provided text',
+            'sample text',
+            'does not contain',
+            'cannot extract',
+            'trick question',
+            'typically include',
+            'function to extract',
+            'table of contents',
+            'in this context',
+            'based on the provided text',
+        ]
+        if any(x in low for x in junk):
+            return True
+        if low in {'none', 'null', 'n/a', 'na', 'not available', 'not specified'}:
+            return True
+        return False
+
+    def _clean_surface(s):
+        s = str(s).replace('\r', ' ').replace('\n', ' ').replace('\t', ' ')
+        s = re.sub(r'\s+', ' ', s).strip()
+        s = re.sub(r'^[#>\-\*\d\.\)\(\s]+', '', s).strip()
+        s = s.strip("`'\"|;, ")
+        s = re.sub(r'\s+', ' ', s).strip()
+        return s
+
+    def _score_candidate(c, attr):
+        low = c.lower()
+        score = 0.0
+        if _is_junk_phrase(c):
+            score -= 3.0
+        if len(c) > 120:
+            score -= 1.0
+        if low.startswith(('item ', 'section ', 'table ', 'annual report', 'financial review')):
+            score -= 1.0
+        if 'exact name of registrant' in low:
+            score -= 1.5
+        if attr == 'company_name' and re.search(r'\b(inc|corp|corporation|ltd|limited|plc|group|holdings|sa|nv)\b', low):
+            score += 2.0
+        if attr == 'exchange_code' and re.fullmatch(r'[A-Z]{2,8}(?::[A-Z0-9\.-]{1,8})?', c):
+            score += 2.0
+        if attr == 'auditor' and any(x in low for x in ['pwc', 'pricewaterhouse', 'deloitte', 'kpmg', 'ernst', ' ey ']):
+            score += 2.0
+        if _is_numeric_attribute(attr) and re.search(r'-?\d', c):
+            score += 1.5
+        if attr == 'the_highest_ownership_stake' and ('%' in c or 'percent' in low or 'per cent' in low):
+            score += 2.0
+        return score
+
+    def _normalize_by_attribute(raw, attr):
+        s = _clean_surface(raw)
+        if not s or _is_junk_phrase(s):
+            return ''
+        low = s.lower()
+
+        if attr == 'major_equity_changes':
+            if any(k in low for k in ['rights issue', 'buyback', 'share issue', 'merger', 'acquisition', 'restructure', 'capital raising']):
+                return 'Yes'
+            return _normalize_bool(s)
+
+        if attr == 'the_highest_ownership_stake':
+            p = _normalize_percent(s)
+            if p:
+                return p
+            n = _normalize_number(s)
+            if n:
+                try:
+                    v = float(n)
+                    if 0 <= v <= 100:
+                        return f'{int(v)}%' if abs(v - int(v)) < 1e-9 else f'{v}%'
+                except Exception:
+                    pass
+            return ''
+
+        if _is_numeric_attribute(attr):
+            return _normalize_number(s)
+
+        if attr == 'exchange_code':
+            m = re.search(r'\b(ASX|NYSE|NASDAQ|LSE|TSX|HKEX|SSE|SZSE|BSE|NSE)\b(?::\s*([A-Z0-9\.-]{1,8}))?', s, flags=re.IGNORECASE)
+            if m:
+                exch = m.group(1).upper()
+                tick = m.group(2).upper() if m.group(2) else ''
+                return f'{exch}:{tick}' if tick else exch
+            m2 = re.search(r'\b([A-Z]{2,8}:[A-Z0-9\.-]{1,8})\b', s)
+            return m2.group(1).upper() if m2 else ''
+
+        if attr == 'auditor':
+            if 'pricewaterhouse' in low or 'pwc' in low:
+                return 'PwC'
+            if 'deloitte' in low:
+                return 'Deloitte'
+            if 'kpmg' in low:
+                return 'KPMG'
+            if 'ernst' in low or re.search(r'\bey\b', low):
+                return 'EY'
+            return ''
+
+        if attr == 'company_name':
+            if 'exact name of registrant' in low:
+                return ''
+            m = re.search(r'\b([A-Z][A-Za-z0-9&\.\-]*(?:\s+[A-Z][A-Za-z0-9&\.\-]*){0,6}\s+(?:Inc\.?|Corporation|Corp\.?|Ltd\.?|Limited|PLC|plc|Group|Holdings|NV|SA))\b', s)
+            if m:
+                return _clean_surface(m.group(1))
+            m2 = re.search(r'\b([A-Z][A-Za-z0-9&\.\-]*(?:\s+[A-Z][A-Za-z0-9&\.\-]*){0,5})\b', s)
+            if m2:
+                candidate = _clean_surface(m2.group(1))
+                if 1 <= len(candidate.split()) <= 8:
+                    return candidate
+            return ''
+
+        if attr in {'board_members', 'executive_profiles'}:
+            tmp = re.sub(r'\b(and|&)\b', ',', s, flags=re.IGNORECASE)
+            parts = [p.strip() for p in re.split(r'[|,;/]', tmp) if p.strip()]
+            names = []
+            for p in parts:
+                p = _clean_surface(p)
+                if _is_junk_phrase(p) or len(p.split()) > 8:
+                    continue
+                if re.search(r'\b(chief|officer|director|ceo|cfo|coo|chair)\b', p, flags=re.IGNORECASE) or re.search(r"^[A-Z][A-Za-z\.\-']+(?:\s+[A-Z][A-Za-z\.\-']+){1,4}$", p):
+                    names.append(p)
+            names = _dedup_keep_order(names)
+            return ', '.join(names[:10]) if names else ''
+
+        if attr in {'principal_activities', 'business_risks', 'major_events', 'remuneration_policy'}:
+            categories = {
+                'principal_activities': ['mining', 'finance', 'healthcare', 'manufacturing', 'technology', 'retail', 'energy', 'utilities', 'real estate', 'transportation', 'agriculture', 'telecommunications', 'media', 'other'],
+                'business_risks': ['market risk', 'credit risk', 'operational risk', 'legal risk', 'compliance risk', 'environmental risk', 'strategic risk', 'other'],
+                'major_events': ['m&a', 'merger', 'acquisition', 'litigation', 'lawsuit', 'major contract', 'leadership change', 'restructuring', 'delisting', 'other'],
+                'remuneration_policy': ['fixed', 'performance-based', 'stock option', 'equity', 'mixed', 'incentive', 'bonus', 'not disclosed'],
+            }
+            for cat in categories.get(attr, []):
+                if cat in low:
+                    return cat
+            return _clean_surface(s) if len(s.split()) <= 8 else ''
+
+        return _clean_surface(s)
+
     if extraction is None:
         return ''
 
-    if type(extraction) == list:
-        if extraction and type(extraction[0]) == list:
-            full_answer = []
-            for answer in extraction:
-                if type(answer) == list:
-                    dedup_list = []
-                    for a in answer:
-                        if a not in dedup_list:
-                            dedup_list.append(a)
-                    answer = dedup_list
-                    answer = [str(a).strip().strip("\n") for a in answer]
-                    full_answer.append(", ".join(answer))
-                else:
-                    full_answer.append(answer.strip().strip("\n"))
-            full_answer = [a.strip() for a in full_answer]
-            extraction = ", ".join(full_answer)
-        elif extraction and len(extraction) == 1 and extraction[0] is None:
-            extraction = ''
-        else:
-            dedup_list = []
-            for a in extraction:
-                if a not in dedup_list:
-                    dedup_list.append(a)
-            extraction = dedup_list
-            extraction = [(str(e)).strip().strip("\n") for e in extraction]
-            extraction = ", ".join(extraction)
+    parts = _flatten_to_strings(extraction)
+    if not parts:
+        return ''
 
-    if isinstance(extraction, str) and extraction.lower() == "none":
-        extraction = ""
+    attr = (attribute or '').strip().lower()
+    normalized_parts = []
+    for p in parts:
+        chunks = re.split(r'(?:\n|[|]|;;|\t)', str(p))
+        for ch in chunks:
+            s = _clean_surface(ch)
+            if not s:
+                continue
+            if attr and s.lower().startswith(attr):
+                s = s[len(attr):].strip(' :,-')
+            s = _normalize_by_attribute(s, attr) if attr else _clean_surface(s)
+            if s and not _is_junk_phrase(s):
+                normalized_parts.append(s)
 
-    extraction = extraction.strip().replace("  ", " ")
-    if attribute and extraction.lower().startswith(attribute.lower()):
-        idx = extraction.lower().find(attribute.lower())
-        extraction = extraction[idx + len(attribute):].strip()
+    normalized_parts = _dedup_keep_order(normalized_parts)
+    if not normalized_parts:
+        return ''
 
-    for char in [':', ","]:
-        extraction = extraction.strip(char).strip()
+    if attr in {'company_name', 'registered_office', 'exchange_code', 'auditor', 'the_highest_ownership_stake'} or _is_numeric_attribute(attr):
+        return max(normalized_parts, key=lambda c: _score_candidate(c, attr))
 
-    extraction = extraction.replace(",", ", ").replace("  ", " ")
-    return extraction
+    if attr in {'board_members', 'executive_profiles'}:
+        expanded = []
+        for c in normalized_parts:
+            expanded.extend([p.strip() for p in re.split(r'[|,;/]', c) if p.strip()])
+        expanded = _dedup_keep_order(expanded)
+        return ', '.join(expanded[:10]) if expanded else ''
 
+    return ', '.join(normalized_parts)
 
 def check_vs_train_extractions(train_extractions, final_extractions, gold_key, attribute=None):
     clean_final_extractions = {}
@@ -700,3 +918,4 @@ def check_vs_train_extractions(train_extractions, final_extractions, gold_key, a
     else:
         clean_final_extractions = final_extractions
     return clean_final_extractions
+
