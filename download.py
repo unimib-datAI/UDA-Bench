@@ -45,7 +45,7 @@ def download_and_extract(dataset: list[tuple[str, str]]) -> None:
         
         zip_filename = os.path.join(DATASET_ROOT, f"dataset_temp_{i}.zip")
         
-        gdown.download(url=link, output=zip_filename, quiet=False, fuzzy=True)
+        gdown.download(url=link, output=zip_filename, quiet=False)
         
         if os.path.exists(zip_filename):
             target_extraction_path = os.path.join(DATASET_ROOT, name_folder)

@@ -69,6 +69,10 @@ systems/DocETL/real/outputs/
 # =========================
 !systems/lotus/*/*.json
 !systems/lotus/requirements.txt
+!systems/lotus/.env.example
+!systems/lotus/config/prompt info/descriptions_original.json
+!systems/lotus/config/prompt info/examples_original.json
+!systems/lotus/config/prompt info/extractions_original.json
 **/systems/lotus/results/
 
 # =========================

@@ -12,8 +12,9 @@ from utils.sql_parser import parse_sql
 from utils.io import load_json
 
 class LotusPipeline:
-    def __init__(self, domain: str, use_cascade: bool = False, limit: int = -1):
+    def __init__(self, domain: str, path: Path, use_cascade: bool = False, limit: int = -1):
         self.domain = domain
+        self.path = path
         self.use_cascade = use_cascade
         self.limit = limit
 
@@ -34,27 +35,12 @@ class LotusPipeline:
         self._load_data()
 
     def _load_configs(self):        
-        self.extractions = load_json(os.path.join(settings.BENCHMARK_DIR, 'extractions.json'), self.domain)
-        self.descriptions = load_json(os.path.join(settings.BENCHMARK_DIR, 'descriptions.json'), self.domain)
-        self.examples = load_json(os.path.join(settings.BENCHMARK_DIR, 'examples.json'), self.domain)
+        self.extractions = load_json(os.path.join(settings.CONFIG_FILES_DIR, 'extractions.json'), self.domain)
+        self.descriptions = load_json(os.path.join(settings.CONFIG_FILES_DIR, 'descriptions.json'), self.domain)
+        self.examples = load_json(os.path.join(settings.CONFIG_FILES_DIR, 'examples.json'), self.domain)
 
     def _load_data(self):
-        dataset_folder = settings.PROJECT_ROOT / "Dataset"
-        
-        if not os.path.exists(dataset_folder):
-            raise FileNotFoundError(f"Dataset folder not found at {dataset_folder}")
-
-        domain_folder = dataset_folder / self.domain
-        if os.path.exists(domain_folder):
-            csv_path = dataset_folder / self.domain / "GT.csv"
-        else:
-            csv_path = None
-            for folder in dataset_folder.iterdir():
-                for subfolder in folder.iterdir():
-                    if subfolder.is_dir() and subfolder.name.lower() == self.domain.lower():
-                        csv_path = subfolder / "GT.csv"
-                        domain_folder = subfolder
-                        break
+        csv_path = self.path / "GT.csv"
                     
         if not csv_path or not os.path.exists(csv_path):
             raise FileNotFoundError(f"Ground truth CSV not found at {csv_path}")
@@ -63,24 +49,23 @@ class LotusPipeline:
         
         if self.limit > 0:
             self.df_truth = self.df_truth[:self.limit]
-            
-        if "id" in self.df_truth:
-            self.ids = self.df_truth["id"].dropna().astype(str).tolist()
-        elif "ID" in self.df_truth:
-            self.ids = self.df_truth["ID"].dropna().astype(str).tolist()
-        else:
-            raise ValueError(f"Column 'id' or 'ID' not found in {csv_path}")
+        
+        for i in ["ID", "id", "Id", "iD"]:
+            if i in self.df_truth:
+                self.ids = self.df_truth[i].dropna().astype(str).tolist()
         
         contexts = []
         for id_value in self.ids:
-            file_path = domain_folder / "files" / f"{id_value}.txt"
+            file_path = self.path / "files" / f"{id_value}.txt"
             if file_path.exists():
                 with open(file_path, "r", encoding="utf-8") as f:
                     contexts.append(f.read().strip())
             else:
+                print(f"⚠️ Warning: Context file {file_path} not found. Adding empty context.")
                 contexts.append('')
                 
         self.df_context = pd.DataFrame({'context': contexts})
+        print(f"✅ Loaded {len(self.df_context)} contexts for domain '{self.domain}'.")
 
     def run_sql_task(self, sql: str, output_folder: Path):
         output_folder.mkdir(parents=True, exist_ok=True)
