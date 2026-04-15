@@ -28,7 +28,7 @@ def get_attributes_info(path, attr, table):
     
     return None
 
-def run(sql, id, debug=False):
+def run(sql, id, debug=False, output_dir=os.path.join(SYSTEM_ROOT, "results", f"{int(time.time())}")):
     print(f"SQL Query: {sql}")
     
     parser = Parser(sql)
@@ -134,8 +134,6 @@ def run(sql, id, debug=False):
     print("Output Tokens : ", query_info["output_tokens"])
 
     # Save results
-    output_dir = os.path.join(SYSTEM_ROOT, "results", f"{int(time.time())}")
-    
     os.makedirs(output_dir, exist_ok=True)
         
     output_path = os.path.join(output_dir, f"{id}.csv")
@@ -162,6 +160,10 @@ if __name__ == "__main__":
     parser.add_argument("--debug", 
                         action="store_true",
                         help="Enable debug mode: this will index only 5 documents per dataset for a faster execution")
+    parser.add_argument("--output_dir", 
+                        type=str,
+                        default=os.path.join(SYSTEM_ROOT, "results", f"{int(time.time())}"),
+                        help="Directory to save the results and statistics")
 
     # Parse arguments from command line
     args = parser.parse_args()
@@ -170,6 +172,6 @@ if __name__ == "__main__":
     for i, sql in enumerate(args.sql):
         print_log(f"\n=== Running Query {i+1}/{len(args.sql)} ===")
         try:
-            run(sql, str(i), args.debug)
+            run(sql, str(i), args.debug, args.output_dir)
         except Exception as e:
             print_log(f"Error executing query {i+1}: {e}")

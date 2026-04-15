@@ -12,7 +12,7 @@ from download import download_from_datasets, REDIRECT_LINKS, DRIVE_LINKS
 from core.pipeline import LotusPipeline
 from sql_metadata import Parser
 
-def main(queries=None, cascade=False, limit=-1, out_dir=None):
+def main(queries=None, cascade=False, limit=-1, out_dir=settings.SYSTEM_ROOT / "results" / str(int(time.time()))):
     if not queries:
         print("Error: No SQL query provided.")
         return
