@@ -30,7 +30,7 @@ logging.getLogger("httpx").setLevel(logging.CRITICAL)
 class LM:
     def __init__(
         self,
-        model: str = "gpt-4o-mini",
+        model: str = "gemini/gemini-2.5-flash",
         temperature: float = 0.0,
         max_ctx_len: int = 128000,
         max_tokens: int = 512,
@@ -60,6 +60,8 @@ class LM:
         else:
             self.model = model
             
+        # litellm._turn_on_debug()
+        
         self.max_ctx_len = max_ctx_len
         self.max_tokens = max_tokens
         self.max_batch_size = max_batch_size
@@ -148,6 +150,11 @@ class LM:
             self.model, batch, drop_params=True, max_workers=self.max_batch_size, **all_kwargs
         )
 
+        # Check for exceptions in responses and raise them
+        for resp in uncached_responses:
+            if isinstance(resp, Exception):
+                raise resp
+
         pbar.update(total_calls)
         pbar.close()
 
@@ -155,7 +162,7 @@ class LM:
 
     def _cache_response(self, response, hash):
         """Caches a response and updates stats if successful."""
-        if isinstance(response, OpenAIError):
+        if isinstance(response, Exception):
             raise response
         self.cache.insert(hash, response)
 
@@ -191,6 +198,8 @@ class LM:
                 usage.total_cost += cost
 
     def _update_stats(self, response: ModelResponse, is_cached: bool = False):
+        if isinstance(response, Exception):
+            return
         if not hasattr(response, "usage"):
             return
 
@@ -219,6 +228,8 @@ class LM:
             self._check_usage_limit(self.stats.physical_usage, self.physical_usage_limit, "physical")
 
     def _get_top_choice(self, response: ModelResponse) -> str:
+        if isinstance(response, Exception):
+            raise response
         choice = response.choices[0]
         assert isinstance(choice, Choices)
         if choice.message.content is None:
@@ -226,6 +237,8 @@ class LM:
         return choice.message.content
 
     def _get_top_choice_logprobs(self, response: ModelResponse) -> list[ChatCompletionTokenLogprob]:
+        if isinstance(response, Exception):
+            raise response
         choice = response.choices[0]
         assert isinstance(choice, Choices)
         
