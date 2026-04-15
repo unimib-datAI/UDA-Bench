@@ -34,39 +34,37 @@ class LM:
         temperature: float = 0.0,
         max_ctx_len: int = 128000,
         max_tokens: int = 512,
-        max_batch_size: int = 64,
+        max_batch_size: int = 10,
         tokenizer: Tokenizer | None = None,
         cache=None,
         physical_usage_limit: UsageLimit = UsageLimit(),
         virtual_usage_limit: UsageLimit = UsageLimit(),
         **kwargs: dict[str, Any],
     ):
-        """Language Model class for interacting with various LLM providers.
-
-        Args:
-            model (str): Name of the model to use. Defaults to "gpt-4o-mini".
-            temperature (float): Sampling temperature. Defaults to 0.0.
-            max_ctx_len (int): Maximum context length in tokens. Defaults to 128000.
-            max_tokens (int): Maximum number of tokens to generate. Defaults to 512.
-            max_batch_size (int): Maximum batch size for concurrent requests. Defaults to 64.
-            tokenizer (Tokenizer | None): Custom tokenizer instance. Defaults to None.
-            cache: Cache instance to use. Defaults to None.
-            usage_limit (UsageLimit): Usage limits for the model. Defaults to UsageLimit().
-            **kwargs: Additional keyword arguments passed to the underlying LLM API.
-        """
-        # Adattamento per Gemini: LiteLLM richiede il prefisso "gemini/" o "vertex_ai/"
+        """Language Model class for interacting with various LLM providers."""
+        
+        # Adattamento per Gemini: forza il prefisso "gemini/"
         if "gemini" in model.lower() and "/" not in model:
             self.model = f"gemini/{model}"
         else:
             self.model = model
             
-        # litellm._turn_on_debug()
-        
         self.max_ctx_len = max_ctx_len
         self.max_tokens = max_tokens
         self.max_batch_size = max_batch_size
         self.tokenizer = tokenizer
-        self.kwargs = dict(temperature=temperature, max_tokens=max_tokens, **kwargs)
+        
+        # Blindatura parametri per LiteLLM + Google AI Studio
+        self.kwargs = dict(
+            temperature=temperature, 
+            max_tokens=max_tokens,
+            custom_llm_provider="gemini" if self.is_gemini() else None, # Blocca Vertex AI
+            num_retries=3,  # Riprova in caso di micro-cadute di connessione
+            timeout=120,    # Estende il tempo di attesa per evitare i server disconnect
+            **kwargs
+        )
+        # Rimuove chiavi None per evitare conflitti interni a LiteLLM
+        self.kwargs = {k: v for k, v in self.kwargs.items() if v is not None}
 
         self.stats: LMStats = LMStats()
         self.physical_usage_limit = physical_usage_limit
@@ -85,8 +83,6 @@ class LM:
 
         # Set top_logprobs if logprobs requested
         if all_kwargs.get("logprobs", False):
-            # Gemini supporta i top_logprobs tramite le API recenti, 
-            # ma impostiamo un default sicuro
             all_kwargs.setdefault("top_logprobs", 5 if self.is_gemini() else 10)
 
         if lotus.settings.enable_cache:
@@ -146,11 +142,17 @@ class LM:
         )
 
         batch = [msg for msg, _ in uncached_data]
+        
+        # Inoltro a LiteLLM con gestione dei parametri incompatibili (drop_params)
         uncached_responses = batch_completion(
-            self.model, batch, drop_params=True, max_workers=self.max_batch_size, **all_kwargs
+            model=self.model, 
+            messages=batch, 
+            drop_params=True, 
+            max_workers=self.max_batch_size, 
+            **all_kwargs
         )
 
-        # Check for exceptions in responses and raise them
+        # Propaga le eccezioni per evitare crash silenziosi o parse errors
         for resp in uncached_responses:
             if isinstance(resp, Exception):
                 raise resp
@@ -207,11 +209,9 @@ class LM:
         try:
             cost = completion_cost(completion_response=response)
         except litellm.exceptions.NotFoundError as e:
-            # Sometimes the model's pricing information is not available
             lotus.logger.debug(f"Error updating completion cost: {e}")
             cost = None
         except Exception as e:
-            # Handle any other unexpected errors when calculating cost
             lotus.logger.debug(f"Unexpected error calculating completion cost: {e}")
             warnings.warn(
                 "Error calculating completion cost - cost metrics will be inaccurate. Enable debug logging for details."
@@ -255,7 +255,7 @@ class LM:
         all_tokens = []
         all_confidences = []
         for resp_logprobs in logprobs:
-            # Gestione del fallback se i logprobs sono vuoti (es. API Gemini senza supporto)
+            # Gestione del fallback se i logprobs sono vuoti
             if not resp_logprobs:
                 all_tokens.append([])
                 all_confidences.append([])
@@ -270,7 +270,6 @@ class LM:
     def format_logprobs_for_filter_cascade(
         self, logprobs: list[list[ChatCompletionTokenLogprob]]
     ) -> LogprobsForFilterCascade:
-        # Get base cascade format first
         base_cascade = self.format_logprobs_for_cascade(logprobs)
         all_true_probs = []
 
@@ -278,16 +277,13 @@ class LM:
             if "True" in token_probs and "False" in token_probs:
                 true_prob = token_probs["True"]
                 false_prob = token_probs["False"]
-                # Gestione divisione per zero in casi estremi
                 total = true_prob + false_prob
                 return (true_prob / total) if total > 0 else None
             return None
 
-        # Get true probabilities for filter cascade
         for resp_idx, response_logprobs in enumerate(logprobs):
             true_prob = None
             for logprob in response_logprobs:
-                # Controllo di sicurezza se top_logprobs non è definito
                 if not hasattr(logprob, "top_logprobs") or not logprob.top_logprobs:
                     continue
                     
@@ -296,7 +292,6 @@ class LM:
                 if true_prob is not None:
                     break
 
-            # Default to 1 if "True" in tokens, 0 if not
             if true_prob is None:
                 true_prob = 1 if "True" in base_cascade.tokens[resp_idx] else 0
 
@@ -307,7 +302,6 @@ class LM:
         )
 
     def count_tokens(self, messages: list[dict[str, str]] | str) -> int:
-        """Count tokens in messages using either custom tokenizer or model's default tokenizer"""
         if isinstance(messages, str):
             messages = [{"role": "user", "content": messages}]
 
@@ -325,8 +319,8 @@ class LM:
         print("\n=== Usage Statistics ===")
         print("Virtual  = Total usage if no caching was used")
         print("Physical = Actual usage with caching applied\n")
-        print(f"Virtual Cost:     ${self.stats.virtual_usage.total_cost:,.6f}")
-        print(f"Physical Cost:    ${self.stats.physical_usage.total_cost:,.6f}")
+        print(f"Virtual Cost:    ${self.stats.virtual_usage.total_cost:,.6f}")
+        print(f"Physical Cost:   ${self.stats.physical_usage.total_cost:,.6f}")
         print(f"Virtual Tokens:   {self.stats.virtual_usage.total_tokens:,}")
         print(f"Physical Tokens:  {self.stats.physical_usage.total_tokens:,}")
         print(f"Cache Hits:       {self.stats.cache_hits:,}\n")
@@ -342,13 +336,11 @@ class LM:
         if not raw_model:
             return ""
 
-        # If a slash is present, assume the model name is after the last slash.
         if "/" in raw_model:
             candidate = raw_model.split("/")[-1]
         else:
             candidate = raw_model
 
-        # If a colon is present, assume the model version is appended and remove it.
         if ":" in candidate:
             candidate = candidate.split(":")[0]
 
@@ -359,6 +351,5 @@ class LM:
         return model_name.startswith("deepseek-r1")
         
     def is_gemini(self) -> bool:
-        """Rileva se il modello attualmente in uso fa parte della famiglia Gemini."""
         model_name = self.get_model_name()
         return model_name.startswith("gemini")

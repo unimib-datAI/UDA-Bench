@@ -50,9 +50,8 @@ def main(queries=None, cascade=False, limit=-1, out_dir=settings.SYSTEM_ROOT / "
         
         try:
             pipeline = pipelines[domain]
-            out_folder =  out_dir / f"{i}"
-            pipeline.run_sql_task(query, out_folder)
-            print("Execution completed. Results saved to:", out_folder)
+            pipeline.run_sql_task(query, out_dir)
+            print("Execution completed. Results saved to:", out_dir)
         except Exception as e:
             print(f"Error during \"{query}\": {e}")
                    
