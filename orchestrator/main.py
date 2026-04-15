@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from datetime import datetime, timezone
 from itertools import product
@@ -367,6 +368,8 @@ def main() -> int:
     run_id = args.run_id or _make_run_id()
     run_dir = _repo_root() / "orchestrator" / "runs" / run_id
     run_paths = _prepare_run_dirs(run_dir)
+    os.environ.setdefault("PYTHONIOENCODING", "utf-8")
+    os.environ["ORCHESTRATOR_RUN_DIR"] = str(run_dir)
     logger = RunLogger(run_paths["logs"] / "events.log")
     logger.info(f"Starting run {run_id}")
 

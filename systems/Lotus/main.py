@@ -3,6 +3,8 @@ import json
 import sys
 import time
 
+from pathlib import Path
+
 from config.settings import settings
 
 sys.path.insert(0, str(settings.PROJECT_ROOT))
@@ -15,10 +17,12 @@ from sql_metadata import Parser
 def main(queries=None, cascade=False, limit=-1, out_dir=settings.SYSTEM_ROOT / "results" / str(int(time.time()))):
     if not queries:
         print("Error: No SQL query provided.")
-        return
+        return 1
     
     domains = set()
     queries_map = []
+    
+    queries = [q.strip("\"") for q in queries]
     
     for query in queries:
         domain = Parser(query).tables
@@ -38,7 +42,7 @@ def main(queries=None, cascade=False, limit=-1, out_dir=settings.SYSTEM_ROOT / "
         ) 
         for domain in domains.keys()
     }
-    
+
     for i, sql_info in enumerate(queries_map):
         query, domain = sql_info
         
@@ -147,5 +151,10 @@ if __name__ == "__main__":
     parser.add_argument("--cascade", action="store_true", help="Use LM cascade strategy")
     parser.add_argument("--out_dir", type=str, required=False, default=settings.SYSTEM_ROOT / "results" / str(int(time.time())), help="Output folder for results")
     args = parser.parse_args()
-    
-    main(queries=args.sql, cascade=args.cascade, limit=args.limit, out_dir=args.out_dir)
+
+    main(
+        queries=args.sql,
+        cascade=args.cascade,
+        limit=args.limit,
+        out_dir=Path(str(args.out_dir).strip('"')),
+    )
