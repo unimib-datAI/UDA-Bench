@@ -106,6 +106,27 @@ Forza rebuild evaluation:
 python systems/DocETL/orchestrator/evaluate_all.py --dataset Finan --rebuild
 ```
 
+Evaluation per tipologia query:
+
+```bash
+python systems/DocETL/orchestrator/evaluate_all.py --dataset Finan --query-type select
+```
+
+Da `main.py` puoi anche lanciare solo evaluation:
+
+```bash
+python systems/DocETL/orchestrator/main.py --dataset Finan --eval-only --query-type filter
+```
+
+Valori supportati per `--query-type`:
+
+- `all`
+- `agg`
+- `filter`
+- `select`
+- `mixed`
+- `join`
+
 Output evaluation:
 
 - `systems/DocETL/outputs/finan/evaluation/<query_id>/acc.json`
@@ -133,6 +154,7 @@ Significato pratico:
 - `evaluation/summary.json`
   - cosa contiene: riepilogo dataset-level (`ok/skip/errori`, `macro_f1_mean`, dettagli per query)
   - a cosa serve: metrica finale da confrontare con altri modelli/sistemi
+  - nota: se usi `--query-type <tipo>`, viene scritto `summary_<tipo>.json`
 
 - `evaluation/_logs/<query_id>.log`
   - cosa contiene: stdout/stderr completi in caso di errore evaluation

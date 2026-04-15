@@ -75,6 +75,18 @@ python systems/Evaporate/orchestrator/main.py --dataset Finan --skip-eval
 python systems/Evaporate/orchestrator/evaluate_all.py --dataset Finan --rebuild
 ```
 
+### Evaluation per tipologia query
+
+```powershell
+python systems/Evaporate/orchestrator/evaluate_all.py --dataset Finan --query-type select
+```
+
+Oppure dal main, solo evaluation (senza pipeline):
+
+```powershell
+python systems/Evaporate/orchestrator/main.py --dataset Finan --eval-only --query-type filter
+```
+
 ## Parametri utili
 
 `main.py` espone anche:
@@ -84,6 +96,16 @@ python systems/Evaporate/orchestrator/evaluate_all.py --dataset Finan --rebuild
 - `--num-top-k-scripts` (default `2`)
 - `--chunk-size` (default `2000`)
 - `--max-chunks-per-file` (default `3`)
+- `--query-type` (default `all`, usato nella fase evaluation)
+
+Valori supportati per `--query-type`:
+
+- `all`
+- `agg`
+- `filter`
+- `select`
+- `mixed`
+- `join`
 
 Per forcing reale del rebuild estrazione usa `--rebuild-extract` (propaga `--overwrite_cache` internamente).
 
@@ -102,6 +124,7 @@ Per dataset `Finan`:
 
 - `systems/Evaporate/outputs/finan/evaluation/summary.json`
   - riepilogo globale (`macro_f1_mean`, ok/skip/error, dettagli per query)
+  - se usi `--query-type <tipo>`, viene scritto `summary_<tipo>.json`
 
 - `systems/Evaporate/outputs/finan/evaluation/_logs/`
   - log errori/debug evaluation per query

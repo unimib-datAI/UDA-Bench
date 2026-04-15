@@ -24,9 +24,20 @@ def main():
         help="Esegue solo pipeline Evaporate (senza evaluation)",
     )
     parser.add_argument(
+        "--eval-only",
+        action="store_true",
+        help="Salta la pipeline e lancia solo evaluation",
+    )
+    parser.add_argument(
         "--rebuild-eval",
         action="store_true",
         help="Riesegue evaluation anche se acc.json e gia presente",
+    )
+    parser.add_argument(
+        "--query-type",
+        default="all",
+        choices=["all", "agg", "filter", "select", "mixed", "join"],
+        help="Categoria query da valutare (all, agg, filter, select, mixed, join)",
     )
     parser.add_argument("--model", default="gemini-2.5-flash")
     parser.add_argument("--train-size", type=int, default=20)
@@ -35,22 +46,22 @@ def main():
     parser.add_argument("--max-chunks-per-file", type=int, default=3)
     args = parser.parse_args()
 
-    run_dataset(
-        dataset_name=args.dataset,
-        rebuild=args.rebuild,
-        rebuild_extract=args.rebuild_extract,
-        rebuild_table=args.rebuild_table,
-        model=args.model,
-        train_size=args.train_size,
-        num_top_k_scripts=args.num_top_k_scripts,
-        chunk_size=args.chunk_size,
-        max_chunks_per_file=args.max_chunks_per_file,
-    )
+    if not args.eval_only:
+        run_dataset(
+            dataset_name=args.dataset,
+            rebuild=args.rebuild,
+            rebuild_extract=args.rebuild_extract,
+            rebuild_table=args.rebuild_table,
+            model=args.model,
+            train_size=args.train_size,
+            num_top_k_scripts=args.num_top_k_scripts,
+            chunk_size=args.chunk_size,
+            max_chunks_per_file=args.max_chunks_per_file,
+        )
 
-    if not args.skip_eval:
-        run_evaluation(args.dataset, rebuild=args.rebuild_eval)
+    if (not args.skip_eval) or args.eval_only:
+        run_evaluation(args.dataset, rebuild=args.rebuild_eval, query_type=args.query_type)
 
 
 if __name__ == "__main__":
     main()
-

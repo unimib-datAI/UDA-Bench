@@ -22,6 +22,7 @@ TASK_MAP = {
     "mixed": "Mixed",
     "join": "Join",
 }
+VALID_QUERY_TYPES = {"all", "agg", "filter", "select", "mixed", "join"}
 
 
 def _safe_decode(data: bytes | None) -> str:
@@ -283,9 +284,18 @@ def _prepare_result_csv_for_eval(
     return safe_csv_path
 
 
-def run_evaluation(dataset_name: str, rebuild: bool = False):
+def _normalize_query_type(query_type: str | None) -> str:
+    qt = (query_type or "all").strip().lower()
+    if qt not in VALID_QUERY_TYPES:
+        raise ValueError(f"query_type non valido: {query_type}. Valori: {sorted(VALID_QUERY_TYPES)}")
+    return qt
+
+
+def run_evaluation(dataset_name: str, rebuild: bool = False, query_type: str = "all"):
     root = repo_root()
-    queries = load_all_sql_queries(dataset_name)
+    all_queries = load_all_sql_queries(dataset_name)
+    qt = _normalize_query_type(query_type)
+    queries = all_queries if qt == "all" else [q for q in all_queries if str(q.get("category", "")).lower() == qt]
 
     csv_root = root / "systems" / "Evaporate" / "outputs" / dataset_real_name(dataset_name) / "csv"
     eval_root = root / "systems" / "Evaporate" / "outputs" / dataset_real_name(dataset_name) / "evaluation"
@@ -434,6 +444,7 @@ def run_evaluation(dataset_name: str, rebuild: bool = False):
 
     summary = {
         "dataset": dataset_name,
+        "query_type": qt,
         "total": total,
         "ok": ok,
         "skip": skipped,
@@ -442,12 +453,14 @@ def run_evaluation(dataset_name: str, rebuild: bool = False):
         "details": details,
     }
 
-    summary_path = eval_root / "summary.json"
+    summary_name = "summary.json" if qt == "all" else f"summary_{qt}.json"
+    summary_path = eval_root / summary_name
     with open(summary_path, "w", encoding="utf-8") as f:
         json.dump(summary, f, ensure_ascii=False, indent=2)
 
     print("\n=== EVAL RIEPILOGO ===")
     print(f"Dataset      : {dataset_name}")
+    print(f"Query type   : {qt}")
     print(f"Totali       : {total}")
     print(f"OK           : {ok}")
     print(f"Skip         : {skipped}")
@@ -464,5 +477,11 @@ if __name__ == "__main__":
         action="store_true",
         help="Riesegue evaluation anche se acc.json e gia presente",
     )
+    parser.add_argument(
+        "--query-type",
+        default="all",
+        choices=sorted(VALID_QUERY_TYPES),
+        help="Valuta solo una categoria di query (all, agg, filter, select, mixed, join)",
+    )
     args = parser.parse_args()
-    run_evaluation(args.dataset, rebuild=args.rebuild)
+    run_evaluation(args.dataset, rebuild=args.rebuild, query_type=args.query_type)

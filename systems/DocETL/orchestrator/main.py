@@ -1,4 +1,4 @@
-import argparse
+﻿import argparse
 import json
 import re
 import time
@@ -13,6 +13,7 @@ from planner import build_plan
 from yaml_builder import build_yaml
 from runner import run_docetl
 from exporter import json_to_csv, json_to_query_csv
+from evaluate_all import run_evaluation
 from utils import repo_root, dataset_real_name
 
 
@@ -118,7 +119,7 @@ def _is_parseable_number(value) -> bool:
     if not s:
         return False
     s = re.sub(r"^\((.*)\)$", r"-\1", s)
-    s = re.sub(r"[$€£¥₹,%]", "", s)
+    s = re.sub(r"[$â‚¬Â£Â¥â‚¹,%]", "", s)
     s = s.replace(",", "")
     s = re.sub(r"[^0-9eE+\-.]", "", s)
     if not s:
@@ -225,7 +226,7 @@ def run_dataset(dataset_name: str, rebuild: bool = False):
             # Resume mode: if both outputs already exist, skip expensive rerun.
             if not rebuild and json_path.exists() and csv_path.exists():
                 skipped += 1
-                print(f"  SKIP -> {csv_path.name} (già presente)")
+                print(f"  SKIP -> {csv_path.name} (giÃ  presente)")
                 continue
 
             parsed = parse_sql(query_meta["sql"])
@@ -267,7 +268,7 @@ def run_dataset(dataset_name: str, rebuild: bool = False):
             low_quality = _low_quality_fields(rows, required_cols, field_types)
             if low_quality and not did_retry:
                 _augment_plan_with_missing_fields(plan, config, low_quality)
-                print(f"  INFO -> retry qualità bassa campi: {sorted(low_quality)}")
+                print(f"  INFO -> retry qualitÃ  bassa campi: {sorted(low_quality)}")
                 yaml_path_str, json_path_str = build_yaml(
                     config=config,
                     plan=plan,
@@ -314,8 +315,32 @@ if __name__ == "__main__":
     parser.add_argument(
         "--rebuild",
         action="store_true",
-        help="Riesegue tutte le query ignorando i risultati già presenti",
+        help="Riesegue tutte le query ignorando i risultati gia presenti",
+    )
+    parser.add_argument(
+        "--eval",
+        action="store_true",
+        help="Esegue anche la evaluation batch al termine della pipeline",
+    )
+    parser.add_argument(
+        "--eval-only",
+        action="store_true",
+        help="Salta la pipeline e lancia solo evaluation",
+    )
+    parser.add_argument(
+        "--rebuild-eval",
+        action="store_true",
+        help="Riesegue evaluation anche se acc.json gia presente",
+    )
+    parser.add_argument(
+        "--query-type",
+        default="all",
+        choices=["all", "agg", "filter", "select", "mixed", "join"],
+        help="Categoria query da valutare (all, agg, filter, select, mixed, join)",
     )
     args = parser.parse_args()
 
-    run_dataset(args.dataset, rebuild=args.rebuild)
+    if not args.eval_only:
+        run_dataset(args.dataset, rebuild=args.rebuild)
+    if args.eval or args.eval_only:
+        run_evaluation(args.dataset, rebuild=args.rebuild_eval, query_type=args.query_type)
