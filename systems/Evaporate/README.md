@@ -1,196 +1,121 @@
-# Evaporate – Setup & Usage (UDA-Benchmark)
+# Evaporate in UDA-Bench
 
-This guide explains how to run **Evaporate** within the UDA-Benchmark framework to extract structured data from document corpora.
+Questa cartella contiene:
 
----
+- il sistema Evaporate originale (`run_profiler.py`, `profiler.py`, ecc.)
+- un orchestrator UDA-Bench per esecuzioni batch su tutte le query di un dataset
+- la valutazione batch integrata con il benchmark
 
-## 🧠 What is Evaporate?
+## Cosa fa il nuovo orchestrator
 
-Evaporate is a **schema-driven extraction system** that:
+Dato un dataset (es. `Finan`), l'orchestrator:
 
-- Uses an LLM to generate **Python extraction functions**
-- Applies them over document chunks
-- Produces **structured attribute-level extractions aligned with the schema**
+1. esegue/riprende l'estrazione Evaporate
+2. costruisce la tabella unificata `evaporate_full_table.csv`
+3. esegue tutte le query SQL del dataset
+4. salva un CSV risultato per query
+5. lancia evaluation su tutte le query e aggrega le metriche finali
 
-👉 Important:
-- NOT query-driven
-- Works **per attribute**, not per query
-- Output is **not immediately tabular**
+## Struttura principale
 
----
+- `orchestrator/main.py`: entrypoint unico (pipeline + evaluation)
+- `orchestrator/runner.py`: run batch query e export CSV
+- `orchestrator/evaluate_all.py`: evaluation batch su tutte le query
+- `orchestrator/query_loader.py`: caricamento query SQL del benchmark
+- `orchestrator/utils.py`: utility comuni
 
-## 📂 Expected Inputs
+## Prerequisiti
 
-Evaporate requires:
+Da root repo:
 
-### 1. Corpus (documents)
-
-
-data/<dataset>/docs/
-
-
-- Format: `.txt`
-- Each file = one document
-
-Example:
-
-data/finance/docs/1.txt
-data/finance/docs/2.txt
-...
-
-
----
-
-### 2. Schema (ground truth structure)
-
-
-data/<dataset>/table.json
-
-
-This defines:
-- attributes to extract (e.g. `company_name`, `revenue`, etc.)
-
----
-
-## ⚙️ Environment Setup
-
-### 1. Create virtual environment
-
-```bash
-python -m venv .venv
-.venv\Scripts\activate   # Windows
+```powershell
+python -m venv .venv-evaporate
+.\.venv-evaporate\Scripts\Activate.ps1
+pip install -r systems/Evaporate/requirements_evaporate.txt
 ```
 
-### 2. Install dependencies
-```bash
-pip install -r requirements.txt
+API key (se usi provider LLM che la richiede):
+
+```powershell
+$env:TOGETHER_API_KEY="your_key"
 ```
 
-### 3. Configure API Key
+## Input attesi
 
-Evaporate uses an LLM (e.g. Gemini via Together AI).
-The API key is **not hardcoded in the code**, but loaded from an environment variable inside:
-```python
-systems/Evaporate/utils.py
-TOGETHER_API_KEY = os.environ.get("TOGETHER_API_KEY")
-```
-#### Set your API key
-Windows (PowerShell)
-```bash
-$env:TOGETHER_API_KEY="your_key_here"
-```
-Windows (CMD)
-```bash
-set TOGETHER_API_KEY=your_key_here
-```
-Linux/macOS
-```bash
-export TOGETHER_API_KEY=your_key_here
+Dataset in:
+
+- `Data/<Dataset>/txt/` documenti `.txt` (uno per file)
+- `Data/<Dataset>/table.json` schema/ground truth tabellare (se assente, viene generato da CSV quando possibile)
+
+Query SQL benchmark in `queries/` (gestite via loader orchestrator).
+
+## Comandi principali
+
+### Pipeline completa + evaluation
+
+```powershell
+python systems/Evaporate/orchestrator/main.py --dataset Finan
 ```
 
-## ▶️ Running Evaporate
-From:
-```bash
-systems/Evaporate/
+### Rebuild completo (estrazione, tabella, CSV query, evaluation)
+
+```powershell
+python systems/Evaporate/orchestrator/main.py --dataset Finan --rebuild-extract --rebuild-table --rebuild --rebuild-eval
 ```
-Run:
-```bash
-python run_profiler.py
+
+### Solo pipeline (senza evaluation)
+
+```powershell
+python systems/Evaporate/orchestrator/main.py --dataset Finan --skip-eval
 ```
-🔄 What happens during execution?
 
-Evaporate performs the following steps:
+### Solo evaluation batch
 
-Chunk documents
-For each attribute:
-Generate extraction functions via LLM
-Select valid functions
-Apply functions over all documents
-Aggregate extracted values
-📤 Output
-
-Results are saved in:
-```bash
-data/<dataset>/generative_indexes/<dataset>/
+```powershell
+python systems/Evaporate/orchestrator/evaluate_all.py --dataset Finan --rebuild
 ```
-Main output:
-```bash
-*_all_extractions.json
-```
-🔎 Output format
 
-The output contains:
-```json
-{
-  "company_name": [...],
-  "revenue": [...],
-  ...
-}
-```
-👉 Each attribute has a list of extracted values
+## Parametri utili
 
-## ⚠️ Important Notes
-❗ Not query-based
+`main.py` espone anche:
 
-Evaporate does NOT produce:
-```bash
-res_q1.csv
-res_q2.csv
-```
-Instead:
-```
-one extraction per dataset
-```
-❗ Not directly comparable with UDA outputs
+- `--model` (default `gemini-2.5-flash`)
+- `--train-size` (default `20`)
+- `--num-top-k-scripts` (default `2`)
+- `--chunk-size` (default `2000`)
+- `--max-chunks-per-file` (default `3`)
 
-UDA expects:
+Per forcing reale del rebuild estrazione usa `--rebuild-extract` (propaga `--overwrite_cache` internamente).
 
-- structured tables
-- aligned with ground truth
+## Output prodotti
 
-Evaporate produces:
+Per dataset `Finan`:
 
-- attribute-level extractions
+- `systems/Evaporate/outputs/finan/evaporate_full_table.csv`
+  - tabella unificata prodotta da metadata Evaporate, base per esecuzione SQL
 
-👉 A post-processing step is required:
+- `systems/Evaporate/outputs/finan/csv/<query_id>.csv`
+  - risultato query-by-query, pronto per evaluation
 
-- normalization
-- alignment with GT
-- conversion to tabular format
+- `systems/Evaporate/outputs/finan/evaluation/<query_id>/acc.json`
+  - metriche per singola query
 
-## 🧩 Limitations
-Performance depends heavily on:
-prompt quality
-document structure
-Generated functions may:
-fail (no return)
-be too specific (low generalization)
-Works best on semi-structured documents
-🚀 Extending to new datasets
+- `systems/Evaporate/outputs/finan/evaluation/summary.json`
+  - riepilogo globale (`macro_f1_mean`, ok/skip/error, dettagli per query)
 
-To use Evaporate on a new dataset:
+- `systems/Evaporate/outputs/finan/evaluation/_logs/`
+  - log errori/debug evaluation per query
 
-Add documents:
-```
-data/<new_dataset>/docs/
-```
-Add schema:
-```
-data/<new_dataset>/table.json
-```
-Update config in run_profiler.py:
-```
-data_lake = "<new_dataset>"
-```
-Run again
+## Note importanti
 
-## 🧠 Key Insight
+- Gli output sotto `systems/Evaporate/outputs/` sono artefatti locali e non vanno versionati.
+- `systems/Evaporate/function_cache/` contiene cache funzioni locali.
+- `.gitignore` include regole per evitare commit di output/cache.
 
-Evaporate is best understood as:
+## Obiettivo del flusso
 
-a schema-driven extraction engine, not a full end-to-end query system.
+Confrontare Evaporate con gli altri sistemi UDA-Bench in modo uniforme:
 
-It is mainly useful for:
-
-building structured datasets from documents
-upstream data extraction pipelines
+- stessa suite di query
+- stesso evaluator
+- metriche aggregate comparabili su tutti i dataset
