@@ -231,6 +231,10 @@ def _materialize_system_outputs(run_outputs_dir: Path, result: JobResult) -> dic
         sys_out_root = root / "systems" / "DocETL" / "outputs" / dataset.lower()
     elif model == "evaporate":
         sys_out_root = root / "systems" / "Evaporate" / "outputs" / dataset.lower()
+    elif model == "lotus":
+        sys_out_root = root / "systems" / "Lotus" / "results" / dataset.lower()
+    elif model == "quest":
+        sys_out_root = root / "systems" / "quest" / "results" / dataset.lower()
     else:
         return {"copied_files": 0, "details": {"reason": "unsupported model"}}
 
@@ -251,7 +255,7 @@ def _materialize_system_outputs(run_outputs_dir: Path, result: JobResult) -> dic
         copied += copied_yaml + copied_json
         details["yaml_files"] = copied_yaml
         details["json_files"] = copied_json
-    else:
+    elif model == "evaporate":
         full_table = sys_out_root / "evaporate_full_table.csv"
         if full_table.exists():
             _copy_file(full_table, target_root / "evaporate_full_table.csv")
@@ -368,6 +372,7 @@ def main() -> int:
     run_id = args.run_id or _make_run_id()
     run_dir = _repo_root() / "orchestrator" / "runs" / run_id
     run_paths = _prepare_run_dirs(run_dir)
+    
     os.environ.setdefault("PYTHONIOENCODING", "utf-8")
     os.environ["ORCHESTRATOR_RUN_DIR"] = str(run_dir)
     logger = RunLogger(run_paths["logs"] / "events.log")

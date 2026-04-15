@@ -13,3 +13,6 @@ tqdm
 tokenizers
 
 python-dotenv
+
+sqlglot
+duckdb
