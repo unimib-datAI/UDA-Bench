@@ -40,21 +40,20 @@ def main(queries=None, cascade=False, limit=-1):
         for domain in domains.keys()
     }
     
-    try:
-        timestamp = int(time.time())
-        for i, sql_info in enumerate(queries_map):
-            query, domain = sql_info
-            
-            print(f"Execution Query SQL {i+1}/{len(queries_map)}: {query} (Domain: {domain})")
-            
+    timestamp = int(time.time())
+    for i, sql_info in enumerate(queries_map):
+        query, domain = sql_info
+        
+        print(f"Execution Query SQL {i+1}/{len(queries_map)}: {query} (Domain: {domain})")
+        
+        try:
             pipeline = pipelines[domain]
             out_folder = settings.RESULTS_DIR / f"{timestamp}" / f"{i}"
             pipeline.run_sql_task(query, out_folder)
-            
             print("Execution completed. Results saved to:", out_folder)
-    except Exception as e:
-        print(f"Error during \"{query}\": {e}")
-        
+        except Exception as e:
+            print(f"Error during \"{query}\": {e}")
+                   
 
 def check_and_download_dataset(domains):
     domains = set(d.lower() for d in domains)
@@ -144,7 +143,6 @@ def update_json_file(path, new_data):
         json.dump(data, f, indent=2)
 
 if __name__ == "__main__":
-    
     parser = argparse.ArgumentParser(description="Lotus LLM Data Extractor/Filter")
     parser.add_argument("--sql", type=str, nargs="+", required=True, help="SQL query")
     parser.add_argument("--limit", type=int, required=False, default=-1,help="Limit for the dataset rows")

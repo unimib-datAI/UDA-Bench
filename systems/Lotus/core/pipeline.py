@@ -40,23 +40,17 @@ class LotusPipeline:
         self.examples = load_json(os.path.join(settings.CONFIG_FILES_DIR, 'examples.json'), self.domain)
 
     def _load_data(self):
-        csv_path = self.path / "GT.csv"
-                    
-        if not csv_path or not os.path.exists(csv_path):
-            raise FileNotFoundError(f"Ground truth CSV not found at {csv_path}")
+        if not self.path or not os.path.exists(self.path):
+            raise FileNotFoundError(f"Dataset not found at {self.path}")
         
-        self.df_truth = pd.read_csv(csv_path)
+        self.ids = [file for file in os.listdir(self.path / "files") if file.endswith(".txt")]
         
         if self.limit > 0:
-            self.df_truth = self.df_truth[:self.limit]
-        
-        for i in ["ID", "id", "Id", "iD"]:
-            if i in self.df_truth:
-                self.ids = self.df_truth[i].dropna().astype(str).tolist()
+            self.ids = self.ids[:self.limit]
         
         contexts = []
         for id_value in self.ids:
-            file_path = self.path / "files" / f"{id_value}.txt"
+            file_path = self.path / "files" / id_value
             if file_path.exists():
                 with open(file_path, "r", encoding="utf-8") as f:
                     contexts.append(f.read().strip())

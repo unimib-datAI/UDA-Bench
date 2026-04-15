@@ -14,12 +14,12 @@ DRIVE_LINKS = {
     "legal": "https://drive.google.com/file/d/1JgRB8hTRKny7IHFbvNMGE5Off32b2cL8/view?usp=sharing", # Legal
     "finance": "https://drive.google.com/file/d/1yMI-kn9WfAk-g-LSrWycvDDkwVtGhCaK/view?usp=sharing", # Finance
     "medical": "https://drive.google.com/file/d/1byJT-z2r_rX5wFiAy5Os2jP6bYfFb9nq/view?usp=sharing", # Healthcare
-    "cspaper": "https://drive.google.com/file/d/1uMy7Q-95YMrLoQcthoK2F1Ayh2qvnvZe/view?usp=sharing" # RAG
+    #"cspaper": "https://drive.google.com/file/d/1uMy7Q-95YMrLoQcthoK2F1Ayh2qvnvZe/view?usp=sharing" # RAG
 }
 
 REDIRECT_LINKS = {
     "art": "art",
-    "cspaper": "rag",
+    # "cspaper": "rag",
     "finance": "finance",
     "legal": "legal",
     "disease": "medical",
@@ -35,11 +35,9 @@ def download_and_extract(dataset: list[tuple[str, str]]) -> None:
     print("📥 Starting the download and extraction of files from Google Drive...\n")
 
     for i, (name_folder, link) in enumerate(dataset, 1):
-        
         if os.path.exists(os.path.join(DATASET_ROOT, name_folder)):
             print(f"⚠️ Warning: The folder '{name_folder}' already exists. It will be removed and recreated.")
             shutil.rmtree(os.path.join(DATASET_ROOT, name_folder))
-        
         
         print(f"🔄 Processing item {i} of {len(dataset)} (Destination: {name_folder})...")
         
@@ -73,6 +71,7 @@ def download_and_extract(dataset: list[tuple[str, str]]) -> None:
                         
                         # Remove the now-empty folder
                         os.rmdir(single_item_path)
+                        
                 # --- END NESTED FOLDER FIX ---
                 
                 print(f"✅ Extraction completed and structured in {name_folder}!\n")
