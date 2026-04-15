@@ -272,6 +272,7 @@ def run_evaluation(dataset_name: str, rebuild: bool = False, query_type: str = "
     root = repo_root()
     all_queries = load_all_sql_queries(dataset_name)
     qt = _normalize_query_type(query_type)
+    # Filter at loader-level to avoid touching any existing CSV/acc artifacts.
     queries = all_queries if qt == "all" else [q for q in all_queries if str(q.get("category", "")).lower() == qt]
 
     csv_root = root / "systems" / "DocETL" / "outputs" / dataset_real_name(dataset_name) / "csv"
@@ -431,6 +432,7 @@ def run_evaluation(dataset_name: str, rebuild: bool = False, query_type: str = "
         "details": details,
     }
 
+    # Keep backward compatibility for "all", and explicit files for subsets.
     summary_name = "summary.json" if qt == "all" else f"summary_{qt}.json"
     summary_path = eval_root / summary_name
     with open(summary_path, "w", encoding="utf-8") as f:

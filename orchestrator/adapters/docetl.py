@@ -40,10 +40,20 @@ def _resolve_python() -> str:
 
 
 def _summary_path(dataset: str, query_type: str) -> Path:
-    eval_root = _repo_root() / "systems" / "DocETL" / "outputs" / dataset.lower() / "evaluation"
-    if query_type == "all":
-        return eval_root / "summary.json"
-    return eval_root / f"summary_{query_type}.json"
+    """
+    Prefer canonical output naming (lowercase dataset), fallback to exact dataset.
+    This keeps backward compatibility with old folders.
+    """
+    roots = [
+        _repo_root() / "systems" / "DocETL" / "outputs" / dataset.lower() / "evaluation",
+        _repo_root() / "systems" / "DocETL" / "outputs" / dataset / "evaluation",
+    ]
+    summary_name = "summary.json" if query_type == "all" else f"summary_{query_type}.json"
+    for r in roots:
+        p = r / summary_name
+        if p.exists():
+            return p
+    return roots[0] / summary_name
 
 
 class DocETLAdapter:
@@ -63,6 +73,7 @@ class DocETLAdapter:
         python_exe = _resolve_python()
         cmd = [python_exe, "systems/DocETL/orchestrator/main.py", "--dataset", spec.dataset]
 
+        # Keep flags explicit by mode so behavior is predictable and easy to debug.
         if spec.mode == "run":
             if rebuild:
                 cmd.append("--rebuild")

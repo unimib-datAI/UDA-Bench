@@ -340,7 +340,9 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
+    # In eval-only mode we intentionally skip any pipeline execution.
     if not args.eval_only:
         run_dataset(args.dataset, rebuild=args.rebuild)
+    # Evaluation can be triggered either standalone (--eval-only) or after pipeline (--eval).
     if args.eval or args.eval_only:
         run_evaluation(args.dataset, rebuild=args.rebuild_eval, query_type=args.query_type)

@@ -85,6 +85,10 @@ systems/Evaporate/function_cache/
 systems/Evaporate/**/results_dumps/
 systems/Evaporate/scratch/
 
+# Root orchestrator artifacts
+orchestrator/runs/
+orchestrator/reports/*.csv
+
 # =========================
 # Lotus
 # =========================

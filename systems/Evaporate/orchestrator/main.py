@@ -46,6 +46,7 @@ def main():
     parser.add_argument("--max-chunks-per-file", type=int, default=3)
     args = parser.parse_args()
 
+    # In eval-only mode we intentionally skip extraction/query execution.
     if not args.eval_only:
         run_dataset(
             dataset_name=args.dataset,
@@ -59,6 +60,7 @@ def main():
             max_chunks_per_file=args.max_chunks_per_file,
         )
 
+    # Evaluation can be triggered either standalone (--eval-only) or after pipeline.
     if (not args.skip_eval) or args.eval_only:
         run_evaluation(args.dataset, rebuild=args.rebuild_eval, query_type=args.query_type)
 
