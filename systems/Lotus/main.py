@@ -1,6 +1,5 @@
 import argparse
 import json
-import os
 import sys
 import time
 
@@ -13,7 +12,7 @@ from download import download_from_datasets, REDIRECT_LINKS, DRIVE_LINKS
 from core.pipeline import LotusPipeline
 from sql_metadata import Parser
 
-def main(queries=None, cascade=False, limit=-1):
+def main(queries=None, cascade=False, limit=-1, out_dir=None):
     if not queries:
         print("Error: No SQL query provided.")
         return
@@ -40,7 +39,6 @@ def main(queries=None, cascade=False, limit=-1):
         for domain in domains.keys()
     }
     
-    timestamp = int(time.time())
     for i, sql_info in enumerate(queries_map):
         query, domain = sql_info
         
@@ -48,7 +46,7 @@ def main(queries=None, cascade=False, limit=-1):
         
         try:
             pipeline = pipelines[domain]
-            out_folder = settings.RESULTS_DIR / f"{timestamp}" / f"{i}"
+            out_folder =  out_dir / f"{i}"
             pipeline.run_sql_task(query, out_folder)
             print("Execution completed. Results saved to:", out_folder)
         except Exception as e:
@@ -145,8 +143,9 @@ def update_json_file(path, new_data):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Lotus LLM Data Extractor/Filter")
     parser.add_argument("--sql", type=str, nargs="+", required=True, help="SQL query")
-    parser.add_argument("--limit", type=int, required=False, default=-1,help="Limit for the dataset rows")
+    parser.add_argument("--limit", type=int, required=False, default=-1, help="Limit for the dataset rows")
     parser.add_argument("--cascade", action="store_true", help="Use LM cascade strategy")
+    parser.add_argument("--out_dir", type=str, required=False, default=settings.SYSTEM_ROOT / "results" / str(int(time.time())), help="Output folder for results")
     args = parser.parse_args()
     
-    main(queries=args.sql, cascade=args.cascade, limit=args.limit)
+    main(queries=args.sql, cascade=args.cascade, limit=args.limit, out_dir=args.out_dir)
