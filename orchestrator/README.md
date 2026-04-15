@@ -10,7 +10,7 @@ Combinazioni supportate:
 - modello (`single`, `list`, `all`)
 - dataset (`single`, `list`, `all`)
 - tipo query (`all`, `agg`, `filter`, `select`, `mixed`, `join`)
-- modalita (`run`, `eval`, `run+eval`)
+- modalità (`run`, `eval`, `run+eval`)
 
 ## Prerequisiti
 
@@ -20,7 +20,7 @@ Combinazioni supportate:
   - `.venv-docetl`
   - `.venv-evaporate`
 
-Il meta-orchestrator cerca automaticamente i Python dei modelli:
+Il meta-orchestrator cerca automaticamente gli interpreti Python dei modelli:
 
 - DocETL: `.venv-docetl/Scripts/python.exe` (o `bin/python`)
 - Evaporate: `.venv-evaporate/Scripts/python.exe` (o `bin/python`)
@@ -65,9 +65,9 @@ python orchestrator/main.py --model docetl --dataset Finan --mode eval --run-id 
 
 ## Riuso artefatti esistenti (no rebuild)
 
-Per default, in `--mode eval` non viene forzato rebuild:
+Per impostazione predefinita, in `--mode eval` non viene forzato il rebuild:
 
-- riusa CSV/output/evaluation gia presenti nei sistemi
+- riusa CSV/output/evaluation già presenti nei sistemi
 - evita rerun costosi
 
 Usa i flag `--rebuild*` solo quando vuoi forzare ricalcolo.
@@ -78,7 +78,7 @@ Ogni run crea una struttura standardizzata:
 
 - `manifest/run_manifest.json`
   - configurazione completa input run
-  - modelli/dataset/query-type selezionati, modalita, flag rebuild
+  - modelli/dataset/query-type selezionati, modalità, flag rebuild
   - puntatori agli artifact principali della run
 
 - `queries/`
@@ -110,14 +110,14 @@ Ogni run crea una struttura standardizzata:
 - `outputs/`
   - copia materializzata degli output del sistema eseguito, isolata per run:
   - `outputs/<model>/<dataset>/<query_type>/...`
-  - include (quando disponibili) CSV query, YAML/JSON (DocETL), summary e artefatti evaluation
+  - include (quando disponibili) CSV delle query, YAML/JSON (DocETL), summary e artefatti di evaluation
 
 - `summary.json`
-  - copia di compatibilita del summary globale (stesso contenuto di `metrics/summary.json`)
+  - copia di compatibilità del summary globale (stesso contenuto di `metrics/summary.json`)
 
 ## Nota importante
 
-`orchestrator/runs/` e il livello centralizzato per tracking e confronto tra run.
+`orchestrator/runs/` è il livello centralizzato per il tracking e il confronto tra run.
 Gli output nativi dei sistemi restano nelle rispettive cartelle (`systems/DocETL/outputs`, `systems/Evaporate/outputs`) e vengono referenziati dal meta-orchestrator.
 
 ## Report CSV cross-run
