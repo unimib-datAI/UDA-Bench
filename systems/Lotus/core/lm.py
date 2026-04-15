@@ -54,7 +54,12 @@ class LM:
             usage_limit (UsageLimit): Usage limits for the model. Defaults to UsageLimit().
             **kwargs: Additional keyword arguments passed to the underlying LLM API.
         """
-        self.model = model
+        # Adattamento per Gemini: LiteLLM richiede il prefisso "gemini/" o "vertex_ai/"
+        if "gemini" in model.lower() and "/" not in model:
+            self.model = f"gemini/{model}"
+        else:
+            self.model = model
+            
         self.max_ctx_len = max_ctx_len
         self.max_tokens = max_tokens
         self.max_batch_size = max_batch_size
@@ -78,7 +83,9 @@ class LM:
 
         # Set top_logprobs if logprobs requested
         if all_kwargs.get("logprobs", False):
-            all_kwargs.setdefault("top_logprobs", 10)
+            # Gemini supporta i top_logprobs tramite le API recenti, 
+            # ma impostiamo un default sicuro
+            all_kwargs.setdefault("top_logprobs", 5 if self.is_gemini() else 10)
 
         if lotus.settings.enable_cache:
             # Check cache and separate cached and uncached messages
@@ -126,6 +133,8 @@ class LM:
     def _process_uncached_messages(self, uncached_data, all_kwargs, show_progress_bar, progress_bar_desc):
         """Processes uncached messages in batches and returns responses."""
         total_calls = len(uncached_data)
+        if total_calls == 0:
+            return []
 
         pbar = tqdm(
             total=total_calls,
@@ -174,10 +183,10 @@ class LM:
 
     def _update_usage_stats(self, usage: LMStats.TotalUsage, response: ModelResponse, cost: float | None):
         """Helper to update usage statistics"""
-        if hasattr(response, "usage"):
-            usage.prompt_tokens += response.usage.prompt_tokens
-            usage.completion_tokens += response.usage.completion_tokens
-            usage.total_tokens += response.usage.total_tokens
+        if hasattr(response, "usage") and response.usage:
+            usage.prompt_tokens += getattr(response.usage, "prompt_tokens", 0)
+            usage.completion_tokens += getattr(response.usage, "completion_tokens", 0)
+            usage.total_tokens += getattr(response.usage, "total_tokens", 0)
             if cost is not None:
                 usage.total_cost += cost
 
@@ -198,7 +207,6 @@ class LM:
             warnings.warn(
                 "Error calculating completion cost - cost metrics will be inaccurate. Enable debug logging for details."
             )
-
             cost = None
 
         # Always update virtual usage
@@ -214,12 +222,19 @@ class LM:
         choice = response.choices[0]
         assert isinstance(choice, Choices)
         if choice.message.content is None:
-            raise ValueError(f"No content in response: {response}")
+            return ""
         return choice.message.content
 
     def _get_top_choice_logprobs(self, response: ModelResponse) -> list[ChatCompletionTokenLogprob]:
         choice = response.choices[0]
         assert isinstance(choice, Choices)
+        
+        # Adattamento per Gemini e modelli privi di logprobs nativi
+        if not hasattr(choice, "logprobs") or choice.logprobs is None or "content" not in choice.logprobs or choice.logprobs["content"] is None:
+            if self.is_gemini():
+                warnings.warn("Logprobs mancanti nella risposta di Gemini. Assicurati che le API supportino questa feature per la versione in uso.")
+            return []
+            
         logprobs = choice.logprobs["content"]
         return [ChatCompletionTokenLogprob(**logprob) for logprob in logprobs]
 
@@ -227,6 +242,12 @@ class LM:
         all_tokens = []
         all_confidences = []
         for resp_logprobs in logprobs:
+            # Gestione del fallback se i logprobs sono vuoti (es. API Gemini senza supporto)
+            if not resp_logprobs:
+                all_tokens.append([])
+                all_confidences.append([])
+                continue
+                
             tokens = [logprob.token for logprob in resp_logprobs]
             confidences = [np.exp(logprob.logprob) for logprob in resp_logprobs]
             all_tokens.append(tokens)
@@ -244,13 +265,19 @@ class LM:
             if "True" in token_probs and "False" in token_probs:
                 true_prob = token_probs["True"]
                 false_prob = token_probs["False"]
-                return true_prob / (true_prob + false_prob)
+                # Gestione divisione per zero in casi estremi
+                total = true_prob + false_prob
+                return (true_prob / total) if total > 0 else None
             return None
 
         # Get true probabilities for filter cascade
         for resp_idx, response_logprobs in enumerate(logprobs):
             true_prob = None
             for logprob in response_logprobs:
+                # Controllo di sicurezza se top_logprobs non è definito
+                if not hasattr(logprob, "top_logprobs") or not logprob.top_logprobs:
+                    continue
+                    
                 token_probs = {top.token: np.exp(top.logprob) for top in logprob.top_logprobs}
                 true_prob = get_normalized_true_prob(token_probs)
                 if true_prob is not None:
@@ -317,3 +344,8 @@ class LM:
     def is_deepseek(self) -> bool:
         model_name = self.get_model_name()
         return model_name.startswith("deepseek-r1")
+        
+    def is_gemini(self) -> bool:
+        """Rileva se il modello attualmente in uso fa parte della famiglia Gemini."""
+        model_name = self.get_model_name()
+        return model_name.startswith("gemini")

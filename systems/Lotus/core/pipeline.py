@@ -7,7 +7,7 @@ import lotus
 
 from lotus.types import CascadeArgs, ProxyModel
 from config.settings import settings
-from lotus.models import LM
+from core.lm import LM
 from utils.sql_parser import parse_sql
 from utils.io import load_json
 
@@ -43,14 +43,14 @@ class LotusPipeline:
         if not self.path or not os.path.exists(self.path):
             raise FileNotFoundError(f"Dataset not found at {self.path}")
         
-        self.ids = [file for file in os.listdir(self.path / "files") if file.endswith(".txt")]
+        self.ids = [file[:-4] for file in os.listdir(self.path / "files") if file.endswith(".txt")]
         
         if self.limit > 0:
             self.ids = self.ids[:self.limit]
         
         contexts = []
         for id_value in self.ids:
-            file_path = self.path / "files" / id_value
+            file_path = self.path / "files" / f"{id_value}.txt"
             if file_path.exists():
                 with open(file_path, "r", encoding="utf-8") as f:
                     contexts.append(f.read().strip())
