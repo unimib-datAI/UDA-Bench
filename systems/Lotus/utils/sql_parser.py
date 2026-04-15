@@ -2,8 +2,8 @@ import re
 
 def parse_sql(sql: str, extractions: list) -> tuple[list[int], str, list[int]]:
     """
-    Analizza una query SQL per estrarre le colonne SELECT e la clausola WHERE.
-    Ritorna: (select_indices, where_clause, attr_indices)
+    Parse an SQL query to extract SELECT columns and the WHERE clause.
+    Returns: (select_indices, where_clause, attr_indices)
     """
     # Parsing SELECT
     select_match = re.search(r'SELECT (.+?)\s+FROM', sql, re.I)

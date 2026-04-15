@@ -1,5 +1,4 @@
 import os
-import json
 import pandas as pd
 import numpy as np
 from pathlib import Path
@@ -8,18 +7,21 @@ import lotus
 
 from lotus.types import CascadeArgs, ProxyModel
 from config.settings import settings
-from lotus.models import LM
+from core.lm import LM
 from utils.sql_parser import parse_sql
+from utils.io import load_json
 
 class LotusPipeline:
-    def __init__(self, domain: str, use_cascade: bool = False):
+    def __init__(self, domain: str, path: Path, use_cascade: bool = False, limit: int = -1):
         self.domain = domain
+        self.path = path
         self.use_cascade = use_cascade
-        
+        self.limit = limit
+
         os.environ["GEMINI_API_KEY"] = settings.GEMINI_API_KEY 
         
-        model_mini = "gemini/gemini-2.0-flash"
-        model_pro = "gemini/gemini-2.5-flash"
+        model_mini = settings.MODEL_MINI
+        model_pro = settings.MODEL_PRO
         
         self.lm_main = LM(model=model_mini if not use_cascade else model_pro)
         
@@ -32,41 +34,32 @@ class LotusPipeline:
         self._load_configs()
         self._load_data()
 
-    def _load_configs(self):
-        def load_json(filename):
-            path = settings.BENCHMARK_DIR / filename
-            with open(path, 'r', encoding='utf-8') as f:
-                key = self.domain if self.domain != "Art" else "Wiki_Text"
-                return json.load(f)[key]
-                
-        self.extractions = load_json('extractions.json')
-        self.descriptions = load_json('descriptions.json')
-        self.examples = load_json('examples.json')
+    def _load_configs(self):        
+        self.extractions = load_json(os.path.join(settings.CONFIG_FILES_DIR, 'extractions.json'), self.domain)
+        self.descriptions = load_json(os.path.join(settings.CONFIG_FILES_DIR, 'descriptions.json'), self.domain)
+        self.examples = load_json(os.path.join(settings.CONFIG_FILES_DIR, 'examples.json'), self.domain)
 
     def _load_data(self):
-        csv_path = settings.BENCHMARK_DIR / f"ground_truth/{self.domain}.csv"
+        if not self.path or not os.path.exists(self.path):
+            raise FileNotFoundError(f"Dataset not found at {self.path}")
         
-        if not os.path.exists(csv_path):
-            raise FileNotFoundError(f"Ground truth CSV not found at {csv_path}")
+        self.ids = [file[:-4] for file in os.listdir(self.path / "files") if file.endswith(".txt")]
         
-        self.df_truth = pd.read_csv(csv_path)
-        self.ids = self.df_truth["id"].dropna().astype(str).tolist()[:30]
-
-        base_dir = settings.BENCHMARK_DIR / f"datasets/{self.domain}"
-        
-        if not os.path.exists(base_dir):
-            raise FileNotFoundError(f"Dataset directory not found at {base_dir}")
+        if self.limit > 0:
+            self.ids = self.ids[:self.limit]
         
         contexts = []
         for id_value in self.ids:
-            file_path = base_dir / f"{id_value}.txt"
+            file_path = self.path / "files" / f"{id_value}.txt"
             if file_path.exists():
                 with open(file_path, "r", encoding="utf-8") as f:
                     contexts.append(f.read().strip())
             else:
+                print(f"⚠️ Warning: Context file {file_path} not found. Adding empty context.")
                 contexts.append('')
                 
         self.df_context = pd.DataFrame({'context': contexts})
+        print(f"✅ Loaded {len(self.df_context)} contexts for domain '{self.domain}'.")
 
     def run_sql_task(self, sql: str, output_folder: Path):
         output_folder.mkdir(parents=True, exist_ok=True)
@@ -103,7 +96,6 @@ class LotusPipeline:
             df_mapped = df_target.sem_map(inst, examples=ex_df)
             df_data[att] = df_mapped['_map'].tolist()
             
-        # Salvataggio
         df_final = pd.DataFrame(df_data).map(lambda x: np.nan if isinstance(x, str) and "empty" in x else x)
         
         os.makedirs(output_folder, exist_ok=True)

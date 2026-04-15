@@ -1,1 +1,0 @@
-SELECT composition, birth_date, field FROM Art WHERE field != 'Other';
