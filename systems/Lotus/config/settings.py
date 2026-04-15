@@ -22,6 +22,6 @@ class Settings:
         
         self.GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
         self.MODEL_MINI = os.getenv("MODEL_MINI", "gemini/gemini-2.5-flash")
-        self.MODEL_PRO = os.getenv("MODEL_PRO", "gemini/gemini-2.5-flash")
+        self.MODEL_PRO = os.getenv("MODEL_PRO", "gemini/gemini-3-flash-preview")
 
 settings = Settings()

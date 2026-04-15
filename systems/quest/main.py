@@ -28,7 +28,7 @@ def get_attributes_info(path, attr, table):
     
     return None
 
-def run(sql, id, debug=False, output_dir=os.path.join(SYSTEM_ROOT, "results", f"{int(time.time())}")):
+def run(sql, debug=False, output_dir=os.path.join(SYSTEM_ROOT, "results", f"{int(time.time())}")):
     print(f"SQL Query: {sql}")
     
     parser = Parser(sql)
@@ -136,10 +136,10 @@ def run(sql, id, debug=False, output_dir=os.path.join(SYSTEM_ROOT, "results", f"
     # Save results
     os.makedirs(output_dir, exist_ok=True)
         
-    output_path = os.path.join(output_dir, f"{id}.csv")
+    output_path = os.path.join(output_dir, f"results.csv")
     result.to_csv(output_path)
     
-    output_path = os.path.join(output_dir, f"{id}_info.json")
+    output_path = os.path.join(output_dir, f"info.json")
     with open(output_path, "w", encoding="utf-8") as f:
         json.dump(query_info, f, indent=4)
         
@@ -172,6 +172,6 @@ if __name__ == "__main__":
     for i, sql in enumerate(args.sql):
         print_log(f"\n=== Running Query {i+1}/{len(args.sql)} ===")
         try:
-            run(sql, str(i), args.debug, args.output_dir)
+            run(sql, args.debug, os.path.join(args.output_dir, str(i)))
         except Exception as e:
             print_log(f"Error executing query {i+1}: {e}")

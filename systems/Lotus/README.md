@@ -65,3 +65,11 @@ python main.py \
 ### 7. Output
 
 Results are available in the folder `results`
+
+---
+
+## 🤖 Models Used
+
+### Large Language Models (LLMs)
+- **Primary LLM**: `gemini/gemini-2.5-flash` (Google Gemini 2.5 Flash)
+- **Cascade Mode**: Uses `MODEL_MINI` (gemini/gemini-2.5-flash) and `MODEL_PRO` (gemini/gemini-3-flash-preview) for the cascade strategy

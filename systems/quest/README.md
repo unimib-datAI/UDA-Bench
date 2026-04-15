@@ -75,3 +75,14 @@ python main.py \
 ### 7. Output
 
 Results are available in the folder `results`
+
+---
+
+## 🤖 Models Used
+
+### Large Language Models (LLMs)
+- **Primary LLM**: `gemini/gemini-2.5-flash` (Google Gemini 2.5 Flash)
+- **Alternative LLM for ZenDB**: `gpt-4.1` (via DeepSeek API) - used specifically for CSPaper dataset processing
+
+### Embedding Models
+- **Primary Embedding Model**: `gemini/gemini-embedding-001` (Google Gemini Embedding)
