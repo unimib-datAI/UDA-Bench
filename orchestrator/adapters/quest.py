@@ -133,7 +133,7 @@ class QuestAdapter:
                 # Run evaluation for this query
                 sql_file = root / f"temp_sql_{i}.json"
                 with open(sql_file, "w", encoding="utf-8") as f:
-                    json.dump({"sql": sql}, f)
+                    json.dump({"sql": sql.replace("FROM finance", "FROM Finan").replace("FROM Finance", "FROM Finan")}, f)
                 
                 result_csv = output_dir / "results.csv"
 
@@ -143,7 +143,8 @@ class QuestAdapter:
                         "--dataset", spec.dataset,
                         "--task", spec.query_type,
                         "--sql-file", str(sql_file),
-                        "--result-csv", str(result_csv)
+                        "--result-csv", str(result_csv),
+                        "--llm-provider", "none"
                     ]
                     
                     eval_proc = subprocess.run(
