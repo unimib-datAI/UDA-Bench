@@ -40,12 +40,20 @@ def _resolve_python() -> str:
 
 
 def _summary_path(dataset: str, query_type: str) -> Path:
-    # Quest might produce outputs in systems/quest/results/ or similar
-    # This needs to be adjusted based on how quest structures its outputs
-    eval_root = _repo_root() / "systems" / "quest" / "outputs" / dataset.lower() / "evaluation"
-    if query_type == "all":
-        return eval_root / "summary.json"
-    return eval_root / f"summary_{query_type}.json"
+    """
+    Prefer canonical output naming (lowercase dataset), fallback to exact dataset.
+    This keeps backward compatibility with old folders.
+    """
+    roots = [
+        _repo_root() / "systems" / "quest" / "outputs" / dataset.lower() / "evaluation",
+        _repo_root() / "systems" / "quest" / "outputs" / dataset / "evaluation",
+    ]
+    summary_name = "summary.json" if query_type == "all" else f"summary_{query_type}.json"
+    for r in roots:
+        p = r / summary_name
+        if p.exists():
+            return p
+    return roots[0] / summary_name
 
 
 class QuestAdapter:
@@ -59,86 +67,124 @@ class QuestAdapter:
         rebuild_extract: bool = False,
         rebuild_table: bool = False,
     ) -> JobResult:
-        # Quest is a single-query system, so this adapter needs to handle
-        # collecting queries for the dataset/query_type and running them
-        # For now, this is a placeholder - you need to implement query collection
-        # and evaluation logic similar to DocETL/Evaporate
-        
         root = _repo_root()
         python_exe = _resolve_python()
         
-        # Placeholder: collect SQL queries for spec.dataset and spec.query_type
-        # This needs to be implemented
         sql_queries = self._collect_queries(spec.dataset, spec.query_type)
         
         if not sql_queries:
-            # Handle case with no queries
-            pass
+            return JobResult(
+                model=self.name,
+                dataset=spec.dataset,
+                query_type=spec.query_type,
+                mode=spec.mode,
+                status="error",
+                return_code=1,
+                duration_sec=0,
+                command=[],
+                summary_path=None,
+                macro_f1_mean=None,
+                stdout_tail=[],
+                stderr_tail=[],
+                started_at=datetime.now(timezone.utc).isoformat(),
+                ended_at=datetime.now(timezone.utc).isoformat(),
+                error="No queries found",
+            )
         
         sql_queries = [s[s.index("SELECT"):].strip() for s in sql_queries if "SELECT" in s]
         
-        cmd = [python_exe, "systems/quest/main.py", "--sql"] + sql_queries
-        
-        # Add output directory
-        if root:
-            output_dir = root / "systems" / "quest" / "results" / spec.dataset / spec.query_type / str(int(time.time()))
-            cmd.extend(["--out_dir", str(output_dir)])
-        
-        # Quest specific flags
-        if rebuild:
-            # Add any rebuild flags if quest supports them
-            pass
-        
         started_at = datetime.now(timezone.utc).isoformat()
         t0 = time.time()
-        proc = subprocess.run(
-            cmd,
-            cwd=str(root),
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-        )
+        
+        macro_f1s = []
+        all_stdout = []
+        all_stderr = []
+        overall_return_code = 0
+        
+        for i, sql in enumerate(sql_queries):
+            print(f"[INFO] Executing query {i+1}/{len(sql_queries)}: {sql}")
+            cmd = [python_exe, "systems/quest/main.py", "--sql", sql]
+            
+            output_dir = root / "systems" / "quest" / "results" / spec.dataset / "csv" / f"query_{i+1}"
+            output_dir.mkdir(parents=True, exist_ok=True)
+            cmd.extend(["--out_dir", str(output_dir)])
+            
+            if rebuild:
+                pass  # Add rebuild flags if supported
+            
+            proc = subprocess.run(
+                cmd,
+                cwd=str(root),
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+            )
+            
+            print(f"[INFO] Executing Done")
+            
+            all_stdout.extend(proc.stdout.splitlines())
+            all_stderr.extend(proc.stderr.splitlines())
+            
+            if proc.returncode != 0:
+                overall_return_code = proc.returncode
+            
+            if spec.mode in {"eval", "run+eval"}:
+                # Run evaluation for this query
+                sql_file = root / f"temp_sql_{i}.json"
+                with open(sql_file, "w", encoding="utf-8") as f:
+                    json.dump({"sql": sql}, f)
+                
+                result_csv = output_dir / "results.csv"
+
+                if result_csv.exists():
+                    eval_cmd = [
+                        python_exe, "-m", "evaluation.run_eval",
+                        "--dataset", spec.dataset,
+                        "--task", spec.query_type,
+                        "--sql-file", str(sql_file),
+                        "--result-csv", str(result_csv)
+                    ]
+                    
+                    eval_proc = subprocess.run(
+                        eval_cmd,
+                        cwd=str(root)
+                    )
+                    
+                    acc_file = result_csv.parent / "acc_result" / "acc.json"
+                    if acc_file.exists():
+                        try:
+                            with open(acc_file, "r", encoding="utf-8") as f:
+                                acc = json.load(f)
+                                f1 = acc.get("macro_f1") or acc.get("f1")
+                                if isinstance(f1, (int, float)):
+                                    macro_f1s.append(float(f1))
+                        except Exception:
+                            pass
+        
         duration = time.time() - t0
         ended_at = datetime.now(timezone.utc).isoformat()
-
-        stdout_lines = (proc.stdout or "").splitlines()
-        stderr_lines = (proc.stderr or "").splitlines()
-
-        # For evaluation, you need to run the evaluation script on the outputs
-        # This is a placeholder
-        summary_path = None
-        macro = None
-        if spec.mode in {"eval", "run+eval"}:
-            # Run evaluation here or assume quest produces summary.json
-            sp = _summary_path(spec.dataset, spec.query_type)
-            if sp.exists():
-                summary_path = str(sp)
-                try:
-                    payload = json.loads(sp.read_text(encoding="utf-8"))
-                    val = payload.get("macro_f1_mean")
-                    if isinstance(val, (int, float)):
-                        macro = float(val)
-                except Exception:
-                    pass
-
-        status = "ok" if proc.returncode == 0 else "error"
+        
+        macro_f1_mean = sum(macro_f1s) / len(macro_f1s) if macro_f1s else None
+        
+        status = "ok" if overall_return_code == 0 else "error"
+        
         return JobResult(
             model=self.name,
             dataset=spec.dataset,
             query_type=spec.query_type,
             mode=spec.mode,
             status=status,
-            return_code=proc.returncode,
+            return_code=overall_return_code,
             duration_sec=duration,
-            command=cmd,
-            summary_path=summary_path,
-            macro_f1_mean=macro,
-            stdout_tail=stdout_lines[-20:],
-            stderr_tail=stderr_lines[-20:],
+            command=cmd,  # Last cmd
+            summary_path=None,  # Not using summary.json
+            macro_f1_mean=macro_f1_mean,
+            stdout_tail=all_stdout[-20:],
+            stderr_tail=all_stderr[-20:],
             started_at=started_at,
             ended_at=ended_at,
-            error=None if proc.returncode == 0 else "Quest command failed",
+            error=None if overall_return_code == 0 else "Quest execution failed",
         )
     
     def _collect_queries(self, dataset: str, query_type: str) -> list[str]:

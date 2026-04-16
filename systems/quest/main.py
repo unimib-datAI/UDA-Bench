@@ -1,6 +1,7 @@
 import argparse
 import os
 import json
+from pathlib import Path
 import time
 import psycopg2
 
@@ -160,7 +161,7 @@ if __name__ == "__main__":
     parser.add_argument("--debug", 
                         action="store_true",
                         help="Enable debug mode: this will index only 5 documents per dataset for a faster execution")
-    parser.add_argument("--output_dir", 
+    parser.add_argument("--out_dir", 
                         type=str,
                         default=os.path.join(SYSTEM_ROOT, "results", f"{int(time.time())}"),
                         help="Directory to save the results and statistics")
@@ -171,7 +172,13 @@ if __name__ == "__main__":
     # Call the run function with the parsed arguments
     for i, sql in enumerate(args.sql):
         print_log(f"\n=== Running Query {i+1}/{len(args.sql)} ===")
+        
+        current_out_dir = Path(str(args.out_dir).strip('"'))
+        
+        if "query_" not in str(current_out_dir.name):
+            current_out_dir = current_out_dir / f"query_{i+1}"
+            
         try:
-            run(sql, args.debug, os.path.join(args.output_dir, str(i)))
+            run(sql, args.debug, current_out_dir)
         except Exception as e:
             print_log(f"Error executing query {i+1}: {e}")

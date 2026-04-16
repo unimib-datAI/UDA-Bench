@@ -102,9 +102,10 @@ class LotusAdapter:
         overall_return_code = 0
         
         for i, sql in enumerate(sql_queries):
+            print(f"[INFO] Executing query {i+1}/{len(sql_queries)}: {sql}")
             cmd = [python_exe, "systems/lotus/main.py", "--sql", sql]
             
-            output_dir = root / "systems" / "Lotus" / "results" / spec.dataset / "csv" / f"query_{i}"
+            output_dir = root / "systems" / "Lotus" / "results" / spec.dataset / "csv" / f"query_{i+1}"
             output_dir.mkdir(parents=True, exist_ok=True)
             cmd.extend(["--out_dir", str(output_dir)])
             
@@ -119,6 +120,8 @@ class LotusAdapter:
                 encoding="utf-8",
                 errors="replace",
             )
+            
+            print(f"[INFO] Executing Done")
             
             all_stdout.extend(proc.stdout.splitlines())
             all_stderr.extend(proc.stderr.splitlines())

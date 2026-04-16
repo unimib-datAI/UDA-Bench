@@ -9,7 +9,7 @@ DATASET_ROOT = os.path.join(BASE_DIR, "Dataset")
 os.makedirs(DATASET_ROOT, exist_ok=True)
 
 DRIVE_LINKS = {
-    "art": "https://drive.google.com/file/d/1YXzcLd4pGVBk-S5mIhjpBwOD51AbIYNs/view?usp=sharing", # Art
+    "art": "https://drive.google.com/file/d/136dCzLljcJsAZbMYO_6V6EzTjs8lCvLa/view?usp=sharing", # Art
     "nba": "https://drive.google.com/file/d/1FYIH1n2hFO6Ziz_DerYZf_tb3qz7QmVB/view?usp=sharing", # NBA
     "legal": "https://drive.google.com/file/d/1JgRB8hTRKny7IHFbvNMGE5Off32b2cL8/view?usp=sharing", # Legal
     "finance": "https://drive.google.com/file/d/1yMI-kn9WfAk-g-LSrWycvDDkwVtGhCaK/view?usp=sharing", # Finance

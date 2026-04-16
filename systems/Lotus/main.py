@@ -2,6 +2,7 @@ import argparse
 import json
 import sys
 import time
+import csv
 
 from pathlib import Path
 
@@ -14,47 +15,65 @@ from download import download_from_datasets, REDIRECT_LINKS, DRIVE_LINKS
 from core.pipeline import LotusPipeline
 from sql_metadata import Parser
 
-def main(queries=None, cascade=False, limit=-1, out_dir=settings.SYSTEM_ROOT / "results" / str(int(time.time()))):
-    if not queries:
+def main(query=None, cascade=False, limit=-1, out_dir=None):
+    if not query:
         print("Error: No SQL query provided.")
         return 1
     
-    domains = set()
-    queries_map = []
+    if out_dir is None:
+        out_dir = settings.SYSTEM_ROOT / "results" / str(int(time.time()))
     
-    queries = [q.strip("\"") for q in queries]
+    # Assicurati che la directory di output esista
+    out_dir = Path(out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
     
-    for query in queries:
-        domain = Parser(query).tables
-        domain = domain[0] if domain else ""
-        domains.add(domain)
-        queries_map.append((query, domain))
-        
-    domains = check_and_download_dataset(domains)
-    build_config_files(domains)
-    
-    pipelines = {
-        domain: LotusPipeline(
-            domain=domain, 
-            path=domains[domain], 
-            use_cascade=cascade, 
-            limit=limit
-        ) 
-        for domain in domains.keys()
-    }
+    try:
+        parser = Parser(query)
+        domain_list = parser.tables
+        domain_list = ["legal" if d.lower() == "legal_case" else d.lower() for d in domain_list]
+        domain = domain_list[0] if domain_list else ""
+        # Estrae solo le colonne specificate nella clausola SELECT
+        select_columns = parser.columns_dict.get("select", [])
+    except Exception as e:
+        print(f"Error parsing query '{query}': {e}")
+        return 1
 
-    for i, sql_info in enumerate(queries_map):
-        query, domain = sql_info
-        
-        print(f"Execution Query SQL {i+1}/{len(queries_map)}: {query} (Domain: {domain})")
-        
-        try:
-            pipeline = pipelines[domain]
-            pipeline.run_sql_task(query, out_dir)
-            print("Execution completed. Results saved to:", out_dir)
-        except Exception as e:
-            print(f"Error during \"{query}\": {e}")
-                   
+    domains = {domain}
+    
+    domain_paths = check_and_download_dataset(domains)
+    build_config_files(domain_paths)
+    
+    if domain not in domain_paths:
+        print(f"Error: Domain '{domain}' not found or failed to download.")
+        _create_empty_csv(select_columns, out_dir)
+        return 1
+
+    pipeline = LotusPipeline(
+        domain=domain, 
+        path=domain_paths[domain], 
+        use_cascade=cascade, 
+        limit=limit
+    ) 
+
+    try:
+        pipeline.run_sql_task(query, out_dir)
+        print("Execution completed. Results saved to:", out_dir)
+    except Exception as e:
+        print(f"Error during \"{query}\": {e}")
+        print("Generating empty CSV with SELECT attributes as columns...")
+        _create_empty_csv(select_columns, out_dir)
+
+def _create_empty_csv(columns, out_dir):
+    """Crea un file CSV vuoto usando solo le colonne fornite come header."""
+    csv_path = Path(out_dir) / "results.csv"
+    with open(csv_path, mode="w", newline="", encoding="utf-8") as f:
+        writer = csv.writer(f)
+        if columns:
+            writer.writerow(columns)
+        else:
+            # Fallback nel caso in cui non sia stato possibile parsare alcuna colonna
+            writer.writerow(["result"]) 
+    print(f"Empty CSV created at: {csv_path}")
 
 def check_and_download_dataset(domains):
     domains = set(d.lower() for d in domains)
@@ -151,9 +170,19 @@ if __name__ == "__main__":
     parser.add_argument("--out_dir", type=str, required=False, default=settings.SYSTEM_ROOT / "results" / str(int(time.time())), help="Output folder for results")
     args = parser.parse_args()
 
-    main(
-        queries=args.sql,
-        cascade=args.cascade,
-        limit=args.limit,
-        out_dir=Path(str(args.out_dir).strip('"')),
-    )
+    queries = [q.strip("\"") for q in args.sql]
+    
+    for i, query in enumerate(queries):
+        print(f"\n--- Execution Query SQL {i+1}/{len(queries)}: {query} ---")
+        
+        current_out_dir = Path(str(args.out_dir).strip('"'))
+        
+        if "query_" not in str(current_out_dir.name):
+            current_out_dir = current_out_dir / f"query_{i+1}"
+
+        main(
+            query=query,
+            cascade=args.cascade,
+            limit=args.limit,
+            out_dir=current_out_dir,
+        )
