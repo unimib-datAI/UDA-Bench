@@ -105,7 +105,7 @@ class QuestAdapter:
             print(f"[INFO] Executing query {i+1}/{len(sql_queries)}: {sql}")
             cmd = [python_exe, "systems/quest/main.py", "--sql", sql]
             
-            output_dir = root / "systems" / "quest" / "results" / spec.dataset / "csv" / f"query_{i+1}"
+            output_dir = root / "systems" / "quest" / "results" / spec.dataset / "csv" / spec.query_type / f"query_{i+1}"
             output_dir.mkdir(parents=True, exist_ok=True)
             cmd.extend(["--out_dir", str(output_dir)])
             

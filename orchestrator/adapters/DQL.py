@@ -111,7 +111,7 @@ class DQLAdapter:
             
             cmd = [python_exe, "systems/DQL/main.py", "--user-id", user_id, "--queries", sql]
             
-            output_dir = root / "systems" / "DQL" / "results" / spec.dataset / spec.query_type /"csv" / f"query_{i+1}"
+            output_dir = root / "systems" / "DQL" / "results" / spec.dataset / "csv" / spec.query_type / f"query_{i+1}"
             output_dir.mkdir(parents=True, exist_ok=True)
             cmd.extend(["--out_dir", str(output_dir)])
             
