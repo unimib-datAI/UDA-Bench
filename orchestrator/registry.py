@@ -7,6 +7,7 @@ from orchestrator.adapters.docetl import DocETLAdapter
 from orchestrator.adapters.evaporate import EvaporateAdapter
 from orchestrator.adapters.quest import QuestAdapter
 from orchestrator.adapters.lotus import LotusAdapter
+from orchestrator.adapters.DQL import DQLAdapter
 
 
 def build_registry() -> dict[str, ModelAdapter]:
@@ -15,4 +16,5 @@ def build_registry() -> dict[str, ModelAdapter]:
         "evaporate": EvaporateAdapter(),
         "quest": QuestAdapter(),
         "lotus": LotusAdapter(),
+        "dql": DQLAdapter()
     }
