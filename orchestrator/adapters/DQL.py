@@ -103,7 +103,13 @@ class DQLAdapter:
         
         for i, sql in enumerate(sql_queries):
             print(f"[INFO] Executing query {i+1}/{len(sql_queries)}: {sql}")
-            cmd = [python_exe, "systems/DQL/main.py", "--user-id", spec.dataset, "--queries", sql]
+            
+            if "finan" in spec.dataset.lower():
+                user_id = "Finance"
+            else:
+                user_id = spec.dataset
+            
+            cmd = [python_exe, "systems/DQL/main.py", "--user-id", user_id, "--queries", sql]
             
             output_dir = root / "systems" / "DQL" / "results" / spec.dataset / spec.query_type /"csv" / f"query_{i+1}"
             output_dir.mkdir(parents=True, exist_ok=True)
