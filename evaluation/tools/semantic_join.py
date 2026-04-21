@@ -13,7 +13,21 @@ from .config import EvalSettings
 from .logging_utils import setup_logger
 from .sql_parser import JoinInfo, ParsedQuery
 from .utils import normalize_whitespace
-from tqdm import tqdm
+try:  # tqdm is optional; fall back to a no-op progress object if missing.
+    from tqdm import tqdm
+except ImportError:  # pragma: no cover - optional dependency
+    class _DummyTqdm:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def update(self, n: int = 1) -> None:
+            return None
+
+        def close(self) -> None:
+            return None
+
+    def tqdm(*args, **kwargs):  # type: ignore
+        return _DummyTqdm()
 
 
 try:  # optional dependency

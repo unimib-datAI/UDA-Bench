@@ -235,6 +235,8 @@ def _materialize_system_outputs(run_outputs_dir: Path, result: JobResult) -> dic
         sys_out_root = root / "systems" / "Lotus" / "results" / dataset.lower()
     elif model == "quest":
         sys_out_root = root / "systems" / "quest" / "results" / dataset.lower()
+    elif model == "dql":
+        sys_out_root = root / "systems" / "DQL" / "results" / dataset / query_type
     else:
         return {"copied_files": 0, "details": {"reason": "unsupported model"}}
 
@@ -245,7 +247,8 @@ def _materialize_system_outputs(run_outputs_dir: Path, result: JobResult) -> dic
     details: dict[str, int | str] = {}
 
     # Query-level artifacts.
-    copied_csv = _copy_tree_filtered(sys_out_root / "csv", target_root / "csv", prefixes=prefixes)
+    csv_prefixes = None if model == "dql" else prefixes
+    copied_csv = _copy_tree_filtered(sys_out_root / "csv", target_root / "csv", prefixes=csv_prefixes)
     copied += copied_csv
     details["csv_files"] = copied_csv
 

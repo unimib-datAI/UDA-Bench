@@ -1,5 +1,50 @@
 # <img src="img/UDA.png" alt="UDA" width="80" height="80" style="vertical-align: middle; margin-right: 8px;" /> Unstructured Data Analysis Benchmark
 
+## Repository Quick Start (Updated)
+
+This repository contains:
+
+- `Query/`: SQL workloads and ground-truth tables per dataset
+- `systems/`: system-specific runners/adapters (DocETL, Evaporate, Lotus, Quest, DQL, ...)
+- `evaluation/`: common evaluation pipeline (`evaluation.run_eval`)
+- `orchestrator/`: unified entrypoint to run/evaluate models from one place
+
+### Unified execution (recommended)
+
+Run everything from:
+
+```powershell
+python orchestrator/main.py --model <model|all> --dataset <dataset|all> --query-type <select|filter|...|all> --mode <run|eval|run+eval>
+```
+
+Examples:
+
+```powershell
+# run+eval SELECT for one model
+python orchestrator/main.py --model docetl --dataset Finan --query-type select --mode run+eval
+
+# eval-only on existing artifacts
+python orchestrator/main.py --model dql --dataset Finan --query-type select --mode eval
+```
+
+Main run artifacts are written under:
+
+- `orchestrator/runs/<run_id>/...`
+
+### Final HTML report
+
+Generate:
+
+```powershell
+.\.venv-DQL\Scripts\python.exe orchestrator/analysis/select_eval_report.py --dataset Finan --output orchestrator/analysis/select_report.html
+```
+
+Open:
+
+```powershell
+start .\orchestrator\analysis\select_report.html
+```
+
 
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
 [![Python](https://img.shields.io/badge/Python-3.8+-blue.svg)](https://www.python.org/)

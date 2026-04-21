@@ -42,15 +42,19 @@ __pycache__/
 .venv/
 .venv-evaporate/
 .venv-docetl/
+.venv-DQL/
 venv/
 venv-evaporate/
 venv-docetl/
+venv-DQL/
 **/.venv/
 **/.venv-evaporate/
 **/.venv-docetl/
+**/.venv-DQL/
 **/venv/
 **/venv-evaporate/
 **/venv-docetl/
+**/venv-DQL/
 
 # =========================
 # UDA-Bench specific ignores
@@ -84,10 +88,13 @@ systems/Evaporate/outputs/
 systems/Evaporate/function_cache/
 systems/Evaporate/**/results_dumps/
 systems/Evaporate/scratch/
+systems/DQL/results/
 
 # Root orchestrator artifacts
 orchestrator/runs/
 orchestrator/reports/*.csv
+orchestrator/analysis/_tmp_topk/
+orchestrator/analysis/*.html
 
 # =========================
 # Lotus

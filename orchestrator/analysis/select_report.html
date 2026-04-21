@@ -1,0 +1,228 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>SELECT Evaluation Report - Finan</title>
+  <style>
+    :root {
+      --bg: #f7f8fb;
+      --panel: #ffffff;
+      --ink: #0f172a;
+      --muted: #475569;
+      --line: #dbe2ea;
+      --accent: #0ea5e9;
+    }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+      background: radial-gradient(1200px 500px at 10% -10%, #d9f1ff 0%, var(--bg) 60%), var(--bg);
+      color: var(--ink);
+    }
+    .wrap {
+      max-width: 1200px;
+      margin: 24px auto;
+      padding: 0 16px 24px;
+    }
+    .hero {
+      background: linear-gradient(120deg, #0b4f6c 0%, #145a7a 40%, #1b7ea8 100%);
+      color: #fff;
+      border-radius: 14px;
+      padding: 18px 20px;
+      box-shadow: 0 8px 20px rgba(11,79,108,.25);
+    }
+    .hero h1 {
+      margin: 0 0 8px;
+      font-size: 26px;
+      letter-spacing: .2px;
+    }
+    .hero p { margin: 2px 0; color: #dbefff; }
+    .grid {
+      margin-top: 16px;
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 14px;
+    }
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 14px 14px 10px;
+      box-shadow: 0 6px 14px rgba(15,23,42,.06);
+    }
+    .card h2 {
+      margin: 0 0 10px;
+      font-size: 17px;
+      color: #0b3b52;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+    th, td {
+      border-bottom: 1px solid var(--line);
+      padding: 8px 7px;
+      text-align: left;
+      white-space: nowrap;
+    }
+    th {
+      background: #f2f7fb;
+      color: #12364a;
+      font-weight: 700;
+    }
+    .muted { color: var(--muted); font-size: 12px; }
+    .foot {
+      margin-top: 6px;
+      color: #64748b;
+      font-size: 12px;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <section class="hero">
+      <h1>SELECT Evaluation Report</h1>
+      <p><strong>Dataset:</strong> Finan | <strong>Scope:</strong> DocETL, Evaporate, DQL, Lotus | <strong>Queries:</strong> 10</p>
+      <p>Global metrics are aligned to evaluation semantics: <em>macro_f1_mean (queries)</em> and <em>column_f1_mean (all columns)</em>.</p>
+      <p><strong>How to read them:</strong> <em>macro_f1_mean (queries)</em> gives equal weight to each query (query-level view), while <em>column_f1_mean (all columns)</em> gives equal weight to each extracted column across all queries (attribute-level view).</p>
+      <p><strong>Interpretation:</strong> if query-level score is high but column-level score is lower, the system is usually good on average per query but struggles on specific fields; if column-level is higher, some larger queries may be dragging down the query-average despite good per-field extraction.</p>
+    </section>
+
+    <section class="grid">
+      <article class="card">
+        <h2>Global Metrics Summary</h2>
+        <table><thead><tr><th>Model</th><th>Coverage</th><th>Completion Rate</th><th>macro_f1_mean (queries)</th><th>column_f1_mean (all columns)</th></tr></thead><tbody><tr><td>docetl</td><td>10/10</td><td>100.0%</td><td>0.3283</td><td>0.3144</td></tr><tr><td>evaporate</td><td>10/10</td><td>100.0%</td><td>0.0800</td><td>0.0828</td></tr><tr><td>dql</td><td>6/10</td><td>60.0%</td><td>0.0819</td><td>0.0964</td></tr><tr><td>lotus</td><td>10/10</td><td>100.0%</td><td>0.5341</td><td>n/a</td></tr></tbody></table>
+        <p class="foot">If a metric is "n/a", evaluation artifacts were not available for that model/query set.</p>
+      </article>
+
+      <article class="card">
+        <h2>Global Metrics Chart</h2>
+        <svg viewBox="0 0 900 340" width="100%" height="340" role="img" aria-label="Global metrics chart">
+<rect x="0" y="0" width="100%" height="100%" fill="#ffffff"/>
+<line x1="70" y1="292.0" x2="870" y2="292.0" stroke="#9ca3af" stroke-width="1"/>
+<text x="62" y="296.0" text-anchor="end" font-size="11" fill="#374151">0.0</text>
+<line x1="70" y1="266.3" x2="870" y2="266.3" stroke="#e5e7eb" stroke-width="1"/>
+<line x1="70" y1="240.6" x2="870" y2="240.6" stroke="#e5e7eb" stroke-width="1"/>
+<text x="62" y="244.6" text-anchor="end" font-size="11" fill="#374151">0.2</text>
+<line x1="70" y1="214.9" x2="870" y2="214.9" stroke="#e5e7eb" stroke-width="1"/>
+<line x1="70" y1="189.2" x2="870" y2="189.2" stroke="#e5e7eb" stroke-width="1"/>
+<text x="62" y="193.2" text-anchor="end" font-size="11" fill="#374151">0.4</text>
+<line x1="70" y1="163.5" x2="870" y2="163.5" stroke="#e5e7eb" stroke-width="1"/>
+<line x1="70" y1="137.8" x2="870" y2="137.8" stroke="#e5e7eb" stroke-width="1"/>
+<text x="62" y="141.8" text-anchor="end" font-size="11" fill="#374151">0.6</text>
+<line x1="70" y1="112.1" x2="870" y2="112.1" stroke="#e5e7eb" stroke-width="1"/>
+<line x1="70" y1="86.4" x2="870" y2="86.4" stroke="#e5e7eb" stroke-width="1"/>
+<text x="62" y="90.4" text-anchor="end" font-size="11" fill="#374151">0.8</text>
+<line x1="70" y1="60.7" x2="870" y2="60.7" stroke="#e5e7eb" stroke-width="1"/>
+<line x1="70" y1="35.0" x2="870" y2="35.0" stroke="#9ca3af" stroke-width="1"/>
+<text x="62" y="39.0" text-anchor="end" font-size="11" fill="#374151">1.0</text>
+<rect x="112.0" y="207.6" width="36.0" height="84.4" fill="#2E86AB" fill-opacity="1.0"/>
+<rect x="152.0" y="211.2" width="36.0" height="80.8" fill="#6A4C93" fill-opacity="1.0"/>
+<rect x="192.0" y="35.0" width="36.0" height="257.0" fill="#2A9D8F" fill-opacity="1.0"/>
+<text x="170.0" y="320" text-anchor="middle" font-size="11" fill="#374151">docetl</text>
+<rect x="312.0" y="271.4" width="36.0" height="20.6" fill="#2E86AB" fill-opacity="1.0"/>
+<rect x="352.0" y="270.7" width="36.0" height="21.3" fill="#6A4C93" fill-opacity="1.0"/>
+<rect x="392.0" y="35.0" width="36.0" height="257.0" fill="#2A9D8F" fill-opacity="1.0"/>
+<text x="370.0" y="320" text-anchor="middle" font-size="11" fill="#374151">evaporate</text>
+<rect x="512.0" y="270.9" width="36.0" height="21.1" fill="#2E86AB" fill-opacity="1.0"/>
+<rect x="552.0" y="267.2" width="36.0" height="24.8" fill="#6A4C93" fill-opacity="1.0"/>
+<rect x="592.0" y="137.8" width="36.0" height="154.2" fill="#2A9D8F" fill-opacity="1.0"/>
+<text x="570.0" y="320" text-anchor="middle" font-size="11" fill="#374151">dql</text>
+<rect x="712.0" y="154.7" width="36.0" height="137.3" fill="#2E86AB" fill-opacity="1.0"/>
+<rect x="752.0" y="292.0" width="36.0" height="0.0" fill="#6A4C93" fill-opacity="0.25"/>
+<rect x="792.0" y="35.0" width="36.0" height="257.0" fill="#2A9D8F" fill-opacity="1.0"/>
+<text x="770.0" y="320" text-anchor="middle" font-size="11" fill="#374151">lotus</text>
+<text x="450" y="20" text-anchor="middle" font-size="15" font-weight="700" fill="#111827">Global Metrics (SELECT)</text>
+<text x="450" y="326" text-anchor="middle" font-size="11" fill="#374151">Model</text>
+<rect x="640" y="17" width="12" height="12" fill="#2E86AB"/>
+<text x="658" y="27" font-size="11" fill="#111827">macro_f1_mean (queries)</text>
+<rect x="640" y="35" width="12" height="12" fill="#6A4C93"/>
+<text x="658" y="45" font-size="11" fill="#111827">column_f1_mean (all columns)</text>
+<rect x="640" y="53" width="12" height="12" fill="#2A9D8F"/>
+<text x="658" y="63" font-size="11" fill="#111827">completion_rate</text>
+</svg>
+      </article>
+
+      <article class="card">
+        <h2>Per-query Macro F1 Chart</h2>
+        <svg viewBox="0 0 1200 360" width="100%" height="360" role="img" aria-label="Per-query macro F1 chart">
+<rect x="0" y="0" width="100%" height="100%" fill="#ffffff"/>
+<line x1="60" y1="315.0" x2="1170" y2="315.0" stroke="#9ca3af" stroke-width="1"/>
+<text x="52" y="319.0" text-anchor="end" font-size="11" fill="#374151">0.0</text>
+<line x1="60" y1="287.0" x2="1170" y2="287.0" stroke="#e5e7eb" stroke-width="1"/>
+<line x1="60" y1="259.0" x2="1170" y2="259.0" stroke="#e5e7eb" stroke-width="1"/>
+<text x="52" y="263.0" text-anchor="end" font-size="11" fill="#374151">0.2</text>
+<line x1="60" y1="231.0" x2="1170" y2="231.0" stroke="#e5e7eb" stroke-width="1"/>
+<line x1="60" y1="203.0" x2="1170" y2="203.0" stroke="#e5e7eb" stroke-width="1"/>
+<text x="52" y="207.0" text-anchor="end" font-size="11" fill="#374151">0.4</text>
+<line x1="60" y1="175.0" x2="1170" y2="175.0" stroke="#e5e7eb" stroke-width="1"/>
+<line x1="60" y1="147.0" x2="1170" y2="147.0" stroke="#e5e7eb" stroke-width="1"/>
+<text x="52" y="151.0" text-anchor="end" font-size="11" fill="#374151">0.6</text>
+<line x1="60" y1="119.0" x2="1170" y2="119.0" stroke="#e5e7eb" stroke-width="1"/>
+<line x1="60" y1="91.0" x2="1170" y2="91.0" stroke="#e5e7eb" stroke-width="1"/>
+<text x="52" y="95.0" text-anchor="end" font-size="11" fill="#374151">0.8</text>
+<line x1="60" y1="63.0" x2="1170" y2="63.0" stroke="#e5e7eb" stroke-width="1"/>
+<line x1="60" y1="35.0" x2="1170" y2="35.0" stroke="#9ca3af" stroke-width="1"/>
+<text x="52" y="39.0" text-anchor="end" font-size="11" fill="#374151">1.0</text>
+<rect x="77.9" y="214.2" width="24.4" height="100.8" fill="#2E86AB" fill-opacity="1.0"/>
+<rect x="103.3" y="301.0" width="24.4" height="14.0" fill="#F18F01" fill-opacity="1.0"/>
+<rect x="128.7" y="292.6" width="24.4" height="22.4" fill="#C73E1D" fill-opacity="1.0"/>
+<rect x="188.9" y="244.3" width="24.4" height="70.7" fill="#2E86AB" fill-opacity="1.0"/>
+<rect x="214.3" y="290.2" width="24.4" height="24.8" fill="#F18F01" fill-opacity="1.0"/>
+<rect x="239.7" y="315.0" width="24.4" height="0.0" fill="#C73E1D" fill-opacity="0.28"/>
+<rect x="299.9" y="277.2" width="24.4" height="37.8" fill="#2E86AB" fill-opacity="1.0"/>
+<rect x="325.3" y="310.8" width="24.4" height="4.2" fill="#F18F01" fill-opacity="1.0"/>
+<rect x="350.7" y="309.4" width="24.4" height="5.6" fill="#C73E1D" fill-opacity="1.0"/>
+<rect x="410.9" y="224.2" width="24.4" height="90.8" fill="#2E86AB" fill-opacity="1.0"/>
+<rect x="436.3" y="273.0" width="24.4" height="42.0" fill="#F18F01" fill-opacity="1.0"/>
+<rect x="461.7" y="273.0" width="24.4" height="42.0" fill="#C73E1D" fill-opacity="1.0"/>
+<rect x="521.9" y="302.5" width="24.4" height="12.5" fill="#2E86AB" fill-opacity="1.0"/>
+<rect x="547.3" y="303.5" width="24.4" height="11.5" fill="#F18F01" fill-opacity="1.0"/>
+<rect x="572.7" y="315.0" width="24.4" height="0.0" fill="#C73E1D" fill-opacity="0.28"/>
+<rect x="632.9" y="205.8" width="24.4" height="109.2" fill="#2E86AB" fill-opacity="1.0"/>
+<rect x="658.3" y="298.8" width="24.4" height="16.2" fill="#F18F01" fill-opacity="1.0"/>
+<rect x="683.7" y="315.0" width="24.4" height="0.0" fill="#C73E1D" fill-opacity="0.28"/>
+<rect x="743.9" y="187.6" width="24.4" height="127.4" fill="#2E86AB" fill-opacity="1.0"/>
+<rect x="769.3" y="287.0" width="24.4" height="28.0" fill="#F18F01" fill-opacity="1.0"/>
+<rect x="794.7" y="292.6" width="24.4" height="22.4" fill="#C73E1D" fill-opacity="1.0"/>
+<rect x="854.9" y="237.5" width="24.4" height="77.5" fill="#2E86AB" fill-opacity="1.0"/>
+<rect x="880.3" y="278.6" width="24.4" height="36.4" fill="#F18F01" fill-opacity="1.0"/>
+<rect x="905.7" y="273.9" width="24.4" height="41.1" fill="#C73E1D" fill-opacity="1.0"/>
+<rect x="965.9" y="195.9" width="24.4" height="119.1" fill="#2E86AB" fill-opacity="1.0"/>
+<rect x="991.3" y="293.5" width="24.4" height="21.5" fill="#F18F01" fill-opacity="1.0"/>
+<rect x="1016.7" y="315.0" width="24.4" height="0.0" fill="#C73E1D" fill-opacity="0.28"/>
+<rect x="1076.9" y="141.4" width="24.4" height="173.6" fill="#2E86AB" fill-opacity="1.0"/>
+<rect x="1102.3" y="289.8" width="24.4" height="25.2" fill="#F18F01" fill-opacity="1.0"/>
+<rect x="1127.7" y="310.8" width="24.4" height="4.2" fill="#C73E1D" fill-opacity="1.0"/>
+<text x="115.5" y="342" text-anchor="middle" font-size="10" fill="#374151">1</text>
+<text x="226.5" y="342" text-anchor="middle" font-size="10" fill="#374151">2</text>
+<text x="337.5" y="342" text-anchor="middle" font-size="10" fill="#374151">3</text>
+<text x="448.5" y="342" text-anchor="middle" font-size="10" fill="#374151">4</text>
+<text x="559.5" y="342" text-anchor="middle" font-size="10" fill="#374151">5</text>
+<text x="670.5" y="342" text-anchor="middle" font-size="10" fill="#374151">6</text>
+<text x="781.5" y="342" text-anchor="middle" font-size="10" fill="#374151">7</text>
+<text x="892.5" y="342" text-anchor="middle" font-size="10" fill="#374151">8</text>
+<text x="1003.5" y="342" text-anchor="middle" font-size="10" fill="#374151">9</text>
+<text x="1114.5" y="342" text-anchor="middle" font-size="10" fill="#374151">10</text>
+<text x="600" y="20" text-anchor="middle" font-size="15" font-weight="700" fill="#111827">Per-query Macro F1 (SELECT)</text>
+<text x="600" y="338" text-anchor="middle" font-size="11" fill="#374151">Query Index</text>
+<rect x="900" y="19" width="12" height="12" fill="#2E86AB"/>
+<text x="918" y="29" font-size="11" fill="#111827">docetl</text>
+<rect x="900" y="37" width="12" height="12" fill="#F18F01"/>
+<text x="918" y="47" font-size="11" fill="#111827">evaporate</text>
+<rect x="900" y="55" width="12" height="12" fill="#C73E1D"/>
+<text x="918" y="65" font-size="11" fill="#111827">dql</text>
+<text x="80" y="20" font-size="11" fill="#6b7280">faded bars = missing evaluation</text>
+</svg>
+      </article>
+
+      <article class="card">
+        <h2>Per-query Metrics Table</h2>
+        <table><thead><tr><th>Query</th><th>DocETL macro_f1</th><th>Evaporate macro_f1</th><th>DQL macro_f1</th></tr></thead><tbody><tr><td>1</td><td>0.3600</td><td>0.0500</td><td>0.0800</td></tr><tr><td>2</td><td>0.2525</td><td>0.0887</td><td>n/a</td></tr><tr><td>3</td><td>0.1350</td><td>0.0150</td><td>0.0200</td></tr><tr><td>4</td><td>0.3242</td><td>0.1500</td><td>0.1500</td></tr><tr><td>5</td><td>0.0448</td><td>0.0412</td><td>n/a</td></tr><tr><td>6</td><td>0.3900</td><td>0.0580</td><td>n/a</td></tr><tr><td>7</td><td>0.4550</td><td>0.1000</td><td>0.0800</td></tr><tr><td>8</td><td>0.2767</td><td>0.1300</td><td>0.1467</td></tr><tr><td>9</td><td>0.4254</td><td>0.0769</td><td>n/a</td></tr><tr><td>10</td><td>0.6200</td><td>0.0900</td><td>0.0150</td></tr></tbody></table>
+        <p class="muted">Values are per-query <code>macro_f1</code> from <code>acc.json</code>. Lotus is included only in global chart/table from benchmark CSV metrics.</p>
+      </article>
+    </section>
+  </div>
+</body>
+</html>
