@@ -254,7 +254,9 @@ def _materialize_system_outputs(run_outputs_dir: Path, result: JobResult) -> dic
     elif model == "quest":
         sys_out_root = root / "systems" / "quest" / "results" / dataset.lower()
     elif model == "dql":
-        sys_out_root = root / "systems" / "DQL" / "results" / dataset / query_type
+        dql_outputs_root = root / "systems" / "DQL" / "outputs" / dataset.lower()
+        dql_legacy_root = root / "systems" / "DQL" / "results" / dataset / query_type
+        sys_out_root = dql_outputs_root if dql_outputs_root.exists() else dql_legacy_root
     else:
         return {"copied_files": 0, "details": {"reason": "unsupported model"}}
 
@@ -265,7 +267,7 @@ def _materialize_system_outputs(run_outputs_dir: Path, result: JobResult) -> dic
     details: dict[str, int | str] = {}
 
     # Query-level artifacts.
-    csv_prefixes = None if model == "dql" else prefixes
+    csv_prefixes = prefixes
     copied_csv = _copy_tree_filtered(sys_out_root / "csv", target_root / "csv", prefixes=csv_prefixes)
     copied += copied_csv
     details["csv_files"] = copied_csv
@@ -380,6 +382,11 @@ def main() -> int:
     parser.add_argument("--rebuild-extract", action="store_true", help="Evaporate only: rebuild extraction")
     parser.add_argument("--rebuild-table", action="store_true", help="Evaporate only: rebuild full table")
     parser.add_argument(
+        "--retry-failed",
+        action="store_true",
+        help="Run/evaluate only missing or failed query artifacts (disables rebuild flags).",
+    )
+    parser.add_argument(
         "--run-id",
         default=None,
         help="Optional custom run id (default: <models>_<datasets>_<query_types>_<utc timestamp>)",
@@ -402,6 +409,13 @@ def main() -> int:
     if not datasets:
         raise ValueError("Nessun dataset trovato in Query/")
 
+    if args.retry_failed:
+        # Retry mode means: do not rebuild successful artifacts.
+        args.rebuild = False
+        args.rebuild_eval = False
+        args.rebuild_extract = False
+        args.rebuild_table = False
+
     run_id = args.run_id or _make_run_id(models, datasets, query_types)
     run_dir = _repo_root() / "orchestrator" / "runs" / run_id
     run_paths = _prepare_run_dirs(run_dir)
@@ -410,6 +424,8 @@ def main() -> int:
     os.environ["ORCHESTRATOR_RUN_DIR"] = str(run_dir)
     logger = RunLogger(run_paths["logs"] / "events.log")
     logger.info(f"Starting run {run_id}")
+    if args.retry_failed:
+        logger.info("Retry-failed mode enabled: rebuild flags are disabled.")
 
     snapshot_rows: list[dict] = []
     for dataset in datasets:
@@ -435,6 +451,7 @@ def main() -> int:
             "rebuild_eval": args.rebuild_eval,
             "rebuild_extract": args.rebuild_extract,
             "rebuild_table": args.rebuild_table,
+            "retry_failed": args.retry_failed,
         },
         "artifacts": {
             "queries_snapshot_dir": str(run_paths["queries"]),

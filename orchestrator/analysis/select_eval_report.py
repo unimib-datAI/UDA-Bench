@@ -118,19 +118,23 @@ def _collect_from_eval_dirs(model: str, base_eval_dir: Path, expected_queries: i
     return query_metrics, gm
 
 
-def _collect_dql(model: str, dql_csv_root: Path, expected_queries: int) -> tuple[list[QueryMetric], GlobalMetric]:
+def _collect_dql(
+    model: str,
+    dql_flat_csv_root: Path,
+    dql_eval_root: Path,
+    expected_queries: int,
+) -> tuple[list[QueryMetric], GlobalMetric]:
     query_metrics: list[QueryMetric] = []
     macro_vals: list[float] = []
     all_col_f1_vals: list[float] = []
     produced_outputs = 0
-    acc_completed = 0
 
     for i in range(1, expected_queries + 1):
-        q_dir = dql_csv_root / f"query_{i}"
-        has_json = (q_dir / "results.json").exists()
-        if has_json:
+        csv_name = f"select_select_queries_{i}.csv"
+        has_output = (dql_flat_csv_root / csv_name).exists()
+        if has_output:
             produced_outputs += 1
-        acc_path = q_dir / "acc_result" / "acc.json"
+        acc_path = dql_eval_root / f"select_select_queries_{i}" / "acc.json"
         payload = _safe_json(acc_path) if acc_path.exists() else None
 
         macro_f1 = None
@@ -139,15 +143,11 @@ def _collect_dql(model: str, dql_csv_root: Path, expected_queries: int) -> tuple
         if isinstance(payload, dict):
             mf = payload.get("macro_f1")
             cols = payload.get("columns", {})
-            # Trust DQL F1 only when a real DQL output exists (results.json).
-            # acc.json files created from template CSVs in eval-only mode must not
-            # be treated as genuine DQL query results.
-            if has_json and isinstance(mf, (int, float)):
+            if has_output and isinstance(mf, (int, float)):
                 macro_f1 = float(mf)
                 has_acc = True
-                acc_completed += 1
                 macro_vals.append(float(mf))
-            if has_json and isinstance(cols, dict):
+            if has_output and isinstance(cols, dict):
                 n_cols = len(cols)
                 for _, c_payload in cols.items():
                     if isinstance(c_payload, dict):
@@ -161,12 +161,10 @@ def _collect_dql(model: str, dql_csv_root: Path, expected_queries: int) -> tuple
                 query_index=i,
                 has_acc=has_acc,
                 macro_f1=macro_f1,
-                n_columns=n_cols if n_cols else (1 if has_json else 0),
+                n_columns=n_cols if n_cols else (1 if has_output else 0),
             )
         )
 
-    # Completion for DQL must represent truly produced DQL outputs (results.json),
-    # not synthetic/template-evaluable queries.
     completed = produced_outputs
     gm = GlobalMetric(
         model=model,
@@ -231,6 +229,18 @@ def _collect_lotus_from_benchmark_csv(dataset: str, expected_queries: int) -> Gl
         query_macro_mean=macro,
         global_column_mean=None,
     )
+
+
+def _resolve_dql_select_csv_root(root: Path, dataset: str) -> Path:
+    candidates = [
+        root / "systems" / "DQL" / "outputs" / dataset.lower() / "csv",
+        root / "systems" / "DQL" / "outputs" / dataset.lower() / "select" / "csv",
+        root / "systems" / "DQL" / "results" / dataset / "select" / "csv",
+    ]
+    for c in candidates:
+        if c.exists():
+            return c
+    return candidates[0]
 
 
 def _fmt(v: float | None, pct: bool = False) -> str:
@@ -581,8 +591,9 @@ def main() -> int:
     all_query_rows.extend(q_rows)
     global_rows.append(g)
 
-    dql_csv = root / "systems" / "DQL" / "results" / args.dataset / "select" / "csv"
-    q_rows, g = _collect_dql("dql", dql_csv, expected)
+    dql_csv = _resolve_dql_select_csv_root(root, args.dataset)
+    dql_eval = root / "systems" / "DQL" / "outputs" / args.dataset.lower() / "evaluation"
+    q_rows, g = _collect_dql("dql", dql_csv, dql_eval, expected)
     all_query_rows.extend(q_rows)
     global_rows.append(g)
 

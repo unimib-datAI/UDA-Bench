@@ -4,12 +4,17 @@ This folder contains the DQL runner used by the root orchestrator.
 
 - Entry script: `systems/DQL/main.py`
 - Dependencies: `systems/DQL/requirements.txt`
-- Outputs: `systems/DQL/results/<Dataset>/<query_type>/csv/query_<n>/...`
+- Outputs (canonical, flat like DocETL/Evaporate):
+  - query CSVs: `systems/DQL/outputs/<dataset>/csv/<query_name>.csv`
+  - evaluation: `systems/DQL/outputs/<dataset>/evaluation/<query_name>/...`
+- Internal per-query runtime folders are generated for execution/debug:
+  - `systems/DQL/outputs/<dataset>/_runtime/<query_type>/query_<n>/...`
+- Legacy path still readable for backward compatibility: `systems/DQL/results/<Dataset>/<query_type>/...`
 
 ### Standalone run (DQL API)
 
 ```powershell
-.\.venv-DQL\Scripts\python.exe systems/DQL/main.py --user-id Finance --queries "SELECT earnings_per_share FROM finance" --api-url http://127.0.0.1:8000/api/v2/chat --out_dir systems/DQL/results/Finan/select/csv/query_1
+.\.venv-DQL\Scripts\python.exe systems/DQL/main.py --user-id Finance --queries "SELECT earnings_per_share FROM finance" --api-url http://127.0.0.1:8000/api/v2/chat --out_dir systems/DQL/outputs/finan/select/csv/query_1
 ```
 
 ### Recommended: run via root orchestrator

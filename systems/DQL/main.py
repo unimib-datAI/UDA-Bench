@@ -115,8 +115,8 @@ def main():
         "--api-url", 
         type=str,
         required=False,
-        default="http://0.0.0.0:8000/api/v2/chat", 
-        help="URL dell'endpoint API (default: http://0.0.0.0:8000/api/v2/chat)"
+        default="http://0.0.0.0:9000/api/answer", 
+        help="URL dell'endpoint API (default: http://0.0.0.0:9000/api/answer)"
     )
     
     parser.add_argument(
