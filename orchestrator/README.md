@@ -58,6 +58,12 @@ python orchestrator/main.py --model dql --dataset Finan --query-type select --mo
 # DQL (run + eval dal meta-orchestrator)
 python orchestrator/main.py --model dql --dataset Finan --query-type select --mode run+eval
 
+# DQL (run + eval su mixed)
+python orchestrator/main.py --model dql --dataset Finan --query-type mixed --mode run+eval --rebuild --rebuild-eval --run-id dql_finan_mixed
+
+# retry solo query/artifact mancanti o falliti (cross-modello)
+python orchestrator/main.py --model dql --dataset Finan --query-type select --mode run+eval --retry-failed
+
 # tutti i modelli, un dataset, solo evaluation su filter
 python orchestrator/main.py --model all --dataset Finan --mode eval --query-type filter
 
@@ -70,7 +76,9 @@ python orchestrator/main.py --list
 
 ## Naming delle run
 
-- Se non passi `--run-id`, il nome viene generato automaticamente: `run_YYYYMMDD_HHMMSS`
+- Se non passi `--run-id`, il nome viene generato automaticamente in modo descrittivo:
+  `<models>_<datasets>_<query_types>_YYYYMMDD_HHMMSS` (UTC)
+  - esempio: `docetl_finan_select_20260422_184501`
 - Se passi `--run-id`, usi un nome personalizzato (es. `test_all_eval_sf`)
 
 Esempi:
@@ -91,6 +99,27 @@ Per impostazione predefinita, in `--mode eval` non viene forzato il rebuild:
 - evita rerun costosi
 
 Usa i flag `--rebuild*` solo quando vuoi forzare ricalcolo.
+
+## Retry solo query fallite
+
+Per tutti i modelli puoi usare:
+
+```powershell
+python orchestrator/main.py --model <model> --dataset <dataset> --query-type <type> --mode run+eval --retry-failed
+```
+
+Comportamento:
+
+- non forza rebuild (`--rebuild*` vengono disattivati)
+- riesegue solo query senza output utili
+- riesegue evaluation solo dove manca `acc.json`
+
+Per DQL puoi aumentare il timeout request API, ad esempio a 30 minuti:
+
+```powershell
+$env:DQL_REQUEST_TIMEOUT="1800"
+python orchestrator/main.py --model dql --dataset Finan --query-type select --mode run+eval --retry-failed
+```
 
 ## Contenuto di `runs/<run_id>/`
 
@@ -146,8 +175,20 @@ Per DQL, il meta-orchestrator esegue la stessa `evaluation.run_eval` usata dagli
 
 - Se `systems/DQL/.../results.json` contiene righe tabellari (`rows/data/results/items/records`), l'adapter genera `results.csv` da quelle righe.
 - Se l'output DQL è narrativo/non tabellare, l'adapter genera comunque un `results.csv` compatibile con l'evaluator (colonne richieste + `id`) per mantenere il flusso `run+eval` unificato da un unico entrypoint.
+- Dopo l'evaluation, l'adapter replica gli artifact query-level (`acc.json`, `gold_result.csv`, `matched_*.csv`) in cartelle `evaluation/<query_name>` con naming allineato a DocETL/Evaporate.
+- Per allineamento struttura con DocETL/Evaporate, DQL espone query CSV/evaluation nella struttura flat:
+  - `systems/DQL/outputs/<dataset>/csv/<query_name>.csv`
+  - `systems/DQL/outputs/<dataset>/evaluation/<query_name>/...`
+- I dettagli query-level usati durante l'esecuzione DQL sono mantenuti in:
+  - `systems/DQL/outputs/<dataset>/_runtime/<query_type>/query_<n>/...`
+  (internal path, non parte della struttura di output da confrontare tra modelli).
 
 In questo modo DQL resta integrato nel flusso generale dell'orchestrator senza script esterni.
+
+Nota tecnica (mixed/agg):
+- durante `run+eval`, l'adapter DQL applica una normalizzazione SQL solo lato evaluation per evitare errori DuckDB su colonne numeriche salvate come testo:
+  - `AVG(col)` -> `AVG(TRY_CAST(col AS DOUBLE))`
+  - `SUM(col)` -> `SUM(TRY_CAST(col AS DOUBLE))`
 
 ## Report CSV cross-run
 
@@ -181,4 +222,12 @@ Open from command line:
 
 ```powershell
 start .\orchestrator\analysis\select_report.html
+```
+
+## Top-k HTML report (multi-task: SELECT/AGG/MIXED)
+
+Generate:
+
+```powershell
+.\.venv-DQL\Scripts\python.exe orchestrator/analysis/select_topk_compare.py --dataset Finan --tasks select,agg,mixed --topk 6 --include-lotus-from-benchmark --output orchestrator/analysis/select_top6_compare.html
 ```

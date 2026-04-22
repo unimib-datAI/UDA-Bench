@@ -106,8 +106,26 @@ def _parse_query_types(value: str) -> list[str]:
     return dedup
 
 
-def _make_run_id() -> str:
-    return datetime.now(timezone.utc).strftime("run_%Y%m%d_%H%M%S")
+def _slug_token(values: list[str], max_items: int = 3, max_len: int = 48) -> str:
+    cleaned: list[str] = []
+    for value in values:
+        token = re.sub(r"[^a-z0-9]+", "-", (value or "").strip().lower()).strip("-")
+        if token:
+            cleaned.append(token)
+    if not cleaned:
+        return "na"
+
+    if len(cleaned) <= max_items:
+        out = "-".join(cleaned)
+    else:
+        out = "-".join(cleaned[:max_items]) + f"-plus{len(cleaned) - max_items}"
+
+    return out[:max_len].rstrip("-")
+
+
+def _make_run_id(models: list[str], datasets: list[str], query_types: list[str]) -> str:
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+    return f"{_slug_token(models)}_{_slug_token(datasets)}_{_slug_token(query_types)}_{stamp}"
 
 
 def _split_sql_queries(text: str) -> list[str]:
@@ -336,8 +354,16 @@ def _aggregate_summary(results: list[JobResult]) -> dict:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Root meta-orchestrator for UDA-Bench systems")
-    parser.add_argument("--model", default="all", help="docetl | evaporate | all | list:docetl,evaporate")
-    parser.add_argument("--dataset", default="all", help="Finan | Player | ... | all | list:Finan,Player")
+    parser.add_argument(
+        "--model",
+        default="all",
+        help="Model selector: all | <model> | list:<m1,m2> (use --list to see available models)",
+    )
+    parser.add_argument(
+        "--dataset",
+        default="all",
+        help="Dataset selector: all | <dataset> | list:<d1,d2> (auto-discovered from Query/, use --list)",
+    )
     parser.add_argument(
         "--query-type",
         default="all",
@@ -353,7 +379,11 @@ def main() -> int:
     parser.add_argument("--rebuild-eval", action="store_true", help="Rebuild evaluation outputs")
     parser.add_argument("--rebuild-extract", action="store_true", help="Evaporate only: rebuild extraction")
     parser.add_argument("--rebuild-table", action="store_true", help="Evaporate only: rebuild full table")
-    parser.add_argument("--run-id", default=None, help="Optional custom run id")
+    parser.add_argument(
+        "--run-id",
+        default=None,
+        help="Optional custom run id (default: <models>_<datasets>_<query_types>_<utc timestamp>)",
+    )
     parser.add_argument("--list", action="store_true", help="List available models/datasets and exit")
     args = parser.parse_args()
 
@@ -372,7 +402,7 @@ def main() -> int:
     if not datasets:
         raise ValueError("Nessun dataset trovato in Query/")
 
-    run_id = args.run_id or _make_run_id()
+    run_id = args.run_id or _make_run_id(models, datasets, query_types)
     run_dir = _repo_root() / "orchestrator" / "runs" / run_id
     run_paths = _prepare_run_dirs(run_dir)
     

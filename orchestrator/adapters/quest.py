@@ -108,34 +108,52 @@ class QuestAdapter:
             output_dir = root / "systems" / "quest" / "results" / spec.dataset / "csv" / spec.query_type / f"query_{i+1}"
             output_dir.mkdir(parents=True, exist_ok=True)
             cmd.extend(["--out_dir", str(output_dir)])
+            result_csv = output_dir / "results.csv"
+            acc_file = output_dir / "acc_result" / "acc.json"
             
-            if rebuild:
-                pass  # Add rebuild flags if supported
-            
-            proc = subprocess.run(
-                cmd,
-                cwd=str(root),
-                capture_output=True,
-                text=True,
-                encoding="utf-8",
-                errors="replace",
-            )
-            
-            print(f"[INFO] Executing Done")
-            
-            all_stdout.extend(proc.stdout.splitlines())
-            all_stderr.extend(proc.stderr.splitlines())
-            
-            if proc.returncode != 0:
-                overall_return_code = proc.returncode
+            if spec.mode in {"run", "run+eval"}:
+                # Same resume semantics as DocETL/Evaporate: skip successful query outputs unless rebuild is requested.
+                if not rebuild and result_csv.exists():
+                    all_stdout.append(f"[INFO] skip run query_{i+1}: existing results.csv found")
+                else:
+                    if rebuild:
+                        pass  # Add rebuild flags if supported
+                    
+                    proc = subprocess.run(
+                        cmd,
+                        cwd=str(root),
+                        capture_output=True,
+                        text=True,
+                        encoding="utf-8",
+                        errors="replace",
+                    )
+                    
+                    print(f"[INFO] Executing Done")
+                    
+                    all_stdout.extend(proc.stdout.splitlines())
+                    all_stderr.extend(proc.stderr.splitlines())
+                    
+                    if proc.returncode != 0:
+                        overall_return_code = proc.returncode
             
             if spec.mode in {"eval", "run+eval"}:
+                # Keep evaluation incremental unless rebuild_eval is explicitly requested.
+                if not rebuild_eval and acc_file.exists():
+                    all_stdout.append(f"[INFO] skip eval query_{i+1}: existing acc.json found")
+                    try:
+                        with open(acc_file, "r", encoding="utf-8") as f:
+                            acc = json.load(f)
+                            f1 = acc.get("macro_f1") or acc.get("f1")
+                            if isinstance(f1, (int, float)):
+                                macro_f1s.append(float(f1))
+                    except Exception:
+                        pass
+                    continue
+
                 # Run evaluation for this query
                 sql_file = root / f"temp_sql_{i}.json"
                 with open(sql_file, "w", encoding="utf-8") as f:
                     json.dump({"sql": sql.replace("FROM finance", "FROM Finan").replace("FROM Finance", "FROM Finan")}, f)
-                
-                result_csv = output_dir / "results.csv"
 
                 if result_csv.exists():
                     eval_cmd = [

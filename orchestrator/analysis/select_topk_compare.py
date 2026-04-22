@@ -19,6 +19,7 @@ from sqlglot import exp
 
 @dataclass
 class PerQuery:
+    task: str
     model: str
     query_idx: int
     status: str
@@ -28,6 +29,7 @@ class PerQuery:
 
 @dataclass
 class Global:
+    task: str
     model: str
     completed: int
     total: int
@@ -36,6 +38,10 @@ class Global:
     pooled_precision: float | None = None
     pooled_recall: float | None = None
     pooled_f1: float | None = None
+    total_pred_mass: float = 0.0
+    total_gold_mass: float = 0.0
+    total_tp_pred: float = 0.0
+    total_tp_gold: float = 0.0
 
 
 def _collect_lotus_from_benchmark_csv(dataset: str, task: str, total_queries: int) -> Global | None:
@@ -69,6 +75,7 @@ def _collect_lotus_from_benchmark_csv(dataset: str, task: str, total_queries: in
     status = str(best_row.get("job_status", "")).strip().lower()
     completed = total_queries if status == "ok" else 0
     return Global(
+        task=task.lower(),
         model="lotus",
         completed=completed,
         total=total_queries,
@@ -82,6 +89,36 @@ def _collect_lotus_from_benchmark_csv(dataset: str, task: str, total_queries: in
 
 def _repo_root() -> Path:
     return Path(__file__).resolve().parents[2]
+
+
+def _resolve_dql_task_query_dir(root: Path, dataset: str, task: str, query_idx: int) -> Path:
+    t = task.lower()
+    candidates = [
+        root / "systems" / "DQL" / "outputs" / dataset.lower() / t / "csv" / f"query_{query_idx}",
+        root / "systems" / "DQL" / "results" / dataset / t / "csv" / f"query_{query_idx}",
+    ]
+    for c in candidates:
+        if c.exists():
+            return c
+    return candidates[0]
+
+
+def _resolve_task_sql_file(root: Path, dataset: str, task: str) -> Path:
+    task_dir = root / "Query" / dataset / task.capitalize()
+    if not task_dir.exists():
+        raise SystemExit(f"Missing task dir: {task_dir}")
+    t = task.lower()
+    preferred = [
+        task_dir / f"{t}_queries.sql",
+        task_dir / f"{t}_queries_{dataset.lower()}.sql",
+    ]
+    for p in preferred:
+        if p.exists():
+            return p
+    sqls = sorted(task_dir.glob("*.sql"))
+    if not sqls:
+        raise SystemExit(f"No SQL file found in {task_dir}")
+    return sqls[0]
 
 
 def _split_sql_file(path: Path) -> list[str]:
@@ -126,6 +163,30 @@ def _with_where_topk(sql_text: str, k: int) -> str:
     else:
         expr.set("where", exp.Where(this=exp.and_(where.this, cond)))
     return expr.sql(dialect="duckdb")
+
+
+def _normalize_eval_sql_numeric_agg(sql_text: str) -> str:
+    """
+    Evaluation guardrail:
+    DuckDB fails on AVG/SUM over VARCHAR columns (common in Finan CSV fields).
+    We only patch evaluation SQL, not source system outputs.
+    """
+    def _safe_cast_agg(match: re.Match) -> str:
+        fn = match.group("fn")
+        arg = (match.group("arg") or "").strip()
+        low = arg.lower()
+        if "cast(" in low or "try_cast(" in low:
+            return f"{fn}({arg})"
+        if fn.lower() == "count" and arg == "*":
+            return f"{fn}({arg})"
+        if fn.lower() in {"avg", "sum"}:
+            return f"{fn}(TRY_CAST({arg} AS DOUBLE))"
+        return f"{fn}({arg})"
+
+    agg_pat = re.compile(
+        r"(?is)\b(?P<fn>avg|sum|count)\s*\(\s*(?P<arg>(?:[^()]|\([^()]*\))+)\s*\)"
+    )
+    return agg_pat.sub(_safe_cast_agg, sql_text or "")
 
 
 def _align_sql_tables_to_gt(sql_text: str, gt_tables: list[str]) -> str:
@@ -211,14 +272,16 @@ def _run_eval(
 def _evaluate_model_topk(
     model: str,
     dataset: str,
-    queries: list[str],
-    csv_fetcher,
     task: str,
+    queries: list[str],
+    sql_stem: str,
+    csv_fetcher,
     topk: int,
 ) -> tuple[list[PerQuery], Global]:
     root = _repo_root()
     gt_tables = _gt_table_names(dataset)
-    base_tmp = root / "orchestrator" / "analysis" / "_tmp_topk" / f"{model}_{dataset.lower()}_{task.lower()}_{topk}"
+    task_l = task.lower()
+    base_tmp = root / "orchestrator" / "analysis" / "_tmp_topk" / f"{model}_{dataset.lower()}_{task_l}_{topk}"
     sql_dir = base_tmp / "sql"
     csv_dir = base_tmp / "csv"
     eval_dir = base_tmp / "eval"
@@ -235,18 +298,18 @@ def _evaluate_model_topk(
     for i, sql_text in enumerate(queries, start=1):
         src_csv = csv_fetcher(i)
         if src_csv is None or not src_csv.exists():
-            rows.append(PerQuery(model=model, query_idx=i, status="missing_csv", macro_f1=None, note="missing source csv"))
+            rows.append(PerQuery(task=task_l, model=model, query_idx=i, status="missing_csv", macro_f1=None, note="missing source csv"))
             continue
 
         try:
             df = pd.read_csv(src_csv)
         except Exception as e:
-            rows.append(PerQuery(model=model, query_idx=i, status="bad_csv", macro_f1=None, note=str(e)))
+            rows.append(PerQuery(task=task_l, model=model, query_idx=i, status="bad_csv", macro_f1=None, note=str(e)))
             continue
 
         df_small = _filter_topk_rows(df, topk)
         if df_small.empty:
-            rows.append(PerQuery(model=model, query_idx=i, status="empty_after_filter", macro_f1=None))
+            rows.append(PerQuery(task=task_l, model=model, query_idx=i, status="empty_after_filter", macro_f1=None))
             continue
 
         # evaluator alignment for row-level tasks expects id often
@@ -264,13 +327,14 @@ def _evaluate_model_topk(
         df_small.to_csv(dst_csv, index=False)
 
         aligned_sql = _align_sql_tables_to_gt(sql_text, gt_tables)
+        aligned_sql = _normalize_eval_sql_numeric_agg(aligned_sql)
         sql_mod = _with_where_topk(aligned_sql, topk)
         sql_json = sql_dir / f"query_{i}.json"
         sql_json.write_text(json.dumps({"sql": sql_mod}, ensure_ascii=False, indent=2), encoding="utf-8")
 
         out_q = eval_dir / f"query_{i}"
         out_q.mkdir(parents=True, exist_ok=True)
-        rc, out, err = _run_eval(root, dataset, task, sql_json, dst_csv, out_q)
+        rc, out, err = _run_eval(root, dataset, task_l, sql_json, dst_csv, out_q)
         # Persist subprocess logs for easier debugging in case of eval errors.
         (out_q / "stdout.log").write_text(out or "", encoding="utf-8")
         (out_q / "stderr.log").write_text(err or "", encoding="utf-8")
@@ -278,16 +342,17 @@ def _evaluate_model_topk(
             err_text = (err or "").strip()
             out_text = (out or "").strip()
             note = err_text[-240:] if err_text else out_text[-240:]
-            rows.append(PerQuery(model=model, query_idx=i, status="eval_error", macro_f1=None, note=note))
+            rows.append(PerQuery(task=task_l, model=model, query_idx=i, status="eval_error", macro_f1=None, note=note))
             continue
 
         acc = _safe_json(out_q / "acc.json")
         if not isinstance(acc, dict):
-            rows.append(PerQuery(model=model, query_idx=i, status="no_acc", macro_f1=None))
+            rows.append(PerQuery(task=task_l, model=model, query_idx=i, status="no_acc", macro_f1=None))
             continue
 
         cols = acc.get("columns", {})
         row_info = acc.get("rows", {})
+        mass_added = False
         if isinstance(cols, dict) and isinstance(row_info, dict):
             len_pred = row_info.get("len_pred")
             len_gold = row_info.get("len_gold")
@@ -302,21 +367,35 @@ def _evaluate_model_topk(
                         total_gold_mass += float(len_gold)
                         total_tp_pred += float(p) * float(len_pred)
                         total_tp_gold += float(r) * float(len_gold)
+                        mass_added = True
+
+        # Fallback: some acc.json variants may not expose per-column/row masses
+        # consistently; keep pooled metrics defined using unit weight per query.
+        if not mass_added:
+            mp = acc.get("macro_precision")
+            mr = acc.get("macro_recall")
+            if isinstance(mp, (int, float)) and isinstance(mr, (int, float)):
+                total_pred_mass += 1.0
+                total_gold_mass += 1.0
+                total_tp_pred += float(mp)
+                total_tp_gold += float(mr)
 
         f1 = acc.get("macro_f1")
         if isinstance(f1, (int, float)):
             macro_vals.append(float(f1))
-            rows.append(PerQuery(model=model, query_idx=i, status="ok", macro_f1=float(f1)))
+            rows.append(PerQuery(task=task_l, model=model, query_idx=i, status="ok", macro_f1=float(f1)))
         else:
-            rows.append(PerQuery(model=model, query_idx=i, status="no_macro_f1", macro_f1=None))
+            rows.append(PerQuery(task=task_l, model=model, query_idx=i, status="no_macro_f1", macro_f1=None))
 
     completed = sum(1 for r in rows if r.status == "ok")
     pooled_precision = (total_tp_pred / total_pred_mass) if total_pred_mass > 0 else None
     pooled_recall = (total_tp_gold / total_gold_mass) if total_gold_mass > 0 else None
     pooled_f1 = None
-    if pooled_precision is not None and pooled_recall is not None and (pooled_precision + pooled_recall) > 0:
-        pooled_f1 = 2 * pooled_precision * pooled_recall / (pooled_precision + pooled_recall)
+    if pooled_precision is not None and pooled_recall is not None:
+        denom = pooled_precision + pooled_recall
+        pooled_f1 = 0.0 if denom == 0 else (2 * pooled_precision * pooled_recall / denom)
     gl = Global(
+        task=task_l,
         model=model,
         completed=completed,
         total=len(queries),
@@ -325,14 +404,68 @@ def _evaluate_model_topk(
         pooled_precision=pooled_precision,
         pooled_recall=pooled_recall,
         pooled_f1=pooled_f1,
+        total_pred_mass=total_pred_mass,
+        total_gold_mass=total_gold_mass,
+        total_tp_pred=total_tp_pred,
+        total_tp_gold=total_tp_gold,
     )
     return rows, gl
 
 
-def _render_html(dataset: str, task: str, topk: int, per_query: list[PerQuery], global_rows: list[Global], out_path: Path) -> str:
+def _build_overall_rows(global_rows: list[Global], tasks: list[str]) -> list[Global]:
+    out: list[Global] = []
+    models = sorted({g.model for g in global_rows})
+    task_set = {t.lower() for t in tasks}
+    for m in models:
+        rows = [g for g in global_rows if g.model == m and g.task in task_set]
+        if not rows:
+            continue
+        completed = sum(g.completed for g in rows)
+        total = sum(g.total for g in rows)
+        completion_rate = (completed / total) if total else 0.0
+
+        tp_pred = sum(g.total_tp_pred for g in rows)
+        pred_mass = sum(g.total_pred_mass for g in rows)
+        tp_gold = sum(g.total_tp_gold for g in rows)
+        gold_mass = sum(g.total_gold_mass for g in rows)
+
+        pooled_precision = (tp_pred / pred_mass) if pred_mass > 0 else None
+        pooled_recall = (tp_gold / gold_mass) if gold_mass > 0 else None
+        pooled_f1 = None
+        if pooled_precision is not None and pooled_recall is not None:
+            denom = pooled_precision + pooled_recall
+            pooled_f1 = 0.0 if denom == 0 else (2 * pooled_precision * pooled_recall / denom)
+
+        macro_vals = [float(g.macro_f1_mean) for g in rows if isinstance(g.macro_f1_mean, (int, float))]
+        macro_f1_mean = mean(macro_vals) if macro_vals else None
+
+        out.append(
+            Global(
+                task="overall",
+                model=m,
+                completed=completed,
+                total=total,
+                completion_rate=completion_rate,
+                macro_f1_mean=macro_f1_mean,
+                pooled_precision=pooled_precision,
+                pooled_recall=pooled_recall,
+                pooled_f1=pooled_f1,
+                total_pred_mass=pred_mass,
+                total_gold_mass=gold_mass,
+                total_tp_pred=tp_pred,
+                total_tp_gold=tp_gold,
+            )
+        )
+    return out
+
+
+def _render_task_block(task: str, topk: int, per_query: list[PerQuery], global_rows: list[Global], include_lotus: bool) -> str:
+    t = task.lower()
     model_order = ["docetl", "evaporate", "dql"]
-    by_model = {m: {r.query_idx: r for r in per_query if r.model == m} for m in model_order}
-    total_q = max((r.query_idx for r in per_query), default=0)
+    task_per_query = [r for r in per_query if r.task == t]
+    task_global_rows = [g for g in global_rows if g.task == t]
+    by_model = {m: {r.query_idx: r for r in task_per_query if r.model == m} for m in model_order}
+    total_q = max((r.query_idx for r in task_per_query), default=0)
 
     def fmt(v: float | None) -> str:
         return "n/a" if v is None else f"{v:.4f}"
@@ -354,7 +487,7 @@ def _render_html(dataset: str, task: str, topk: int, per_query: list[PerQuery], 
 
     # global table
     g_rows = []
-    for g in global_rows:
+    for g in task_global_rows:
         g_rows.append(
             "<tr>"
             f"<td>{html.escape(g.model)}</td>"
@@ -371,7 +504,7 @@ def _render_html(dataset: str, task: str, topk: int, per_query: list[PerQuery], 
     pad_l, pad_r, pad_t, pad_b = 70, 20, 30, 40
     plot_w = width - pad_l - pad_r
     plot_h = height - pad_t - pad_b
-    vals = [(g.model, (g.pooled_f1 or 0.0), g.pooled_f1 is not None) for g in global_rows]
+    vals = [(g.model, (g.pooled_f1 or 0.0), g.pooled_f1 is not None) for g in task_global_rows]
     n = len(vals)
     bw = min(80, (plot_w / max(n, 1)) * 0.5)
     svg = [f'<svg viewBox="0 0 {width} {height}" width="100%" height="{height}">']
@@ -392,16 +525,135 @@ def _render_html(dataset: str, task: str, topk: int, per_query: list[PerQuery], 
         svg.append(f'<text x="{cx:.1f}" y="{height-16}" text-anchor="middle" font-size="11">{html.escape(m)}</text>')
         lbl = f"{v:.3f}" if has_value else "n/a"
         svg.append(f'<text x="{cx:.1f}" y="{y-6:.1f}" text-anchor="middle" font-size="11">{lbl}</text>')
-    svg.append(f'<text x="{width/2:.1f}" y="18" text-anchor="middle" font-size="14" font-weight="700">Pooled (True Global) F1 on first {topk} docs ({task})</text>')
+    svg.append(f'<text x="{width/2:.1f}" y="18" text-anchor="middle" font-size="14" font-weight="700">Pooled (True Global) F1 on first {topk} docs ({task.upper()})</text>')
     svg.append("</svg>")
     svg_chart = "\n".join(svg)
+
+    lotus_note = (
+        f'<div class="muted">Lotus is included from benchmark CSV global metrics (no per-query top-{topk} artifacts in this pipeline).</div>'
+        if include_lotus
+        else '<div class="muted">Lotus excluded: only models with local per-query artifacts are shown for fair top-k comparison.</div>'
+    )
+
+    return f"""
+  <div class="card">
+    <h2>{task.upper()} summary</h2>
+    <table>
+      <thead><tr><th>Model</th><th>Completed</th><th>Completion</th><th>Pooled Global F1</th><th>Macro F1 Mean</th></tr></thead>
+      <tbody>{''.join(g_rows)}</tbody>
+    </table>
+    <p class="muted">Pooled Global F1 aggregates all evaluated cells across all completed queries; this is the true total F1 for this top-{topk} run.</p>
+  </div>
+  <div class="card">
+    <h2>{task.upper()} chart</h2>
+    {svg_chart}
+  </div>
+  <div class="card">
+    <h2>{task.upper()} per-query details</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Query</th>
+          <th>DocETL F1</th><th>DocETL status</th>
+          <th>Evaporate F1</th><th>Evaporate status</th>
+          <th>DQL F1</th><th>DQL status</th>
+        </tr>
+      </thead>
+      <tbody>{''.join(q_rows)}</tbody>
+    </table>
+    <p class="muted">Lotus is shown only in global row for {task.upper()} ({'enabled' if include_lotus else 'disabled'}).</p>
+  </div>
+"""
+
+
+def _render_overall_block(topk: int, overall_rows: list[Global], tasks: list[str]) -> str:
+    tasks_label = " + ".join(t.upper() for t in tasks)
+    def fmt(v: float | None) -> str:
+        return "n/a" if v is None else f"{v:.4f}"
+
+    g_rows = []
+    for g in overall_rows:
+        g_rows.append(
+            "<tr>"
+            f"<td>{html.escape(g.model)}</td>"
+            f"<td>{g.completed}/{g.total}</td>"
+            f"<td>{g.completion_rate*100:.1f}%</td>"
+            f"<td>{fmt(g.pooled_f1)}</td>"
+            f"<td>{fmt(g.macro_f1_mean)}</td>"
+            "</tr>"
+        )
+
+    width = 800
+    height = 280
+    pad_l, pad_r, pad_t, pad_b = 70, 20, 30, 40
+    plot_w = width - pad_l - pad_r
+    plot_h = height - pad_t - pad_b
+    vals = [(g.model, (g.pooled_f1 or 0.0), g.pooled_f1 is not None) for g in overall_rows]
+    n = len(vals)
+    bw = min(80, (plot_w / max(n, 1)) * 0.5)
+    svg = [f'<svg viewBox="0 0 {width} {height}" width="100%" height="{height}">']
+    svg.append('<rect width="100%" height="100%" fill="#fff"/>')
+    for t in range(0, 11, 2):
+        yv = t / 10
+        y = pad_t + plot_h * (1 - yv)
+        svg.append(f'<line x1="{pad_l}" y1="{y:.1f}" x2="{pad_l+plot_w}" y2="{y:.1f}" stroke="#e5e7eb"/>')
+        svg.append(f'<text x="{pad_l-8}" y="{y+4:.1f}" text-anchor="end" font-size="10">{yv:.1f}</text>')
+    colors = {"docetl": "#2E86AB", "evaporate": "#F18F01", "dql": "#C73E1D", "lotus": "#2A9D8F"}
+    for i, (m, v, has_value) in enumerate(vals):
+        cx = pad_l + (i + 0.5) * (plot_w / max(n, 1))
+        h = max(0.0, min(1.0, v)) * plot_h
+        x = cx - bw / 2
+        y = pad_t + plot_h - h
+        opacity = "1.0" if has_value else "0.25"
+        svg.append(f'<rect x="{x:.1f}" y="{y:.1f}" width="{bw:.1f}" height="{h:.1f}" fill="{colors.get(m,"#64748b")}" fill-opacity="{opacity}"/>')
+        svg.append(f'<text x="{cx:.1f}" y="{height-16}" text-anchor="middle" font-size="11">{html.escape(m)}</text>')
+        lbl = f"{v:.3f}" if has_value else "n/a"
+        svg.append(f'<text x="{cx:.1f}" y="{y-6:.1f}" text-anchor="middle" font-size="11">{lbl}</text>')
+    svg.append(f'<text x="{width/2:.1f}" y="18" text-anchor="middle" font-size="14" font-weight="700">Pooled (True Global) F1 on first {topk} docs ({tasks_label})</text>')
+    svg.append("</svg>")
+    svg_chart = "\n".join(svg)
+
+    return f"""
+  <div class="card">
+    <h2>Overall summary ({tasks_label})</h2>
+    <table>
+      <thead><tr><th>Model</th><th>Completed</th><th>Completion</th><th>Pooled Global F1</th><th>Macro F1 Mean</th></tr></thead>
+      <tbody>{''.join(g_rows)}</tbody>
+    </table>
+    <p class="muted">Overall pooled F1 merges {tasks_label} by summing true-positive masses and denominator masses across all selected task families.</p>
+  </div>
+  <div class="card">
+    <h2>Overall chart ({tasks_label})</h2>
+    {svg_chart}
+  </div>
+"""
+
+
+def _render_html(
+    dataset: str,
+    tasks: list[str],
+    topk: int,
+    per_query: list[PerQuery],
+    global_rows: list[Global],
+    out_path: Path,
+    include_lotus: bool,
+) -> str:
+    overall_rows = _build_overall_rows(global_rows, tasks)
+    overall_block = _render_overall_block(topk, overall_rows, tasks) if overall_rows else ""
+    task_blocks = "".join(_render_task_block(t, topk, per_query, global_rows, include_lotus) for t in tasks)
+
+    lotus_note = (
+        f'<div class="muted">Lotus is included from benchmark CSV as global metric per task (no per-query top-{topk} artifacts in this pipeline).</div>'
+        if include_lotus
+        else '<div class="muted">Lotus excluded: only models with local per-query artifacts are shown.</div>'
+    )
 
     return f"""<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>Top-{topk} {task} comparison</title>
+<title>Top-{topk} Multi-task comparison</title>
 <style>
 body{{font-family:Segoe UI,Arial,sans-serif;background:#f6f8fb;color:#0f172a;margin:0}}
 .wrap{{max-width:1200px;margin:20px auto;padding:0 14px}}
@@ -416,48 +668,28 @@ th{{background:#f1f5f9}}
 <body>
 <div class="wrap">
   <div class="card">
-    <h1>SELECT comparison on first {topk} documents</h1>
-    <div class="muted">Dataset: {html.escape(dataset)} | Task: {html.escape(task)} | Generated from local artifacts and re-evaluation on top-{topk} rows where CSV outputs exist.</div>
+    <h1>Comparison on first {topk} documents</h1>
+    <div class="muted">Dataset: {html.escape(dataset)} | Tasks: {html.escape(', '.join(t.upper() for t in tasks))} | Generated from local artifacts and re-evaluation on top-{topk} rows where CSV outputs exist.</div>
     <div class="muted">Output file: {html.escape(str(out_path))}</div>
-    <div class="muted">Lotus is included from benchmark CSV global metrics (no per-query top-{topk} artifacts in this pipeline).</div>
+    {lotus_note}
   </div>
-  <div class="card">
-    <h2>Global summary</h2>
-    <table>
-      <thead><tr><th>Model</th><th>Completed</th><th>Completion</th><th>Pooled Global F1</th><th>Macro F1 Mean</th></tr></thead>
-      <tbody>{''.join(g_rows)}</tbody>
-    </table>
-    <p class="muted">Pooled Global F1 aggregates all evaluated cells across all completed queries; this is the true total F1 for this top-{topk} run.</p>
-  </div>
-  <div class="card">
-    <h2>Global chart</h2>
-    {svg_chart}
-  </div>
-  <div class="card">
-    <h2>Per-query details</h2>
-    <table>
-      <thead>
-        <tr>
-          <th>Query</th>
-          <th>DocETL F1</th><th>DocETL status</th>
-          <th>Evaporate F1</th><th>Evaporate status</th>
-          <th>DQL F1</th><th>DQL status</th>
-        </tr>
-      </thead>
-      <tbody>{''.join(q_rows)}</tbody>
-    </table>
-    <p class="muted">If DQL status is <code>json_only</code> or not <code>ok</code>, the query was not evaluable with current DQL artifacts (JSON output present but no evaluable CSV).</p>
-  </div>
+  {overall_block}
+  {task_blocks}
 </div>
 </body>
 </html>"""
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Compare SELECT on first-k docs across DocETL/Evaporate/DQL")
+    parser = argparse.ArgumentParser(description="Compare tasks on first-k docs across DocETL/Evaporate/DQL")
     parser.add_argument("--dataset", default="Finan")
-    parser.add_argument("--task", default="Select")
+    parser.add_argument("--tasks", default="select,agg,mixed", help="Comma-separated tasks, e.g. select,agg,mixed")
     parser.add_argument("--topk", type=int, default=6)
+    parser.add_argument(
+        "--include-lotus-from-benchmark",
+        action="store_true",
+        help="Include Lotus global metrics from benchmark_results.csv (no per-query top-k artifacts).",
+    )
     parser.add_argument(
         "--output",
         default=None,
@@ -466,68 +698,74 @@ def main() -> int:
     args = parser.parse_args()
 
     root = _repo_root()
-    sql_path = root / "Query" / args.dataset / args.task / "select_queries.sql"
-    queries = _split_sql_file(sql_path)
-    if not queries:
-        raise SystemExit(f"No queries found in {sql_path}")
-
-    def docetl_csv(i: int) -> Path:
-        return root / "systems" / "DocETL" / "outputs" / args.dataset.lower() / "csv" / f"select_select_queries_{i}.csv"
-
-    def evaporate_csv(i: int) -> Path:
-        return root / "systems" / "Evaporate" / "outputs" / args.dataset.lower() / "csv" / f"select_select_queries_{i}.csv"
-
-    def dql_csv(i: int) -> Path:
-        return root / "systems" / "DQL" / "results" / args.dataset / "select" / "csv" / f"query_{i}" / "results.csv"
+    tasks = [t.strip().lower() for t in args.tasks.split(",") if t.strip()]
+    if not tasks:
+        raise SystemExit("No tasks provided")
 
     per_query: list[PerQuery] = []
     global_rows: list[Global] = []
 
-    rows, g = _evaluate_model_topk("docetl", args.dataset, queries, docetl_csv, args.task, args.topk)
-    per_query.extend(rows)
-    global_rows.append(g)
+    for task in tasks:
+        sql_path = _resolve_task_sql_file(root, args.dataset, task)
+        queries = _split_sql_file(sql_path)
+        if not queries:
+            raise SystemExit(f"No queries found in {sql_path}")
+        sql_stem = sql_path.stem
 
-    rows, g = _evaluate_model_topk("evaporate", args.dataset, queries, evaporate_csv, args.task, args.topk)
-    per_query.extend(rows)
-    global_rows.append(g)
+        def docetl_csv(i: int, _task=task, _stem=sql_stem) -> Path:
+            return root / "systems" / "DocETL" / "outputs" / args.dataset.lower() / "csv" / f"{_task}_{_stem}_{i}.csv"
 
-    rows, g = _evaluate_model_topk("dql", args.dataset, queries, dql_csv, args.task, args.topk)
-    # DQL can produce json-only outputs without evaluable CSV.
-    produced = 0
-    for r in rows:
-        if r.status == "missing_csv":
-            dql_json = root / "systems" / "DQL" / "results" / args.dataset / "select" / "csv" / f"query_{r.query_idx}" / "results.json"
-            if dql_json.exists():
-                r.status = "json_only"
-                produced += 1
-        elif r.status == "ok":
-            produced += 1
-    if produced > g.completed:
-        g.completed = produced
-        g.completion_rate = produced / g.total if g.total else 0.0
-    per_query.extend(rows)
-    global_rows.append(g)
+        def evaporate_csv(i: int, _task=task, _stem=sql_stem) -> Path:
+            return root / "systems" / "Evaporate" / "outputs" / args.dataset.lower() / "csv" / f"{_task}_{_stem}_{i}.csv"
 
-    lotus = _collect_lotus_from_benchmark_csv(args.dataset, args.task, len(queries))
-    if lotus is not None:
-        global_rows.append(lotus)
+        def dql_csv(i: int, _task=task, _stem=sql_stem) -> Path:
+            flat = root / "systems" / "DQL" / "outputs" / args.dataset.lower() / "csv" / f"{_task}_{_stem}_{i}.csv"
+            if flat.exists():
+                return flat
+            return _resolve_dql_task_query_dir(root, args.dataset, _task, i) / "results.csv"
+
+        rows, g = _evaluate_model_topk("docetl", args.dataset, task, queries, sql_stem, docetl_csv, args.topk)
+        per_query.extend(rows)
+        global_rows.append(g)
+
+        rows, g = _evaluate_model_topk("evaporate", args.dataset, task, queries, sql_stem, evaporate_csv, args.topk)
+        per_query.extend(rows)
+        global_rows.append(g)
+
+        rows, g = _evaluate_model_topk("dql", args.dataset, task, queries, sql_stem, dql_csv, args.topk)
+        per_query.extend(rows)
+        global_rows.append(g)
+
+        if args.include_lotus_from_benchmark:
+            lotus = _collect_lotus_from_benchmark_csv(args.dataset, task, len(queries))
+            if lotus is not None:
+                global_rows.append(lotus)
 
     out = Path(args.output) if args.output else (root / "orchestrator" / "analysis" / "select_top6_compare.html")
     out.parent.mkdir(parents=True, exist_ok=True)
-    report_html = _render_html(args.dataset, args.task, args.topk, per_query, global_rows, out)
+    report_html = _render_html(
+        args.dataset,
+        tasks,
+        args.topk,
+        per_query,
+        global_rows,
+        out,
+        include_lotus=args.include_lotus_from_benchmark,
+    )
     out.write_text(report_html, encoding="utf-8")
 
     print(f"Single-file report generated: {out}")
     for g in global_rows:
         print(
-            f"{g.model}: completed={g.completed}/{g.total}, "
+            f"{g.task}/{g.model}: completed={g.completed}/{g.total}, "
             f"completion={g.completion_rate:.1%}, pooled_f1={g.pooled_f1}, macro_f1_mean={g.macro_f1_mean}"
         )
     # Print first eval_error note per model for quick diagnosis.
-    for model in ("docetl", "evaporate", "dql"):
-        first_err = next((r for r in per_query if r.model == model and r.status == "eval_error"), None)
-        if first_err and first_err.note:
-            print(f"{model} first_eval_error: {first_err.note}")
+    for task in tasks:
+        for model in ("docetl", "evaporate", "dql"):
+            first_err = next((r for r in per_query if r.task == task and r.model == model and r.status == "eval_error"), None)
+            if first_err and first_err.note:
+                print(f"{task}/{model} first_eval_error: {first_err.note}")
     return 0
 
 

@@ -1,0 +1,235 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Top-6 Multi-task comparison</title>
+<style>
+body{font-family:Segoe UI,Arial,sans-serif;background:#f6f8fb;color:#0f172a;margin:0}
+.wrap{max-width:1200px;margin:20px auto;padding:0 14px}
+.card{background:#fff;border:1px solid #dbe3ec;border-radius:12px;padding:14px;margin-bottom:14px}
+h1{margin:0 0 6px;font-size:24px} h2{margin:0 0 10px;font-size:17px}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{border-bottom:1px solid #e2e8f0;padding:7px;text-align:left;white-space:nowrap}
+th{background:#f1f5f9}
+.muted{color:#64748b;font-size:12px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="card">
+    <h1>Comparison on first 6 documents</h1>
+    <div class="muted">Dataset: Finan | Tasks: SELECT, AGG, MIXED | Generated from local artifacts and re-evaluation on top-6 rows where CSV outputs exist.</div>
+    <div class="muted">Output file: orchestrator\analysis\select_top6_compare.html</div>
+    <div class="muted">Lotus is included from benchmark CSV as global metric per task (no per-query top-6 artifacts in this pipeline).</div>
+  </div>
+  
+  <div class="card">
+    <h2>Overall summary (SELECT + AGG + MIXED)</h2>
+    <table>
+      <thead><tr><th>Model</th><th>Completed</th><th>Completion</th><th>Pooled Global F1</th><th>Macro F1 Mean</th></tr></thead>
+      <tbody><tr><td>docetl</td><td>25/26</td><td>96.2%</td><td>0.2132</td><td>0.1316</td></tr><tr><td>dql</td><td>26/26</td><td>100.0%</td><td>0.4186</td><td>0.2943</td></tr><tr><td>evaporate</td><td>26/26</td><td>100.0%</td><td>0.0621</td><td>0.0624</td></tr><tr><td>lotus</td><td>26/26</td><td>100.0%</td><td>n/a</td><td>0.2515</td></tr></tbody>
+    </table>
+    <p class="muted">Overall pooled F1 merges SELECT + AGG + MIXED by summing true-positive masses and denominator masses across all selected task families.</p>
+  </div>
+  <div class="card">
+    <h2>Overall chart (SELECT + AGG + MIXED)</h2>
+    <svg viewBox="0 0 800 280" width="100%" height="280">
+<rect width="100%" height="100%" fill="#fff"/>
+<line x1="70" y1="240.0" x2="780" y2="240.0" stroke="#e5e7eb"/>
+<text x="62" y="244.0" text-anchor="end" font-size="10">0.0</text>
+<line x1="70" y1="198.0" x2="780" y2="198.0" stroke="#e5e7eb"/>
+<text x="62" y="202.0" text-anchor="end" font-size="10">0.2</text>
+<line x1="70" y1="156.0" x2="780" y2="156.0" stroke="#e5e7eb"/>
+<text x="62" y="160.0" text-anchor="end" font-size="10">0.4</text>
+<line x1="70" y1="114.0" x2="780" y2="114.0" stroke="#e5e7eb"/>
+<text x="62" y="118.0" text-anchor="end" font-size="10">0.6</text>
+<line x1="70" y1="72.0" x2="780" y2="72.0" stroke="#e5e7eb"/>
+<text x="62" y="76.0" text-anchor="end" font-size="10">0.8</text>
+<line x1="70" y1="30.0" x2="780" y2="30.0" stroke="#e5e7eb"/>
+<text x="62" y="34.0" text-anchor="end" font-size="10">1.0</text>
+<rect x="118.8" y="195.2" width="80.0" height="44.8" fill="#2E86AB" fill-opacity="1.0"/>
+<text x="158.8" y="264" text-anchor="middle" font-size="11">docetl</text>
+<text x="158.8" y="189.2" text-anchor="middle" font-size="11">0.213</text>
+<rect x="296.2" y="152.1" width="80.0" height="87.9" fill="#C73E1D" fill-opacity="1.0"/>
+<text x="336.2" y="264" text-anchor="middle" font-size="11">dql</text>
+<text x="336.2" y="146.1" text-anchor="middle" font-size="11">0.419</text>
+<rect x="473.8" y="227.0" width="80.0" height="13.0" fill="#F18F01" fill-opacity="1.0"/>
+<text x="513.8" y="264" text-anchor="middle" font-size="11">evaporate</text>
+<text x="513.8" y="221.0" text-anchor="middle" font-size="11">0.062</text>
+<rect x="651.2" y="240.0" width="80.0" height="0.0" fill="#2A9D8F" fill-opacity="0.25"/>
+<text x="691.2" y="264" text-anchor="middle" font-size="11">lotus</text>
+<text x="691.2" y="234.0" text-anchor="middle" font-size="11">n/a</text>
+<text x="400.0" y="18" text-anchor="middle" font-size="14" font-weight="700">Pooled (True Global) F1 on first 6 docs (SELECT + AGG + MIXED)</text>
+</svg>
+  </div>
+
+  
+  <div class="card">
+    <h2>SELECT summary</h2>
+    <table>
+      <thead><tr><th>Model</th><th>Completed</th><th>Completion</th><th>Pooled Global F1</th><th>Macro F1 Mean</th></tr></thead>
+      <tbody><tr><td>docetl</td><td>10/10</td><td>100.0%</td><td>0.3387</td><td>0.3325</td></tr><tr><td>evaporate</td><td>10/10</td><td>100.0%</td><td>0.0563</td><td>0.0496</td></tr><tr><td>dql</td><td>10/10</td><td>100.0%</td><td>0.5161</td><td>0.4950</td></tr><tr><td>lotus</td><td>10/10</td><td>100.0%</td><td>n/a</td><td>0.5341</td></tr></tbody>
+    </table>
+    <p class="muted">Pooled Global F1 aggregates all evaluated cells across all completed queries; this is the true total F1 for this top-6 run.</p>
+  </div>
+  <div class="card">
+    <h2>SELECT chart</h2>
+    <svg viewBox="0 0 800 280" width="100%" height="280">
+<rect width="100%" height="100%" fill="#fff"/>
+<line x1="70" y1="240.0" x2="780" y2="240.0" stroke="#e5e7eb"/>
+<text x="62" y="244.0" text-anchor="end" font-size="10">0.0</text>
+<line x1="70" y1="198.0" x2="780" y2="198.0" stroke="#e5e7eb"/>
+<text x="62" y="202.0" text-anchor="end" font-size="10">0.2</text>
+<line x1="70" y1="156.0" x2="780" y2="156.0" stroke="#e5e7eb"/>
+<text x="62" y="160.0" text-anchor="end" font-size="10">0.4</text>
+<line x1="70" y1="114.0" x2="780" y2="114.0" stroke="#e5e7eb"/>
+<text x="62" y="118.0" text-anchor="end" font-size="10">0.6</text>
+<line x1="70" y1="72.0" x2="780" y2="72.0" stroke="#e5e7eb"/>
+<text x="62" y="76.0" text-anchor="end" font-size="10">0.8</text>
+<line x1="70" y1="30.0" x2="780" y2="30.0" stroke="#e5e7eb"/>
+<text x="62" y="34.0" text-anchor="end" font-size="10">1.0</text>
+<rect x="118.8" y="168.9" width="80.0" height="71.1" fill="#2E86AB" fill-opacity="1.0"/>
+<text x="158.8" y="264" text-anchor="middle" font-size="11">docetl</text>
+<text x="158.8" y="162.9" text-anchor="middle" font-size="11">0.339</text>
+<rect x="296.2" y="228.2" width="80.0" height="11.8" fill="#F18F01" fill-opacity="1.0"/>
+<text x="336.2" y="264" text-anchor="middle" font-size="11">evaporate</text>
+<text x="336.2" y="222.2" text-anchor="middle" font-size="11">0.056</text>
+<rect x="473.8" y="131.6" width="80.0" height="108.4" fill="#C73E1D" fill-opacity="1.0"/>
+<text x="513.8" y="264" text-anchor="middle" font-size="11">dql</text>
+<text x="513.8" y="125.6" text-anchor="middle" font-size="11">0.516</text>
+<rect x="651.2" y="240.0" width="80.0" height="0.0" fill="#2A9D8F" fill-opacity="0.25"/>
+<text x="691.2" y="264" text-anchor="middle" font-size="11">lotus</text>
+<text x="691.2" y="234.0" text-anchor="middle" font-size="11">n/a</text>
+<text x="400.0" y="18" text-anchor="middle" font-size="14" font-weight="700">Pooled (True Global) F1 on first 6 docs (SELECT)</text>
+</svg>
+  </div>
+  <div class="card">
+    <h2>SELECT per-query details</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Query</th>
+          <th>DocETL F1</th><th>DocETL status</th>
+          <th>Evaporate F1</th><th>Evaporate status</th>
+          <th>DQL F1</th><th>DQL status</th>
+        </tr>
+      </thead>
+      <tbody><tr><td>1</td><td>0.0000</td><td>ok</td><td>0.0000</td><td>ok</td><td>0.5000</td><td>ok</td></tr><tr><td>2</td><td>0.2083</td><td>ok</td><td>0.1131</td><td>ok</td><td>0.3750</td><td>ok</td></tr><tr><td>3</td><td>0.1667</td><td>ok</td><td>0.0000</td><td>ok</td><td>0.0000</td><td>ok</td></tr><tr><td>4</td><td>0.4583</td><td>ok</td><td>0.0417</td><td>ok</td><td>0.4583</td><td>ok</td></tr><tr><td>5</td><td>0.0833</td><td>ok</td><td>0.0714</td><td>ok</td><td>0.3750</td><td>ok</td></tr><tr><td>6</td><td>0.3667</td><td>ok</td><td>0.0333</td><td>ok</td><td>0.7000</td><td>ok</td></tr><tr><td>7</td><td>0.5000</td><td>ok</td><td>0.0000</td><td>ok</td><td>0.5000</td><td>ok</td></tr><tr><td>8</td><td>0.3333</td><td>ok</td><td>0.1111</td><td>ok</td><td>1.0000</td><td>ok</td></tr><tr><td>9</td><td>0.4583</td><td>ok</td><td>0.0417</td><td>ok</td><td>0.5417</td><td>ok</td></tr><tr><td>10</td><td>0.7500</td><td>ok</td><td>0.0833</td><td>ok</td><td>0.5000</td><td>ok</td></tr></tbody>
+    </table>
+    <p class="muted">Lotus is shown only in global row for SELECT (enabled).</p>
+  </div>
+
+  <div class="card">
+    <h2>AGG summary</h2>
+    <table>
+      <thead><tr><th>Model</th><th>Completed</th><th>Completion</th><th>Pooled Global F1</th><th>Macro F1 Mean</th></tr></thead>
+      <tbody><tr><td>docetl</td><td>10/10</td><td>100.0%</td><td>0.0670</td><td>0.0623</td></tr><tr><td>evaporate</td><td>10/10</td><td>100.0%</td><td>0.0738</td><td>0.0750</td></tr><tr><td>dql</td><td>10/10</td><td>100.0%</td><td>0.3961</td><td>0.3562</td></tr><tr><td>lotus</td><td>10/10</td><td>100.0%</td><td>n/a</td><td>0.1092</td></tr></tbody>
+    </table>
+    <p class="muted">Pooled Global F1 aggregates all evaluated cells across all completed queries; this is the true total F1 for this top-6 run.</p>
+  </div>
+  <div class="card">
+    <h2>AGG chart</h2>
+    <svg viewBox="0 0 800 280" width="100%" height="280">
+<rect width="100%" height="100%" fill="#fff"/>
+<line x1="70" y1="240.0" x2="780" y2="240.0" stroke="#e5e7eb"/>
+<text x="62" y="244.0" text-anchor="end" font-size="10">0.0</text>
+<line x1="70" y1="198.0" x2="780" y2="198.0" stroke="#e5e7eb"/>
+<text x="62" y="202.0" text-anchor="end" font-size="10">0.2</text>
+<line x1="70" y1="156.0" x2="780" y2="156.0" stroke="#e5e7eb"/>
+<text x="62" y="160.0" text-anchor="end" font-size="10">0.4</text>
+<line x1="70" y1="114.0" x2="780" y2="114.0" stroke="#e5e7eb"/>
+<text x="62" y="118.0" text-anchor="end" font-size="10">0.6</text>
+<line x1="70" y1="72.0" x2="780" y2="72.0" stroke="#e5e7eb"/>
+<text x="62" y="76.0" text-anchor="end" font-size="10">0.8</text>
+<line x1="70" y1="30.0" x2="780" y2="30.0" stroke="#e5e7eb"/>
+<text x="62" y="34.0" text-anchor="end" font-size="10">1.0</text>
+<rect x="118.8" y="225.9" width="80.0" height="14.1" fill="#2E86AB" fill-opacity="1.0"/>
+<text x="158.8" y="264" text-anchor="middle" font-size="11">docetl</text>
+<text x="158.8" y="219.9" text-anchor="middle" font-size="11">0.067</text>
+<rect x="296.2" y="224.5" width="80.0" height="15.5" fill="#F18F01" fill-opacity="1.0"/>
+<text x="336.2" y="264" text-anchor="middle" font-size="11">evaporate</text>
+<text x="336.2" y="218.5" text-anchor="middle" font-size="11">0.074</text>
+<rect x="473.8" y="156.8" width="80.0" height="83.2" fill="#C73E1D" fill-opacity="1.0"/>
+<text x="513.8" y="264" text-anchor="middle" font-size="11">dql</text>
+<text x="513.8" y="150.8" text-anchor="middle" font-size="11">0.396</text>
+<rect x="651.2" y="240.0" width="80.0" height="0.0" fill="#2A9D8F" fill-opacity="0.25"/>
+<text x="691.2" y="264" text-anchor="middle" font-size="11">lotus</text>
+<text x="691.2" y="234.0" text-anchor="middle" font-size="11">n/a</text>
+<text x="400.0" y="18" text-anchor="middle" font-size="14" font-weight="700">Pooled (True Global) F1 on first 6 docs (AGG)</text>
+</svg>
+  </div>
+  <div class="card">
+    <h2>AGG per-query details</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Query</th>
+          <th>DocETL F1</th><th>DocETL status</th>
+          <th>Evaporate F1</th><th>Evaporate status</th>
+          <th>DQL F1</th><th>DQL status</th>
+        </tr>
+      </thead>
+      <tbody><tr><td>1</td><td>0.1364</td><td>ok</td><td>0.1875</td><td>ok</td><td>0.9091</td><td>ok</td></tr><tr><td>2</td><td>0.0000</td><td>ok</td><td>0.0000</td><td>ok</td><td>0.4333</td><td>ok</td></tr><tr><td>3</td><td>0.0000</td><td>ok</td><td>0.0000</td><td>ok</td><td>0.1429</td><td>ok</td></tr><tr><td>4</td><td>0.0000</td><td>ok</td><td>0.0000</td><td>ok</td><td>0.4286</td><td>ok</td></tr><tr><td>5</td><td>0.0000</td><td>ok</td><td>0.0000</td><td>ok</td><td>0.2857</td><td>ok</td></tr><tr><td>6</td><td>0.1364</td><td>ok</td><td>0.1875</td><td>ok</td><td>0.5909</td><td>ok</td></tr><tr><td>7</td><td>0.1500</td><td>ok</td><td>0.0000</td><td>ok</td><td>0.2857</td><td>ok</td></tr><tr><td>8</td><td>0.0000</td><td>ok</td><td>0.3750</td><td>ok</td><td>0.0000</td><td>ok</td></tr><tr><td>9</td><td>0.2000</td><td>ok</td><td>0.0000</td><td>ok</td><td>0.2000</td><td>ok</td></tr><tr><td>10</td><td>0.0000</td><td>ok</td><td>0.0000</td><td>ok</td><td>0.2857</td><td>ok</td></tr></tbody>
+    </table>
+    <p class="muted">Lotus is shown only in global row for AGG (enabled).</p>
+  </div>
+
+  <div class="card">
+    <h2>MIXED summary</h2>
+    <table>
+      <thead><tr><th>Model</th><th>Completed</th><th>Completion</th><th>Pooled Global F1</th><th>Macro F1 Mean</th></tr></thead>
+      <tbody><tr><td>docetl</td><td>5/6</td><td>83.3%</td><td>0.0000</td><td>0.0000</td></tr><tr><td>evaporate</td><td>6/6</td><td>100.0%</td><td>0.0769</td><td>0.0625</td></tr><tr><td>dql</td><td>6/6</td><td>100.0%</td><td>0.0455</td><td>0.0318</td></tr><tr><td>lotus</td><td>6/6</td><td>100.0%</td><td>n/a</td><td>0.1113</td></tr></tbody>
+    </table>
+    <p class="muted">Pooled Global F1 aggregates all evaluated cells across all completed queries; this is the true total F1 for this top-6 run.</p>
+  </div>
+  <div class="card">
+    <h2>MIXED chart</h2>
+    <svg viewBox="0 0 800 280" width="100%" height="280">
+<rect width="100%" height="100%" fill="#fff"/>
+<line x1="70" y1="240.0" x2="780" y2="240.0" stroke="#e5e7eb"/>
+<text x="62" y="244.0" text-anchor="end" font-size="10">0.0</text>
+<line x1="70" y1="198.0" x2="780" y2="198.0" stroke="#e5e7eb"/>
+<text x="62" y="202.0" text-anchor="end" font-size="10">0.2</text>
+<line x1="70" y1="156.0" x2="780" y2="156.0" stroke="#e5e7eb"/>
+<text x="62" y="160.0" text-anchor="end" font-size="10">0.4</text>
+<line x1="70" y1="114.0" x2="780" y2="114.0" stroke="#e5e7eb"/>
+<text x="62" y="118.0" text-anchor="end" font-size="10">0.6</text>
+<line x1="70" y1="72.0" x2="780" y2="72.0" stroke="#e5e7eb"/>
+<text x="62" y="76.0" text-anchor="end" font-size="10">0.8</text>
+<line x1="70" y1="30.0" x2="780" y2="30.0" stroke="#e5e7eb"/>
+<text x="62" y="34.0" text-anchor="end" font-size="10">1.0</text>
+<rect x="118.8" y="240.0" width="80.0" height="0.0" fill="#2E86AB" fill-opacity="1.0"/>
+<text x="158.8" y="264" text-anchor="middle" font-size="11">docetl</text>
+<text x="158.8" y="234.0" text-anchor="middle" font-size="11">0.000</text>
+<rect x="296.2" y="223.8" width="80.0" height="16.2" fill="#F18F01" fill-opacity="1.0"/>
+<text x="336.2" y="264" text-anchor="middle" font-size="11">evaporate</text>
+<text x="336.2" y="217.8" text-anchor="middle" font-size="11">0.077</text>
+<rect x="473.8" y="230.5" width="80.0" height="9.5" fill="#C73E1D" fill-opacity="1.0"/>
+<text x="513.8" y="264" text-anchor="middle" font-size="11">dql</text>
+<text x="513.8" y="224.5" text-anchor="middle" font-size="11">0.045</text>
+<rect x="651.2" y="240.0" width="80.0" height="0.0" fill="#2A9D8F" fill-opacity="0.25"/>
+<text x="691.2" y="264" text-anchor="middle" font-size="11">lotus</text>
+<text x="691.2" y="234.0" text-anchor="middle" font-size="11">n/a</text>
+<text x="400.0" y="18" text-anchor="middle" font-size="14" font-weight="700">Pooled (True Global) F1 on first 6 docs (MIXED)</text>
+</svg>
+  </div>
+  <div class="card">
+    <h2>MIXED per-query details</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Query</th>
+          <th>DocETL F1</th><th>DocETL status</th>
+          <th>Evaporate F1</th><th>Evaporate status</th>
+          <th>DQL F1</th><th>DQL status</th>
+        </tr>
+      </thead>
+      <tbody><tr><td>1</td><td>n/a</td><td>empty_after_filter</td><td>0.0000</td><td>ok</td><td>0.0000</td><td>ok</td></tr><tr><td>2</td><td>0.0000</td><td>ok</td><td>0.0000</td><td>ok</td><td>0.0000</td><td>ok</td></tr><tr><td>3</td><td>0.0000</td><td>ok</td><td>0.0000</td><td>ok</td><td>0.0000</td><td>ok</td></tr><tr><td>4</td><td>0.0000</td><td>ok</td><td>0.0000</td><td>ok</td><td>0.1000</td><td>ok</td></tr><tr><td>5</td><td>0.0000</td><td>ok</td><td>0.1250</td><td>ok</td><td>0.0909</td><td>ok</td></tr><tr><td>6</td><td>0.0000</td><td>ok</td><td>0.2500</td><td>ok</td><td>0.0000</td><td>ok</td></tr></tbody>
+    </table>
+    <p class="muted">Lotus is shown only in global row for MIXED (enabled).</p>
+  </div>
+
+</div>
+</body>
+</html>
