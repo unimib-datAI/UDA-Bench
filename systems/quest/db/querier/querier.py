@@ -19,6 +19,12 @@ from db.indexer.storage.text_index_storage import numpy_to_pgvector, pgvector_to
 
 logger = logging.getLogger(__name__)
 
+def sanitize_text_for_db(text: str) -> str:
+    """Remove NUL bytes which PostgreSQL/OpenGauss cannot store in TEXT."""
+    if not text:
+        return ""
+    return text.replace("\x00", "")
+
 
 class Querier(ABC):
     """数据库查询器抽象基类
@@ -346,6 +352,7 @@ class OpenGaussQuerier(Querier):
                     content = ""
                     if doc_2_content is not None:
                         content = doc_2_content.get(doc_id, "")
+                    content = sanitize_text_for_db(content)
 
                     insert_sql = f"""
                     INSERT INTO {actual_table_name} (doc_id, metadata, embedding, content)

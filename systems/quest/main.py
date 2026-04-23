@@ -30,7 +30,7 @@ def get_attributes_info(path, attr, table):
     
     return None
 
-def run(sql, debug=True, output_dir=os.path.join(SYSTEM_ROOT, "results", f"{int(time.time())}")):
+def run(sql, debug=False, output_dir=os.path.join(SYSTEM_ROOT, "results", f"{int(time.time())}")):
     print(f"SQL Query: {sql}")
     
     parser = Parser(sql)
@@ -44,12 +44,6 @@ def run(sql, debug=True, output_dir=os.path.join(SYSTEM_ROOT, "results", f"{int(
     datasets_to_index = []
     
     try:
-        with opengauss_conn.begin() as conn:
-            conn.execute(text("DROP TABLE IF EXISTS finance;"))
-            conn.execute(text("DROP TABLE IF EXISTS finance_chunks;"))
-            conn.execute(text("DROP TABLE IF EXISTS finance_docs;"))
-            conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector;"))
-        
         inspector = inspect(opengauss_conn)
         insp_tables = inspector.get_table_names()
         
@@ -110,7 +104,7 @@ def run(sql, debug=True, output_dir=os.path.join(SYSTEM_ROOT, "results", f"{int(
     # Load Indexer
     t = tables[0].lower()
     
-    gb_indexer = load_all_indexer(table_to_type={t: "ZenDBDoc"})
+    gb_indexer = load_all_indexer(table_to_type={t: "TextDoc"})
     
     # Setup Sampler and Querier
     gb_sampler = AttrSampler(schema=prompt)

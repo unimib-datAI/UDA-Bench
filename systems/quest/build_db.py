@@ -35,7 +35,7 @@ def index_tables(table_names: list, debug_flag: bool = False):
                 doc_dirs.append(os.path.join(root, d))
                 tables_name.append(os.path.basename(root))
                 
-                types.append("ZenDBDoc")
+                types.append("TextDoc")
                 '''
                 if tables_name[-1].lower() in ["cspaper"]:
                     types.append("ZenDBDoc")
