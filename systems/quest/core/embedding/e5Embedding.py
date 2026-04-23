@@ -79,7 +79,7 @@ class batchedBGEEmbeddings(Embeddings):
 # ...existing code...
 
 class batchedE5Embeddings(Embeddings):
-    def __init__(self, model_path: str = E5_EMBEDDING_PATH, device: str = "cuda", batch_size: int = 32):
+    def __init__(self, model_path: str = E5_EMBEDDING_PATH, device: str = "cuda", batch_size: int = 4):
         """初始化本地 E5 嵌入模型
         
         Args:

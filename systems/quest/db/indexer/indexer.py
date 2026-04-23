@@ -14,7 +14,7 @@ from core.embedding.apiEmbedding import ApiEmbeddings
 
 # SingleIndexer默认使用的Embedding方法:
 
-api_emb_model = ApiEmbeddings(model = API_EMB_MODEL, api_base= GEMINI_API_BASE, api_key=API_EMB_API_KEY, batch_size=64)
+#api_emb_model = ApiEmbeddings(model = API_EMB_MODEL, api_base= GEMINI_API_BASE, api_key=API_EMB_API_KEY, batch_size=64)
 
 # SingleIndexer默认使用的chunker方法
 from core.chunker.chunker import GrammarSemanticChunker, SentenceTransformerTokenTextChunker, RecursiveTokenTextChunker, TokenTextChunker
@@ -22,7 +22,7 @@ TOKEN_CHUNKER = TokenTextChunker(chunk_size=20000, chunk_overlap=128)
 
 RECURSIVE_TOKEN_CHUNKER = RecursiveTokenTextChunker(chunk_size=512, chunk_overlap=128)
 
-USED_EMBEDDING_MODEL = api_emb_model
+USED_EMBEDDING_MODEL = batchedE5Embeddings(device="cpu")  # o "cpu"
 
 GRAMMAR_SEMANTIC_CHUNKER = GrammarSemanticChunker(USED_EMBEDDING_MODEL, min_chunk_size=128, max_chunk_size=512)
 
