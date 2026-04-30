@@ -16,6 +16,7 @@ from datetime import datetime, timezone
 from itertools import product
 from pathlib import Path
 from shutil import copy2
+import re
 
 # Allow execution both as module and as script path.
 if __package__ in {None, ""}:
