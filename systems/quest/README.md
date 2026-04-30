@@ -28,8 +28,7 @@ conda activate quest_env
 ### 3. Install dependencies
 
 ```bash
-pip install torch==2.1.2 torchvision==0.16.2 torchaudio==2.1.2 \
-  --index-url https://download.pytorch.org/whl/cu121
+pip install torch==2.1.2 torchvision==0.16.2 torchaudio==2.1.2 --index-url https://download.pytorch.org/whl/cu121
 
 pip install -r requirements.txt
 
@@ -47,7 +46,20 @@ Use the `.env.example` file to create your personal `.env` file in the root of q
 
 ---
 
-### 5. Build and start the database
+### 5. Download local models
+
+Run the following command from the project root directory:
+
+```bash
+mkdir -p model/BAAI model/intfloat model/sentence-transformers
+git clone https://huggingface.co/BAAI/bge-m3 model/BAAI/bge-m3
+git clone https://huggingface.co/intfloat/multilingual-e5-large model/intfloat/multilingual-e5-large
+git clone https://huggingface.co/sentence-transformers/all-mpnet-base-v2 model/sentence-transformers/all-mpnet-base-v2
+```
+
+---
+
+### 6. Build and start the database
 
 ```bash
 docker compose up --build -d
@@ -55,7 +67,7 @@ docker compose up --build -d
 
 ---
 
-### 6. Run a query
+### 7. Run a query
 
 ```bash
 python main.py \
@@ -66,23 +78,7 @@ python main.py \
 #### Parameters:
 
 * `--sql` → list of SQL queries to execute
+* `--out_dir` → directory where data is stored (default `quest/results`)
 * `--debug` → if present, only 5 documents are indexed (useful for quick testing)
 
 ⚠️ Note: When switching between debug and non-debug mode, you must manually empty the database.
-
----
-
-### 7. Output
-
-Results are available in the folder `results`
-
----
-
-## 🤖 Models Used
-
-### Large Language Models (LLMs)
-- **Primary LLM**: `gemini/gemini-2.5-flash` (Google Gemini 2.5 Flash)
-- **Alternative LLM for ZenDB**: `gpt-4.1` (via DeepSeek API) - used specifically for CSPaper dataset processing
-
-### Embedding Models
-- **Primary Embedding Model**: `gemini/gemini-embedding-001` (Google Gemini Embedding)

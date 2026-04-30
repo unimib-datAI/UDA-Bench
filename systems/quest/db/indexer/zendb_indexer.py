@@ -150,6 +150,7 @@ class ZenDBDocIndexer(SingleIndexer):
         # 为所有节点生成embedding
         self._generate_embeddings_for_all_docs()
         self.save_indexer()
+        print(f"✓ ZenDB index for '{self.table_name}' built and saved successfully!")
         return
 
     def save_indexer(self):
@@ -170,6 +171,9 @@ class ZenDBDocIndexer(SingleIndexer):
     def load_indexer(self):
         # 加载SHT树结构
         path = self.table_save_path
+        if not os.path.exists(path):
+            raise FileNotFoundError(f"Index file not found: {path}. Run build_indexer() first.")
+        
         with open(path, "r", encoding="utf-8") as f:
             data = json.load(f)
         self.docs_meta = data["docs_meta"]
@@ -190,10 +194,17 @@ class ZenDBDocIndexer(SingleIndexer):
         """为所有文档的所有节点生成embedding"""
         print("\n🧠 生成节点embedding...")
         total_nodes = 0
-        for doc_id, root in self.sht_tables.items():
-            self._generate_embeddings(root)
-            total_nodes += self._count_nodes(root)
-        print(f"  ✓ 完成 {total_nodes} 个节点的embedding生成")
+        try:
+            for doc_id, root in self.sht_tables.items():
+                print(f"  生成 doc_id={doc_id} 的embedding...")
+                self._generate_embeddings(root)
+                node_count = self._count_nodes(root)
+                total_nodes += node_count
+                print(f"    ✓ 完成 {node_count} 个节点")
+            print(f"  ✓ 总共完成 {total_nodes} 个节点的embedding生成")
+        except Exception as e:
+            print(f"  ❌ Embedding生成出错: {e}")
+            raise
 
     def _generate_embeddings(self, node: SHTNode) -> None:
         """为节点生成embedding - 使用批量嵌入提高效率"""
@@ -286,10 +297,9 @@ class ZenDBDocIndexer(SingleIndexer):
             "sht_trees": sht_dict
         }
         
-        dir = [os.path.dirname(path), os.path.dirname(self.embedding_save_path)]
-        for d in dir:
-            if not os.path.exists(d):
-                os.makedirs(d, exist_ok=True)
+        # 确保目录存在，再保存
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        os.makedirs(os.path.dirname(self.embedding_save_path), exist_ok=True)
             
         with open(path, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
@@ -297,25 +307,8 @@ class ZenDBDocIndexer(SingleIndexer):
         # 保存embedding数据
         with open(self.embedding_save_path, "wb") as f:
             pickle.dump(self.node_embeddings, f)
-
-    def load_indexer(self):
-        # 加载SHT树结构
-        path = self.table_save_path
-        with open(path, "r", encoding="utf-8") as f:
-            data = json.load(f)
-        self.docs_meta = data["docs_meta"]
-        # 把字典中所有key转换成int类型
-        self.docs_meta = {int(k): v for k, v in self.docs_meta.items()}
-        self.sht_tables = {
-            int(doc_id) : SHTNode.from_dict(root_dict)
-            for doc_id, root_dict in data["sht_trees"].items()
-        }
         
-        # 加载embedding数据
-        if os.path.exists(self.embedding_save_path):
-            with open(self.embedding_save_path, "rb") as f:
-                self.node_embeddings = pickle.load(f)
-        return
+        print(f"✓ Index saved to {path}")
 
     def get_file_name_by_id(self, doc_id: int) -> str:
         """

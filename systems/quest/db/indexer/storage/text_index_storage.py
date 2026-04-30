@@ -16,6 +16,12 @@ from db.connector.connector import create_opengauss_engine
 
 from .index_storage import IndexStorage
 
+def sanitize_text_for_db(text: str) -> str:
+    """Remove NUL bytes which PostgreSQL/OpenGauss cannot store in TEXT."""
+    if not text:
+        return ""
+    return text.replace("\x00", "")
+
 def pgvector_to_numpy(embedding: str) -> NDArray:
     """将pgvector格式的字符串转换为numpy数组
     
@@ -233,6 +239,7 @@ class VectorDBTextIndexStorage(TextIndexStorage):
                     for chunk_text, embedding in zip(chunks, embeddings):
                         # 将numpy数组转换为pgvector格式
                         embedding_vector = numpy_to_pgvector(embedding)
+                        chunk_text = sanitize_text_for_db(chunk_text)
                         
                         insert_sql = f"""
                         INSERT INTO {self.table_name} (chunk_order, doc_id,  chunk_text, embedding)

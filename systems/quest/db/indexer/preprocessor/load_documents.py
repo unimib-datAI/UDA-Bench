@@ -7,6 +7,12 @@ import pdfplumber
 
 from core.datapack.doc import TextDoc, ZenDBDoc
 
+def sanitize_text_for_db(text: str) -> str:
+    """Remove NUL bytes which PostgreSQL/OpenGauss cannot store in TEXT."""
+    if not text:
+        return ""
+    return text.replace("\x00", "")
+
 # 模块1: 文档处理与SHT构建
 def util_load_zendb_docs(paths, debug_flag=False, topK = 1, start_doc_id = 1) -> List[ZenDBDoc]:
     """解析PDF或TXT文本和视觉特征"""
@@ -31,6 +37,7 @@ def util_load_zendb_docs(paths, debug_flag=False, topK = 1, start_doc_id = 1) ->
                         page_text = page.extract_text()
                         if page_text:
                             text += page_text + "\n"
+                text = sanitize_text_for_db(text)
                 doc = ZenDBDoc(attr_dict = {
                     "id": f"doc_{i+start_doc_id}",
                     "doc_id": i+start_doc_id,
@@ -43,6 +50,7 @@ def util_load_zendb_docs(paths, debug_flag=False, topK = 1, start_doc_id = 1) ->
             elif ext == ".txt" or ext == ".md":
                 with open(path, "r", encoding="utf-8") as f:
                     text = f.read()
+                text = sanitize_text_for_db(text)
                 doc = ZenDBDoc(attr_dict = {
                     "id": f"doc_{i}",
                     "doc_id": i+start_doc_id,
@@ -116,6 +124,7 @@ def load_TextDocs_from_directory(docs_dir: str, table_name: str, start_doc_id = 
             # 读取文件内容
             with open(file_path, 'r', encoding='utf-8') as f:
                 content = f.read()
+            content = sanitize_text_for_db(content)
             
             # 获取文件名（包含后缀）
             file_name = os.path.basename(file_path)

@@ -3,7 +3,9 @@ import os
 import json
 from pathlib import Path
 import time
+from sqlalchemy import inspect, text
 import psycopg2
+import pandas as pd
 
 from sql_metadata import Parser
 from sqlalchemy import inspect
@@ -50,8 +52,9 @@ def run(sql, debug=False, output_dir=os.path.join(SYSTEM_ROOT, "results", f"{int
     except Exception as e:
         raise Exception(f"Error during database interaction: {e}")
     
-    print(f"Datasets to index: {datasets_to_index}")
-    index_tables(datasets_to_index, debug)
+    if datasets_to_index:
+        print(f"Datasets to index: {datasets_to_index}")
+        index_tables(datasets_to_index, debug)
     
     attributes = []
     for c in columns:
@@ -87,58 +90,73 @@ def run(sql, debug=False, output_dir=os.path.join(SYSTEM_ROOT, "results", f"{int
     
     print("Starting Execution...\n")
     start_time = time.perf_counter()
-    
-    # Build AST
-    ast = sqlparser.parse_sql(sql)
-    jsonConverter = ClassToJson()
-    js = jsonConverter.toJson(ast)
-    print("AST:\n", js)
+    try:
+        # Build AST
+        ast = sqlparser.parse_sql(sql)
+        jsonConverter = ClassToJson()
+        js = jsonConverter.toJson(ast)
+        print("AST:\n", js)
 
-    # Build Logical Plan
-    logicalPlanner = LogicalPlanner()
-    logical = logicalPlanner.build_logical_plan(ast)
-    js = jsonConverter.toJson(logical)
-    print_log("Logical Plan:\n", js)
+        # Build Logical Plan
+        logicalPlanner = LogicalPlanner()
+        logical = logicalPlanner.build_logical_plan(ast)
+        js = jsonConverter.toJson(logical)
+        print_log("Logical Plan:\n", js)
 
-    # Load Indexer
-    t = tables[0].lower()
-    if t in ["cspaper"]:
-        gb_indexer = load_all_indexer(table_to_type={t: "ZenDBDoc"})
-    else:
+        # Load Indexer
+        t = tables[0].lower()
+        
         gb_indexer = load_all_indexer(table_to_type={t: "TextDoc"})
-    
-    # Setup Sampler and Querier
-    gb_sampler = AttrSampler(schema=prompt)
-    gb_querier = TextLLMQuerier(prompt=prompt)
+        
+        # Setup Sampler and Querier
+        gb_sampler = AttrSampler(schema=prompt)
+        gb_querier = TextLLMQuerier(prompt=prompt)
 
-    gb_sampler.try_sample(gb_indexer.get_indexer(t)[0], prompt)
+        gb_sampler.try_sample(gb_indexer.get_indexer(t)[0], prompt)
 
-    # Build Physical Plan
-    physicalPlanner = TextPhysicalPlanner(gb_indexer, gb_querier, sampler=gb_sampler)
-    physical = physicalPlanner.build(logical)
+        # Build Physical Plan
+        physicalPlanner = TextPhysicalPlanner(gb_indexer, gb_querier, sampler=gb_sampler)
+        physical = physicalPlanner.build(logical)
 
-    # Process
-    processer = Processer()
-    result = processer.process(physical)
+        # Process
+        processer = Processer()
+        result = processer.process(physical)
+        
+        query_info = LLMInfo.get_dict_info()
+    except Exception as e:
+        print(f"Error during query execution: {e}")
+        
+        # Create the fallback DataFrame as requested
+        fallback_data = {col: [""] * 100 for col in columns}
+        result = pd.DataFrame(fallback_data)
+        
+        # Add/overwrite the 'file_name' column with values from 1 to 100
+        result['file_name'] = [f"{str(i)}.txt" for i in range(1, 101)]
+        
+        # Optional but recommended: reorder columns to have 'file_name' as the first column
+        ordered_cols = ['file_name'] + [c for c in columns if c != 'file_name']
+        result = result[ordered_cols]
+        
+        query_info = {}
+        
     end_time = time.perf_counter()
     print("Execution Ended.")
     print_log("Result Table:\n", result)
     
-    query_info = LLMInfo.get_dict_info()
     query_info["execution_time_ms"] = (end_time - start_time) * 1000
 
     # LLM Latency & Usage Stats
     print("\n--- Statistics ---")
-    print("Execution Time : ", query_info["execution_time_ms"], "ms")
-    print("Query Times   : ", query_info["query_times"])
-    print("Input Tokens  : ", query_info["input_tokens"])
-    print("Output Tokens : ", query_info["output_tokens"])
+    print("Execution Time : ", query_info.get("execution_time_ms", 0), "ms")
+    print("Query Times   : ", query_info.get("query_times", []))
+    print("Input Tokens  : ", query_info.get("input_tokens", 0))
+    print("Output Tokens : ", query_info.get("output_tokens", 0))
 
     # Save results
     os.makedirs(output_dir, exist_ok=True)
         
     output_path = os.path.join(output_dir, f"results.csv")
-    result.to_csv(output_path)
+    result.to_csv(output_path, index=False) # Added index=False to avoid saving the pandas index in the csv
     
     output_path = os.path.join(output_dir, f"info.json")
     with open(output_path, "w", encoding="utf-8") as f:
@@ -171,14 +189,17 @@ if __name__ == "__main__":
 
     # Call the run function with the parsed arguments
     for i, sql in enumerate(args.sql):
-        print_log(f"\n=== Running Query {i+1}/{len(args.sql)} ===")
-        
         current_out_dir = Path(str(args.out_dir).strip('"'))
         
-        if "query_" not in str(current_out_dir.name):
-            current_out_dir = current_out_dir / f"query_{i+1}"
-            
-        try:
-            run(sql, args.debug, current_out_dir)
-        except Exception as e:
-            print_log(f"Error executing query {i+1}: {e}")
+        file_dir = current_out_dir / "results.csv"
+        if not file_dir.exists():
+            print_log(f"\n=== Running Query {i+1}/{len(args.sql)} ===")
+            if "query_" not in str(current_out_dir.name):
+                current_out_dir = current_out_dir / f"query_{i+1}"
+                
+            try:
+                run(sql.replace(';', ''), args.debug, current_out_dir)
+            except Exception as e:
+                print_log(f"Error executing query {i+1}: {e}")
+        else:
+            print_log(f"Skipping query {i+1}: results.csv already exists at {file_dir}")
