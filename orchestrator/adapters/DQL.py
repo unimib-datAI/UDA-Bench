@@ -62,6 +62,38 @@ def _summary_path(dataset: str, query_type: str) -> Path:
 class DQLAdapter:
     name = "dql"
 
+    def _has_usable_csv(self, path: Path) -> bool:
+        if not path.exists() or path.stat().st_size == 0:
+            return False
+        try:
+            with path.open("r", encoding="utf-8", newline="") as f:
+                reader = csv.reader(f)
+                header = next(reader, None)
+                if not header:
+                    return False
+                # Consider usable only if at least one data row exists.
+                return next(reader, None) is not None
+        except Exception:
+            return False
+
+    def _has_usable_json(self, path: Path) -> bool:
+        if not path.exists() or path.stat().st_size == 0:
+            return False
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+        except Exception:
+            return False
+        if payload is None:
+            return False
+        if isinstance(payload, str):
+            return bool(payload.strip())
+        if isinstance(payload, (list, dict)):
+            return len(payload) > 0
+        return True
+
+    def _has_usable_query_output_dir(self, query_dir: Path) -> bool:
+        return self._has_usable_csv(query_dir / "results.csv") or self._has_usable_json(query_dir / "results.json")
+
     def _extract_macro_f1(self, acc: object) -> float | None:
         if not isinstance(acc, dict):
             return None
@@ -86,6 +118,14 @@ class DQLAdapter:
         Default enabled because it is generally better than an all-empty template CSV.
         """
         raw = os.environ.get("DQL_NLP_CSV_FALLBACK", "1").strip().lower()
+        return raw in {"1", "true", "yes", "on"}
+
+    def _live_logs_enabled(self) -> bool:
+        """
+        Stream DQL subprocess logs to terminal when enabled.
+        Enabled by default to make long/partial runs debuggable.
+        """
+        raw = os.environ.get("DQL_LIVE_LOGS", "1").strip().lower()
         return raw in {"1", "true", "yes", "on"}
 
     def _dql_runtime_query_dir(self, dataset: str, query_type: str, query_idx: int) -> Path:
@@ -835,6 +875,7 @@ class DQLAdapter:
         overall_return_code = 0
         allow_template_csv = self._allow_template_csv()
         allow_nlp_csv = self._allow_nlp_csv_fallback()
+        live_logs = self._live_logs_enabled()
         
         for i, item in enumerate(query_items):
             sql = str(item.get("sql", ""))
@@ -867,35 +908,44 @@ class DQLAdapter:
             # - run+eval: execute then evaluate
             if spec.mode in {"run", "run+eval"}:
                 # Same resume semantics as DocETL/Evaporate: skip successful query outputs unless rebuild is requested.
-                has_query_output = (output_dir / "results.csv").exists() or (output_dir / "results.json").exists()
+                has_query_output = self._has_usable_query_output_dir(output_dir)
                 if not has_query_output:
                     for legacy_output_dir in legacy_output_dirs:
-                        if legacy_output_dir.exists() and (
-                            (legacy_output_dir / "results.csv").exists()
-                            or (legacy_output_dir / "results.json").exists()
-                        ):
+                        if legacy_output_dir.exists() and self._has_usable_query_output_dir(legacy_output_dir):
                             has_query_output = True
                             break
                 if not rebuild and has_query_output:
-                    all_stdout.append(f"[INFO] skip run query_{i+1}: existing output found")
+                    all_stdout.append(f"[INFO] skip run query_{i+1}: existing usable output found")
                 else:
                     if rebuild:
                         pass  # Add rebuild flags if supported
-                    
-                    proc = subprocess.run(
-                        cmd,
-                        cwd=str(root),
-                        capture_output=True,
-                        text=True,
-                        encoding="utf-8",
-                        errors="replace",
-                    )
-                    
-                    print(f"[INFO] Executing Done")
-                    
-                    all_stdout.extend(proc.stdout.splitlines())
-                    all_stderr.extend(proc.stderr.splitlines())
-                    
+
+                    if live_logs:
+                        proc = subprocess.run(
+                            cmd,
+                            cwd=str(root),
+                        )
+                        if proc.returncode == 0:
+                            print(f"[INFO] Query {i+1}: run OK")
+                        else:
+                            print(f"[ERROR] Query {i+1}: run FAILED (return_code={proc.returncode})")
+                        all_stdout.append(f"[INFO] query_{i+1} return_code={proc.returncode}")
+                    else:
+                        proc = subprocess.run(
+                            cmd,
+                            cwd=str(root),
+                            capture_output=True,
+                            text=True,
+                            encoding="utf-8",
+                            errors="replace",
+                        )
+                        if proc.returncode == 0:
+                            print(f"[INFO] Query {i+1}: run OK")
+                        else:
+                            print(f"[ERROR] Query {i+1}: run FAILED (return_code={proc.returncode})")
+                        all_stdout.extend(proc.stdout.splitlines())
+                        all_stderr.extend(proc.stderr.splitlines())
+
                     if proc.returncode != 0:
                         overall_return_code = proc.returncode
             else:

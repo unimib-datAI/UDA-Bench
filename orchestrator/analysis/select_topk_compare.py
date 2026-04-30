@@ -470,20 +470,26 @@ def _render_task_block(task: str, topk: int, per_query: list[PerQuery], global_r
     def fmt(v: float | None) -> str:
         return "n/a" if v is None else f"{v:.4f}"
 
-    # per-query table
-    q_rows = []
-    for i in range(1, total_q + 1):
-        d = by_model["docetl"].get(i)
-        e = by_model["evaporate"].get(i)
-        q = by_model["dql"].get(i)
-        q_rows.append(
-            "<tr>"
-            f"<td>{i}</td>"
-            f"<td>{fmt(d.macro_f1 if d else None)}</td><td>{html.escape(d.status if d else 'n/a')}</td>"
-            f"<td>{fmt(e.macro_f1 if e else None)}</td><td>{html.escape(e.status if e else 'n/a')}</td>"
-            f"<td>{fmt(q.macro_f1 if q else None)}</td><td>{html.escape(q.status if q else 'n/a')}</td>"
-            "</tr>"
-        )
+    def build_query_rows(max_query_idx: int) -> list[str]:
+        rows: list[str] = []
+        for i in range(1, max_query_idx + 1):
+            d = by_model["docetl"].get(i)
+            e = by_model["evaporate"].get(i)
+            q = by_model["dql"].get(i)
+            rows.append(
+                "<tr>"
+                f"<td>{i}</td>"
+                f"<td>{fmt(d.macro_f1 if d else None)}</td><td>{html.escape(d.status if d else 'n/a')}</td>"
+                f"<td>{fmt(e.macro_f1 if e else None)}</td><td>{html.escape(e.status if e else 'n/a')}</td>"
+                f"<td>{fmt(q.macro_f1 if q else None)}</td><td>{html.escape(q.status if q else 'n/a')}</td>"
+                "</tr>"
+            )
+        return rows
+
+    # per-query tables
+    q_rows = build_query_rows(total_q)
+    filter_max_for_dql = min(36, total_q)
+    filter_q_rows = build_query_rows(filter_max_for_dql) if t == "filter" else []
 
     # global table
     g_rows = []
@@ -563,6 +569,23 @@ def _render_task_block(task: str, topk: int, per_query: list[PerQuery], global_r
     </table>
     <p class="muted">Lotus is shown only in global row for {task.upper()} ({'enabled' if include_lotus else 'disabled'}).</p>
   </div>
+  {(
+    '<div class="card">'
+    '<h2>FILTER per-query details (queries 1-36)</h2>'
+    '<table>'
+    '<thead>'
+    '<tr>'
+    '<th>Query</th>'
+    '<th>DocETL F1</th><th>DocETL status</th>'
+    '<th>Evaporate F1</th><th>Evaporate status</th>'
+    '<th>DQL F1</th><th>DQL status</th>'
+    '</tr>'
+    '</thead>'
+    f"<tbody>{''.join(filter_q_rows)}</tbody>"
+    '</table>'
+    '<p class="muted">Replica della tabella FILTER completa, limitata alle prime 36 query (scope in cui DQL ha esecuzione disponibile).</p>'
+    '</div>'
+  ) if t == "filter" else ""}
 """
 
 

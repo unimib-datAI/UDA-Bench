@@ -60,6 +60,7 @@ venv-DQL/
 # UDA-Bench specific ignores
 # =========================
 **/result/
+**/outputs/
 **/Dataset/
 **/sql_eval/
 **/evaluation/demo_acc_result/

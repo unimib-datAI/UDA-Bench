@@ -31,10 +31,12 @@ def _payload_variants(query: str, user_id, chat_id, request_id) -> list[dict]:
         "source_id": str(user_id),
     }
     base.update(_load_extra_payload())
+    # Keep `prompt` in every variant for strict APIs that require it,
+    # while still providing alternate keys for backward compatibility.
     return [
         {"prompt": query, **base},
-        {"query": query, **base},
-        {"message": query, **base},
+        {"prompt": query, "query": query, **base},
+        {"prompt": query, "message": query, **base},
     ]
 
 
@@ -115,8 +117,8 @@ def main():
         "--api-url", 
         type=str,
         required=False,
-        default="http://0.0.0.0:9000/api/answer", 
-        help="URL dell'endpoint API (default: http://0.0.0.0:9000/api/answer)"
+        default="http://127.0.0.1:9000/api/answer", 
+        help="URL dell'endpoint API (default: http://127.0.0.1:9000/api/answer)"
     )
     
     parser.add_argument(

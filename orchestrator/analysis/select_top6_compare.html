@@ -19,21 +19,21 @@ th{background:#f1f5f9}
 <div class="wrap">
   <div class="card">
     <h1>Comparison on first 6 documents</h1>
-    <div class="muted">Dataset: Finan | Tasks: SELECT, AGG, MIXED | Generated from local artifacts and re-evaluation on top-6 rows where CSV outputs exist.</div>
+    <div class="muted">Dataset: Finan | Tasks: SELECT, AGG, MIXED, FILTER | Generated from local artifacts and re-evaluation on top-6 rows where CSV outputs exist.</div>
     <div class="muted">Output file: orchestrator\analysis\select_top6_compare.html</div>
     <div class="muted">Lotus is included from benchmark CSV as global metric per task (no per-query top-6 artifacts in this pipeline).</div>
   </div>
   
   <div class="card">
-    <h2>Overall summary (SELECT + AGG + MIXED)</h2>
+    <h2>Overall summary (SELECT + AGG + MIXED + FILTER)</h2>
     <table>
       <thead><tr><th>Model</th><th>Completed</th><th>Completion</th><th>Pooled Global F1</th><th>Macro F1 Mean</th></tr></thead>
-      <tbody><tr><td>docetl</td><td>25/26</td><td>96.2%</td><td>0.2132</td><td>0.1316</td></tr><tr><td>dql</td><td>26/26</td><td>100.0%</td><td>0.4186</td><td>0.2943</td></tr><tr><td>evaporate</td><td>26/26</td><td>100.0%</td><td>0.0621</td><td>0.0624</td></tr><tr><td>lotus</td><td>26/26</td><td>100.0%</td><td>n/a</td><td>0.2515</td></tr></tbody>
+      <tbody><tr><td>docetl</td><td>70/86</td><td>81.4%</td><td>0.2241</td><td>0.1452</td></tr><tr><td>dql</td><td>53/86</td><td>61.6%</td><td>0.2998</td><td>0.2588</td></tr><tr><td>evaporate</td><td>56/86</td><td>65.1%</td><td>0.0458</td><td>0.0544</td></tr><tr><td>lotus</td><td>86/86</td><td>100.0%</td><td>n/a</td><td>0.2779</td></tr></tbody>
     </table>
-    <p class="muted">Overall pooled F1 merges SELECT + AGG + MIXED by summing true-positive masses and denominator masses across all selected task families.</p>
+    <p class="muted">Overall pooled F1 merges SELECT + AGG + MIXED + FILTER by summing true-positive masses and denominator masses across all selected task families.</p>
   </div>
   <div class="card">
-    <h2>Overall chart (SELECT + AGG + MIXED)</h2>
+    <h2>Overall chart (SELECT + AGG + MIXED + FILTER)</h2>
     <svg viewBox="0 0 800 280" width="100%" height="280">
 <rect width="100%" height="100%" fill="#fff"/>
 <line x1="70" y1="240.0" x2="780" y2="240.0" stroke="#e5e7eb"/>
@@ -48,19 +48,19 @@ th{background:#f1f5f9}
 <text x="62" y="76.0" text-anchor="end" font-size="10">0.8</text>
 <line x1="70" y1="30.0" x2="780" y2="30.0" stroke="#e5e7eb"/>
 <text x="62" y="34.0" text-anchor="end" font-size="10">1.0</text>
-<rect x="118.8" y="195.2" width="80.0" height="44.8" fill="#2E86AB" fill-opacity="1.0"/>
+<rect x="118.8" y="192.9" width="80.0" height="47.1" fill="#2E86AB" fill-opacity="1.0"/>
 <text x="158.8" y="264" text-anchor="middle" font-size="11">docetl</text>
-<text x="158.8" y="189.2" text-anchor="middle" font-size="11">0.213</text>
-<rect x="296.2" y="152.1" width="80.0" height="87.9" fill="#C73E1D" fill-opacity="1.0"/>
+<text x="158.8" y="186.9" text-anchor="middle" font-size="11">0.224</text>
+<rect x="296.2" y="177.0" width="80.0" height="63.0" fill="#C73E1D" fill-opacity="1.0"/>
 <text x="336.2" y="264" text-anchor="middle" font-size="11">dql</text>
-<text x="336.2" y="146.1" text-anchor="middle" font-size="11">0.419</text>
-<rect x="473.8" y="227.0" width="80.0" height="13.0" fill="#F18F01" fill-opacity="1.0"/>
+<text x="336.2" y="171.0" text-anchor="middle" font-size="11">0.300</text>
+<rect x="473.8" y="230.4" width="80.0" height="9.6" fill="#F18F01" fill-opacity="1.0"/>
 <text x="513.8" y="264" text-anchor="middle" font-size="11">evaporate</text>
-<text x="513.8" y="221.0" text-anchor="middle" font-size="11">0.062</text>
+<text x="513.8" y="224.4" text-anchor="middle" font-size="11">0.046</text>
 <rect x="651.2" y="240.0" width="80.0" height="0.0" fill="#2A9D8F" fill-opacity="0.25"/>
 <text x="691.2" y="264" text-anchor="middle" font-size="11">lotus</text>
 <text x="691.2" y="234.0" text-anchor="middle" font-size="11">n/a</text>
-<text x="400.0" y="18" text-anchor="middle" font-size="14" font-weight="700">Pooled (True Global) F1 on first 6 docs (SELECT + AGG + MIXED)</text>
+<text x="400.0" y="18" text-anchor="middle" font-size="14" font-weight="700">Pooled (True Global) F1 on first 6 docs (SELECT + AGG + MIXED + FILTER)</text>
 </svg>
   </div>
 
@@ -119,6 +119,7 @@ th{background:#f1f5f9}
     </table>
     <p class="muted">Lotus is shown only in global row for SELECT (enabled).</p>
   </div>
+  
 
   <div class="card">
     <h2>AGG summary</h2>
@@ -174,6 +175,7 @@ th{background:#f1f5f9}
     </table>
     <p class="muted">Lotus is shown only in global row for AGG (enabled).</p>
   </div>
+  
 
   <div class="card">
     <h2>MIXED summary</h2>
@@ -229,6 +231,63 @@ th{background:#f1f5f9}
     </table>
     <p class="muted">Lotus is shown only in global row for MIXED (enabled).</p>
   </div>
+  
+
+  <div class="card">
+    <h2>FILTER summary</h2>
+    <table>
+      <thead><tr><th>Model</th><th>Completed</th><th>Completion</th><th>Pooled Global F1</th><th>Macro F1 Mean</th></tr></thead>
+      <tbody><tr><td>docetl</td><td>45/60</td><td>75.0%</td><td>0.2299</td><td>0.1862</td></tr><tr><td>evaporate</td><td>30/60</td><td>50.0%</td><td>0.0350</td><td>0.0307</td></tr><tr><td>dql</td><td>27/60</td><td>45.0%</td><td>0.1954</td><td>0.1523</td></tr><tr><td>lotus</td><td>60/60</td><td>100.0%</td><td>n/a</td><td>0.3571</td></tr></tbody>
+    </table>
+    <p class="muted">Pooled Global F1 aggregates all evaluated cells across all completed queries; this is the true total F1 for this top-6 run.</p>
+  </div>
+  <div class="card">
+    <h2>FILTER chart</h2>
+    <svg viewBox="0 0 800 280" width="100%" height="280">
+<rect width="100%" height="100%" fill="#fff"/>
+<line x1="70" y1="240.0" x2="780" y2="240.0" stroke="#e5e7eb"/>
+<text x="62" y="244.0" text-anchor="end" font-size="10">0.0</text>
+<line x1="70" y1="198.0" x2="780" y2="198.0" stroke="#e5e7eb"/>
+<text x="62" y="202.0" text-anchor="end" font-size="10">0.2</text>
+<line x1="70" y1="156.0" x2="780" y2="156.0" stroke="#e5e7eb"/>
+<text x="62" y="160.0" text-anchor="end" font-size="10">0.4</text>
+<line x1="70" y1="114.0" x2="780" y2="114.0" stroke="#e5e7eb"/>
+<text x="62" y="118.0" text-anchor="end" font-size="10">0.6</text>
+<line x1="70" y1="72.0" x2="780" y2="72.0" stroke="#e5e7eb"/>
+<text x="62" y="76.0" text-anchor="end" font-size="10">0.8</text>
+<line x1="70" y1="30.0" x2="780" y2="30.0" stroke="#e5e7eb"/>
+<text x="62" y="34.0" text-anchor="end" font-size="10">1.0</text>
+<rect x="118.8" y="191.7" width="80.0" height="48.3" fill="#2E86AB" fill-opacity="1.0"/>
+<text x="158.8" y="264" text-anchor="middle" font-size="11">docetl</text>
+<text x="158.8" y="185.7" text-anchor="middle" font-size="11">0.230</text>
+<rect x="296.2" y="232.7" width="80.0" height="7.3" fill="#F18F01" fill-opacity="1.0"/>
+<text x="336.2" y="264" text-anchor="middle" font-size="11">evaporate</text>
+<text x="336.2" y="226.7" text-anchor="middle" font-size="11">0.035</text>
+<rect x="473.8" y="199.0" width="80.0" height="41.0" fill="#C73E1D" fill-opacity="1.0"/>
+<text x="513.8" y="264" text-anchor="middle" font-size="11">dql</text>
+<text x="513.8" y="193.0" text-anchor="middle" font-size="11">0.195</text>
+<rect x="651.2" y="240.0" width="80.0" height="0.0" fill="#2A9D8F" fill-opacity="0.25"/>
+<text x="691.2" y="264" text-anchor="middle" font-size="11">lotus</text>
+<text x="691.2" y="234.0" text-anchor="middle" font-size="11">n/a</text>
+<text x="400.0" y="18" text-anchor="middle" font-size="14" font-weight="700">Pooled (True Global) F1 on first 6 docs (FILTER)</text>
+</svg>
+  </div>
+  <div class="card">
+    <h2>FILTER per-query details</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Query</th>
+          <th>DocETL F1</th><th>DocETL status</th>
+          <th>Evaporate F1</th><th>Evaporate status</th>
+          <th>DQL F1</th><th>DQL status</th>
+        </tr>
+      </thead>
+      <tbody><tr><td>1</td><td>0.0000</td><td>ok</td><td>n/a</td><td>empty_after_filter</td><td>0.0000</td><td>ok</td></tr><tr><td>2</td><td>0.0000</td><td>ok</td><td>n/a</td><td>empty_after_filter</td><td>0.3333</td><td>ok</td></tr><tr><td>3</td><td>0.0000</td><td>ok</td><td>n/a</td><td>empty_after_filter</td><td>0.0952</td><td>ok</td></tr><tr><td>4</td><td>n/a</td><td>empty_after_filter</td><td>n/a</td><td>empty_after_filter</td><td>0.0000</td><td>ok</td></tr><tr><td>5</td><td>n/a</td><td>empty_after_filter</td><td>n/a</td><td>empty_after_filter</td><td>0.2000</td><td>ok</td></tr><tr><td>6</td><td>n/a</td><td>empty_after_filter</td><td>n/a</td><td>empty_after_filter</td><td>0.0952</td><td>ok</td></tr><tr><td>7</td><td>0.5000</td><td>ok</td><td>0.0000</td><td>ok</td><td>0.3333</td><td>ok</td></tr><tr><td>8</td><td>0.1667</td><td>ok</td><td>0.0000</td><td>ok</td><td>0.0000</td><td>ok</td></tr><tr><td>9</td><td>0.0000</td><td>ok</td><td>0.1333</td><td>ok</td><td>0.0741</td><td>ok</td></tr><tr><td>10</td><td>0.5000</td><td>ok</td><td>0.1111</td><td>ok</td><td>1.0000</td><td>ok</td></tr><tr><td>11</td><td>n/a</td><td>empty_after_filter</td><td>n/a</td><td>empty_after_filter</td><td>0.0000</td><td>ok</td></tr><tr><td>12</td><td>n/a</td><td>empty_after_filter</td><td>n/a</td><td>empty_after_filter</td><td>0.0000</td><td>ok</td></tr><tr><td>13</td><td>0.0000</td><td>ok</td><td>n/a</td><td>empty_after_filter</td><td>0.0000</td><td>ok</td></tr><tr><td>14</td><td>0.0000</td><td>ok</td><td>n/a</td><td>empty_after_filter</td><td>0.0833</td><td>ok</td></tr><tr><td>15</td><td>0.2424</td><td>ok</td><td>0.1053</td><td>ok</td><td>0.1212</td><td>ok</td></tr><tr><td>16</td><td>0.1333</td><td>ok</td><td>n/a</td><td>empty_after_filter</td><td>0.0667</td><td>ok</td></tr><tr><td>17</td><td>0.0000</td><td>ok</td><td>n/a</td><td>empty_after_filter</td><td>0.0000</td><td>ok</td></tr><tr><td>18</td><td>0.0000</td><td>ok</td><td>n/a</td><td>empty_after_filter</td><td>0.0000</td><td>ok</td></tr><tr><td>19</td><td>0.4000</td><td>ok</td><td>0.0000</td><td>ok</td><td>n/a</td><td>missing_csv</td></tr><tr><td>20</td><td>n/a</td><td>empty_after_filter</td><td>n/a</td><td>empty_after_filter</td><td>0.0000</td><td>ok</td></tr><tr><td>21</td><td>0.1212</td><td>ok</td><td>0.0000</td><td>ok</td><td>n/a</td><td>missing_csv</td></tr><tr><td>22</td><td>0.5000</td><td>ok</td><td>0.1667</td><td>ok</td><td>0.6111</td><td>ok</td></tr><tr><td>23</td><td>0.3333</td><td>ok</td><td>0.0000</td><td>ok</td><td>n/a</td><td>missing_csv</td></tr><tr><td>24</td><td>0.0000</td><td>ok</td><td>0.0000</td><td>ok</td><td>0.7273</td><td>ok</td></tr><tr><td>25</td><td>0.2500</td><td>ok</td><td>0.0000</td><td>ok</td><td>0.1818</td><td>ok</td></tr><tr><td>26</td><td>0.1111</td><td>ok</td><td>0.0000</td><td>ok</td><td>0.0000</td><td>ok</td></tr><tr><td>27</td><td>0.1111</td><td>ok</td><td>0.0000</td><td>ok</td><td>0.0952</td><td>ok</td></tr><tr><td>28</td><td>0.2778</td><td>ok</td><td>0.0370</td><td>ok</td><td>n/a</td><td>missing_csv</td></tr><tr><td>29</td><td>0.0000</td><td>ok</td><td>n/a</td><td>empty_after_filter</td><td>0.0952</td><td>ok</td></tr><tr><td>30</td><td>0.0000</td><td>ok</td><td>n/a</td><td>empty_after_filter</td><td>0.0000</td><td>ok</td></tr><tr><td>31</td><td>n/a</td><td>empty_after_filter</td><td>n/a</td><td>empty_after_filter</td><td>n/a</td><td>missing_csv</td></tr><tr><td>32</td><td>n/a</td><td>empty_after_filter</td><td>n/a</td><td>empty_after_filter</td><td>n/a</td><td>missing_csv</td></tr><tr><td>33</td><td>n/a</td><td>empty_after_filter</td><td>n/a</td><td>empty_after_filter</td><td>n/a</td><td>missing_csv</td></tr><tr><td>34</td><td>n/a</td><td>empty_after_filter</td><td>n/a</td><td>empty_after_filter</td><td>0.0000</td><td>ok</td></tr><tr><td>35</td><td>n/a</td><td>empty_after_filter</td><td>n/a</td><td>empty_after_filter</td><td>n/a</td><td>missing_csv</td></tr><tr><td>36</td><td>n/a</td><td>empty_after_filter</td><td>n/a</td><td>empty_after_filter</td><td>n/a</td><td>missing_csv</td></tr><tr><td>37</td><td>n/a</td><td>empty_after_filter</td><td>n/a</td><td>empty_after_filter</td><td>n/a</td><td>missing_csv</td></tr><tr><td>38</td><td>0.5185</td><td>ok</td><td>0.0000</td><td>ok</td><td>n/a</td><td>missing_csv</td></tr><tr><td>39</td><td>n/a</td><td>empty_after_filter</td><td>n/a</td><td>empty_after_filter</td><td>n/a</td><td>missing_csv</td></tr><tr><td>40</td><td>0.0000</td><td>ok</td><td>n/a</td><td>empty_after_filter</td><td>n/a</td><td>missing_csv</td></tr><tr><td>41</td><td>0.2667</td><td>ok</td><td>0.0000</td><td>ok</td><td>n/a</td><td>missing_csv</td></tr><tr><td>42</td><td>0.3889</td><td>ok</td><td>0.0000</td><td>ok</td><td>n/a</td><td>missing_csv</td></tr><tr><td>43</td><td>0.1333</td><td>ok</td><td>0.0000</td><td>ok</td><td>n/a</td><td>missing_csv</td></tr><tr><td>44</td><td>0.3333</td><td>ok</td><td>0.1111</td><td>ok</td><td>n/a</td><td>missing_csv</td></tr><tr><td>45</td><td>0.0556</td><td>ok</td><td>0.0000</td><td>ok</td><td>n/a</td><td>missing_csv</td></tr><tr><td>46</td><td>0.1111</td><td>ok</td><td>0.0000</td><td>ok</td><td>n/a</td><td>missing_csv</td></tr><tr><td>47</td><td>0.5556</td><td>ok</td><td>0.0000</td><td>ok</td><td>n/a</td><td>missing_csv</td></tr><tr><td>48</td><td>0.0000</td><td>ok</td><td>0.0952</td><td>ok</td><td>n/a</td><td>missing_csv</td></tr><tr><td>49</td><td>0.6667</td><td>ok</td><td>0.0000</td><td>ok</td><td>n/a</td><td>missing_csv</td></tr><tr><td>50</td><td>0.7778</td><td>ok</td><td>0.0667</td><td>ok</td><td>n/a</td><td>missing_csv</td></tr><tr><td>51</td><td>0.0000</td><td>ok</td><td>0.0000</td><td>ok</td><td>n/a</td><td>missing_csv</td></tr><tr><td>52</td><td>0.0000</td><td>ok</td><td>n/a</td><td>empty_after_filter</td><td>n/a</td><td>missing_csv</td></tr><tr><td>53</td><td>0.0000</td><td>ok</td><td>n/a</td><td>empty_after_filter</td><td>n/a</td><td>missing_csv</td></tr><tr><td>54</td><td>0.3030</td><td>ok</td><td>0.0000</td><td>ok</td><td>n/a</td><td>missing_csv</td></tr><tr><td>55</td><td>0.0952</td><td>ok</td><td>0.0000</td><td>ok</td><td>n/a</td><td>missing_csv</td></tr><tr><td>56</td><td>0.0000</td><td>ok</td><td>n/a</td><td>empty_after_filter</td><td>n/a</td><td>missing_csv</td></tr><tr><td>57</td><td>0.3030</td><td>ok</td><td>0.0000</td><td>ok</td><td>n/a</td><td>missing_csv</td></tr><tr><td>58</td><td>0.2222</td><td>ok</td><td>0.0952</td><td>ok</td><td>n/a</td><td>missing_csv</td></tr><tr><td>59</td><td>0.0000</td><td>ok</td><td>n/a</td><td>empty_after_filter</td><td>n/a</td><td>missing_csv</td></tr><tr><td>60</td><td>n/a</td><td>empty_after_filter</td><td>n/a</td><td>empty_after_filter</td><td>n/a</td><td>missing_csv</td></tr></tbody>
+    </table>
+    <p class="muted">Lotus is shown only in global row for FILTER (enabled).</p>
+  </div>
+  
 
 </div>
 </body>
