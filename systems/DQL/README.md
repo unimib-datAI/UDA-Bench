@@ -9,12 +9,14 @@ This folder contains the DQL runner used by the root orchestrator.
   - evaluation: `systems/DQL/outputs/<dataset>/evaluation/<query_name>/...`
 - Internal per-query runtime folders are generated for execution/debug:
   - `systems/DQL/outputs/<dataset>/_runtime/<query_type>/query_<n>/...`
-- Legacy path still readable for backward compatibility: `systems/DQL/results/<Dataset>/<query_type>/...`
+- Legacy paths still readable for backward compatibility:
+  - `systems/DQL/outputs/<dataset>/<query_type>/csv/query_<n>/...`
+  - `systems/DQL/results/<Dataset>/<query_type>/...`
 
 ### Standalone run (DQL API)
 
 ```powershell
-.\.venv-DQL\Scripts\python.exe systems/DQL/main.py --user-id Finance --queries "SELECT earnings_per_share FROM finance" --api-url http://127.0.0.1:8000/api/v2/chat --out_dir systems/DQL/outputs/finan/select/csv/query_1
+.\.venv-DQL\Scripts\python.exe systems/DQL/main.py --user-id Finance --queries "SELECT earnings_per_share FROM finance" --api-url http://127.0.0.1:8000/api/v2/chat --out_dir systems/DQL/outputs/finan/_runtime/select/query_1
 ```
 
 ### Recommended: run via root orchestrator
@@ -34,8 +36,8 @@ This folder contains the DQL runner used by the root orchestrator.
 
 DQL can return non-tabular JSON. The orchestrator DQL adapter handles this by:
 
-1. converting tabular JSON payloads to `results.csv` when possible
-2. creating evaluator-compatible CSV shape (`id` + requested columns) when payload is narrative
+1. extracting rows from narrative JSON via LLM as primary path
+2. creating evaluator-compatible CSV shape (`id` + requested columns), with template fallback when needed
 3. running the shared `evaluation.run_eval` pipeline
 
 This keeps DQL inside the same unified orchestration/evaluation flow used by other models.

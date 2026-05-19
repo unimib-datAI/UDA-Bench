@@ -1,4 +1,4 @@
-"""DQL adapter for root-level meta-orchestrator."""
+﻿"""DQL adapter for root-level meta-orchestrator."""
 
 from __future__ import annotations
 
@@ -8,10 +8,13 @@ import subprocess
 import sys
 import time
 import re
+import hashlib
 from datetime import datetime, timezone
 from pathlib import Path
 import os
-from shutil import copy2
+from shutil import copy2, rmtree
+from urllib import request as urlrequest
+from urllib import error as urlerror
 
 from orchestrator.schemas import JobResult, JobSpec
 
@@ -62,6 +65,9 @@ def _summary_path(dataset: str, query_type: str) -> Path:
 class DQLAdapter:
     name = "dql"
 
+    def __init__(self) -> None:
+        self._last_llm_diag: dict[str, object] | None = None
+
     def _has_usable_csv(self, path: Path) -> bool:
         if not path.exists() or path.stat().st_size == 0:
             return False
@@ -106,18 +112,25 @@ class DQLAdapter:
     def _allow_template_csv(self) -> bool:
         """
         When True, non-tabular DQL JSON is converted to a template CSV
-        (id + requested columns, empty values). This may inflate metrics
-        on sparse/empty GT columns, so default is False.
+        (id + requested columns, empty values).
+        Default is True so results.csv is always materialized.
         """
-        raw = os.environ.get("DQL_ALLOW_TEMPLATE_CSV", "0").strip().lower()
+        raw = os.environ.get("DQL_ALLOW_TEMPLATE_CSV")
+        if raw is None or not str(raw).strip():
+            raw = self._dotenv_value("DQL_ALLOW_TEMPLATE_CSV")
+        if raw is None or not str(raw).strip():
+            raw = "1"
+        raw = str(raw).strip().lower()
         return raw in {"1", "true", "yes", "on"}
 
     def _allow_nlp_csv_fallback(self) -> bool:
         """
-        When True, try a lightweight text-to-table heuristic on narrative JSON outputs.
-        Default enabled because it is generally better than an all-empty template CSV.
+        When True, enable NL -> CSV conversion via LLM for narrative JSON outputs.
         """
-        raw = os.environ.get("DQL_NLP_CSV_FALLBACK", "1").strip().lower()
+        raw = os.environ.get("DQL_LLM_CSV_FALLBACK")
+        if raw is None:
+            raw = os.environ.get("DQL_NLP_CSV_FALLBACK", "1")
+        raw = raw.strip().lower()
         return raw in {"1", "true", "yes", "on"}
 
     def _live_logs_enabled(self) -> bool:
@@ -189,6 +202,9 @@ class DQLAdapter:
     def _safe_name(self, value: str) -> str:
         return re.sub(r"[^a-zA-Z0-9_]+", "_", value or "").strip("_")
 
+    def _norm_key(self, value: str) -> str:
+        return re.sub(r"[^a-z0-9]+", "", str(value or "").lower())
+
     def _eval_query_dir_name(self, category: str, file_stem: str, query_in_file: int) -> str:
         cat = self._safe_name(category.lower())
         stem = self._safe_name(file_stem)
@@ -212,6 +228,36 @@ class DQLAdapter:
             for src in src_files:
                 if src.exists():
                     copy2(src, dst_dir / src.name)
+
+    def _file_sha256(self, path: Path) -> str:
+        h = hashlib.sha256()
+        with path.open("rb") as f:
+            for chunk in iter(lambda: f.read(1024 * 1024), b""):
+                h.update(chunk)
+        return h.hexdigest()
+
+    def _is_duplicate_acc_result(self, runtime_acc_dir: Path, eval_acc_dir: Path) -> bool:
+        files = ["acc.json", "gold_result.csv", "matched_gold_result.csv", "matched_result.csv"]
+        if not runtime_acc_dir.exists() or not eval_acc_dir.exists():
+            return False
+        for name in files:
+            rp = runtime_acc_dir / name
+            ep = eval_acc_dir / name
+            if not (rp.exists() and ep.exists()):
+                return False
+            if rp.stat().st_size != ep.stat().st_size:
+                return False
+            if self._file_sha256(rp) != self._file_sha256(ep):
+                return False
+        return True
+
+    def _prune_runtime_acc_if_duplicated(self, runtime_acc_dir: Path, eval_acc_dir: Path) -> None:
+        try:
+            if self._is_duplicate_acc_result(runtime_acc_dir, eval_acc_dir):
+                rmtree(runtime_acc_dir)
+        except Exception:
+            # Best-effort cleanup only.
+            pass
 
     def _mirror_query_csv(
         self,
@@ -363,9 +409,86 @@ class DQLAdapter:
         return None
 
     def _resolve_row_key(self, row: dict, col_name: str) -> str:
+        target = str(col_name or "").strip().lower()
         for k, v in row.items():
-            if str(k).strip().lower() == str(col_name).strip().lower():
+            if str(k).strip().lower() == target:
                 return str(v or "")
+        target_norm = re.sub(r"[^a-z0-9]+", "", target)
+        if target_norm:
+            for k, v in row.items():
+                key_norm = re.sub(r"[^a-z0-9]+", "", str(k).strip().lower())
+                if key_norm == target_norm:
+                    return str(v or "")
+        return ""
+
+    def _resolve_dataset_txt_dir(self, dataset: str) -> Path | None:
+        data_root = _repo_root() / "Data"
+        if not data_root.exists():
+            return None
+
+        raw = (dataset or "").strip()
+        candidates = [
+            data_root / raw / "txt",
+            data_root / raw.lower() / "txt",
+            data_root / raw.capitalize() / "txt",
+            data_root / raw.upper() / "txt",
+        ]
+        for c in candidates:
+            if c.exists() and c.is_dir():
+                return c
+
+        wanted = raw.lower()
+        for ds_dir in data_root.iterdir():
+            if not ds_dir.is_dir():
+                continue
+            if ds_dir.name.lower() != wanted:
+                continue
+            txt_dir = ds_dir / "txt"
+            if txt_dir.exists() and txt_dir.is_dir():
+                return txt_dir
+        return None
+
+    def _sort_ids(self, values: list[str]) -> list[str]:
+        unique = list(dict.fromkeys([str(v).strip() for v in values if str(v).strip()]))
+
+        def _key(v: str) -> tuple[int, int | str]:
+            if re.fullmatch(r"\d+", v):
+                return (0, int(v))
+            return (1, v.lower())
+
+        return sorted(unique, key=_key)
+
+    def _dataset_doc_ids(self, dataset: str) -> list[str]:
+        txt_dir = self._resolve_dataset_txt_dir(dataset)
+        if not txt_dir:
+            return []
+        ids = [p.stem.strip() for p in txt_dir.glob("*.txt") if p.stem.strip()]
+        return self._sort_ids(ids)
+
+    def _project_select_row(self, row: dict, items: list[dict]) -> dict[str, str]:
+        projected: dict[str, str] = {}
+        for item in items:
+            out = str(item.get("output") or "").strip()
+            if not out:
+                continue
+            val = self._resolve_row_key(row, out)
+            if not val:
+                src = str(item.get("source") or "").strip()
+                if src:
+                    val = self._resolve_row_key(row, src)
+            projected[out] = str(val or "")
+        return projected
+
+    def _extract_row_id(self, row: dict) -> str:
+        candidates = ("id", "doc_id", "document_id", "file_id", "row_id")
+        for key in candidates:
+            val = self._resolve_row_key(row, key)
+            if val:
+                return str(val).strip()
+        for k, v in row.items():
+            key_norm = re.sub(r"[^a-z0-9]+", "", str(k).strip().lower())
+            if key_norm in {"id", "docid", "documentid", "fileid", "rowid"}:
+                return str(v or "").strip()
         return ""
 
     def _align_sql_from_table(self, dataset: str, sql: str) -> str:
@@ -416,347 +539,578 @@ class DQLAdapter:
         """
         items = self._split_select_items(sql)
         cols = [str(i.get("output")) for i in items if i.get("output")]
-        gt_csv = self._resolve_gt_csv(dataset, self._extract_from_table(sql))
-        if not gt_csv:
-            return False
-
-        try:
-            with gt_csv.open("r", encoding="utf-8", newline="") as f:
-                reader = csv.DictReader(f)
-                rows = list(reader)
-        except Exception:
-            return False
-
-        if not rows:
-            return False
-
-        id_values = []
-        for i, r in enumerate(rows, start=1):
-            rid = r.get("id")
-            id_values.append(str(rid) if rid not in (None, "") else str(i))
+        id_values = self._dataset_doc_ids(dataset)
+        if not id_values:
+            # Dataset ids unavailable: still emit a valid header-only CSV.
+            id_values = []
 
         fieldnames = ["id"] + cols
         result_csv.parent.mkdir(parents=True, exist_ok=True)
         with result_csv.open("w", newline="", encoding="utf-8") as f:
             writer = csv.DictWriter(f, fieldnames=fieldnames)
             writer.writeheader()
-            for rid, gt_row in zip(id_values, rows):
+            for rid in id_values:
                 row = {"id": rid}
-                for i in items:
-                    out = str(i.get("output"))
-                    src = i.get("source")
-                    if src and not i.get("is_agg"):
-                        row[out] = self._resolve_row_key(gt_row, str(src))
-                    else:
-                        row[out] = ""
+                for c in cols:
+                    row[c] = ""
                 writer.writerow(row)
         return True
 
-    def _extract_rows_for_csv(self, payload: object) -> list[dict]:
-        """
-        Best-effort extraction of tabular rows from typical API response shapes.
-        """
-        if isinstance(payload, list) and all(isinstance(x, dict) for x in payload):
-            return payload
-
-        if isinstance(payload, dict):
-            common_keys = ("rows", "data", "results", "items", "records", "result")
-            for key in common_keys:
-                candidate = payload.get(key)
-                if isinstance(candidate, list) and all(isinstance(x, dict) for x in candidate):
-                    return candidate
-                if isinstance(candidate, dict):
-                    rows = self._extract_rows_for_csv(candidate)
-                    if rows:
-                        return rows
-
-        return []
-
     def _extract_narrative_text(self, payload: object) -> str:
-        chunks: list[str] = []
-
-        def add_text(v: object) -> None:
-            if isinstance(v, str):
-                s = v.strip()
-                if s:
-                    chunks.append(s)
-
         if isinstance(payload, dict):
-            add_text(payload.get("result"))
-            add_text(payload.get("content"))
+            result = payload.get("result")
+            if isinstance(result, str) and result.strip():
+                return result.strip()
+
             details = payload.get("details")
             if isinstance(details, dict):
                 tasks = details.get("tasks")
                 if isinstance(tasks, list):
-                    for t in tasks:
+                    # Prefer latest integrated answer if top-level result is missing.
+                    for t in reversed(tasks):
                         if not isinstance(t, dict):
                             continue
-                        add_text(t.get("result"))
                         ops = t.get("operations")
                         if isinstance(ops, list):
-                            for op in ops:
-                                if isinstance(op, dict):
-                                    add_text(op.get("result"))
+                            for op in reversed(ops):
+                                if not isinstance(op, dict):
+                                    continue
+                                op_res = op.get("result")
+                                if isinstance(op_res, str) and op_res.strip():
+                                    return op_res.strip()
+                        t_res = t.get("result")
+                        if isinstance(t_res, str) and t_res.strip():
+                            return t_res.strip()
+
+            content = payload.get("content")
+            if isinstance(content, str) and content.strip():
+                return content.strip()
 
         if isinstance(payload, list):
-            for item in payload:
-                if isinstance(item, dict):
-                    add_text(item.get("result"))
-                    add_text(item.get("content"))
+            for item in reversed(payload):
+                if not isinstance(item, dict):
+                    continue
+                for key in ("result", "content"):
+                    txt = item.get(key)
+                    if isinstance(txt, str) and txt.strip():
+                        return txt.strip()
 
-        # keep order and remove duplicates
-        dedup: list[str] = []
-        seen: set[str] = set()
-        for c in chunks:
-            if c in seen:
+        return ""
+
+    def _strip_code_fences(self, text: str) -> str:
+        s = (text or "").strip()
+        if s.startswith("```"):
+            s = re.sub(r"^```[a-zA-Z0-9_-]*\s*", "", s)
+            if s.endswith("```"):
+                s = s[:-3]
+        return s.strip()
+
+    def _extract_json_payload(self, text: str) -> object | None:
+        raw = self._strip_code_fences(text)
+        if not raw:
+            return None
+        try:
+            return json.loads(raw)
+        except Exception:
+            pass
+
+        # Fallback: first JSON object/array in text.
+        candidates: list[str] = []
+        obj_match = re.search(r"\{[\s\S]*\}", raw)
+        if obj_match:
+            candidates.append(obj_match.group(0))
+        arr_match = re.search(r"\[[\s\S]*\]", raw)
+        if arr_match:
+            candidates.append(arr_match.group(0))
+
+        for cand in candidates:
+            try:
+                return json.loads(cand)
+            except Exception:
                 continue
-            seen.add(c)
-            dedup.append(c)
-        return "\n".join(dedup)
+        return None
 
-    def _normalize_text(self, text: str) -> str:
-        s = text.lower()
-        s = re.sub(r"\s+", " ", s)
-        return s
+    def _gemini_api_key(self) -> str:
+        key = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY") or ""
+        if not key:
+            key = self._dotenv_value("GEMINI_API_KEY")
+        return key.strip().strip('"').strip("'")
 
-    def _value_mentioned_in_text(self, value: str, norm_text: str, text_tokens: set[str]) -> bool:
-        v = (value or "").strip()
+    def _dotenv_value(self, key: str) -> str:
+        env_file = _repo_root() / ".env"
+        if not env_file.exists():
+            return ""
+        try:
+            for line in env_file.read_text(encoding="utf-8", errors="replace").splitlines():
+                raw = line.strip()
+                if not raw or raw.startswith("#") or "=" not in raw:
+                    continue
+                k, v = raw.split("=", 1)
+                if k.strip() == key:
+                    return v.strip().strip('"').strip("'")
+        except Exception:
+            return ""
+        return ""
+
+    def _gemini_model(self) -> str:
+        model = (os.environ.get("DQL_GEMINI_MODEL") or "gemini-2.0-flash").strip()
+        return model or "gemini-2.0-flash"
+
+    def _llm_backend(self) -> str:
+        raw = (os.environ.get("DQL_LLM_BACKEND") or "").strip().lower()
+        if not raw:
+            raw = self._dotenv_value("DQL_LLM_BACKEND").strip().lower()
+        if raw:
+            return raw
+        if self._llm_openai_api_base():
+            return "openai"
+        return "gemini"
+
+    def _llm_openai_api_base(self) -> str:
+        base = (os.environ.get("DQL_LLM_API_BASE") or "").strip()
+        if not base:
+            base = self._dotenv_value("DQL_LLM_API_BASE")
+        return base.rstrip("/")
+
+    def _llm_openai_api_key(self) -> str:
+        key = os.environ.get("DQL_LLM_API_KEY") or os.environ.get("OPENAI_API_KEY") or ""
+        if not key:
+            key = self._dotenv_value("DQL_LLM_API_KEY") or self._dotenv_value("OPENAI_API_KEY")
+        return key.strip().strip('"').strip("'")
+
+    def _llm_openai_model(self) -> str:
+        model = (os.environ.get("DQL_LLM_MODEL") or "").strip()
+        if not model:
+            model = self._dotenv_value("DQL_LLM_MODEL")
+        if not model:
+            model = "Qwen3-8B-Q5"
+        return model or "Qwen3-8B-Q5"
+
+    def _call_openai_compatible(self, prompt: str) -> str:
+        api_base = self._llm_openai_api_base()
+        api_key = self._llm_openai_api_key()
+        if not api_base or not api_key:
+            return ""
+
+        timeout_sec = int(os.environ.get("DQL_LLM_TIMEOUT_SEC", "60"))
+        model = self._llm_openai_model()
+        url = f"{api_base}/chat/completions"
+        payload = {
+            "model": model,
+            "messages": [{"role": "user", "content": prompt}],
+            "temperature": 0,
+        }
+
+        req = urlrequest.Request(
+            url=url,
+            data=json.dumps(payload).encode("utf-8"),
+            headers={
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {api_key}",
+            },
+            method="POST",
+        )
+        try:
+            with urlrequest.urlopen(req, timeout=timeout_sec) as resp:
+                raw = resp.read().decode("utf-8", errors="replace")
+        except (urlerror.URLError, TimeoutError, ValueError):
+            return ""
+        except Exception:
+            return ""
+
+        try:
+            parsed = json.loads(raw)
+        except Exception:
+            return ""
+
+        choices = parsed.get("choices")
+        if not isinstance(choices, list) or not choices:
+            return ""
+        first = choices[0]
+        if not isinstance(first, dict):
+            return ""
+        msg = first.get("message")
+        if not isinstance(msg, dict):
+            return ""
+        content = msg.get("content")
+        if isinstance(content, str):
+            return content.strip()
+        return ""
+
+    def _call_gemini(self, prompt: str) -> str:
+        api_key = self._gemini_api_key()
+        if not api_key:
+            return ""
+
+        model = self._gemini_model()
+        timeout_sec = int(os.environ.get("DQL_LLM_TIMEOUT_SEC", "60"))
+        url = (
+            f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+            f"?key={api_key}"
+        )
+        payload = {
+            "contents": [{"parts": [{"text": prompt}]}],
+            "generationConfig": {
+                "temperature": 0,
+                "responseMimeType": "application/json",
+            },
+        }
+
+        req = urlrequest.Request(
+            url=url,
+            data=json.dumps(payload).encode("utf-8"),
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        try:
+            with urlrequest.urlopen(req, timeout=timeout_sec) as resp:
+                raw = resp.read().decode("utf-8", errors="replace")
+        except (urlerror.URLError, TimeoutError, ValueError):
+            return ""
+        except Exception:
+            return ""
+
+        try:
+            parsed = json.loads(raw)
+        except Exception:
+            return ""
+
+        candidates = parsed.get("candidates")
+        if not isinstance(candidates, list):
+            return ""
+        for c in candidates:
+            if not isinstance(c, dict):
+                continue
+            content = c.get("content")
+            if not isinstance(content, dict):
+                continue
+            parts = content.get("parts")
+            if not isinstance(parts, list):
+                continue
+            texts: list[str] = []
+            for p in parts:
+                if isinstance(p, dict):
+                    t = p.get("text")
+                    if isinstance(t, str) and t.strip():
+                        texts.append(t.strip())
+            if texts:
+                return "\n".join(texts)
+        return ""
+
+    def _call_llm(self, prompt: str) -> str:
+        backend = self._llm_backend()
+        if backend == "openai":
+            return self._call_openai_compatible(prompt)
+        return self._call_gemini(prompt)
+
+    def _value_in_text(self, value: str, text: str) -> bool:
+        v = str(value or "").strip()
         if not v:
             return False
-
-        # numeric-ish values: require explicit mention as number token
-        num_parts = re.findall(r"\d+(?:[\.,]\d+)?", v)
-        if num_parts:
-            for part in num_parts:
-                token = part.replace(",", ".").strip()
-                if not token:
-                    continue
-                pat = rf"(?<!\d){re.escape(token)}(?!\d)"
-                if re.search(pat, norm_text):
-                    return True
+        nv = self._norm_key(v)
+        nt = self._norm_key(text)
+        if len(nv) < 2:
             return False
+        if nv in nt:
+            return True
 
-        # textual values: token overlap heuristic
-        words = re.findall(r"[a-zA-Z]{3,}", v.lower())
-        if not words:
-            return False
-        uniq_words = [w for w in dict.fromkeys(words)]
-        if len(uniq_words) == 1:
-            w = uniq_words[0]
-            if len(w) < 5:
-                return False
-            return w in text_tokens
-        hits = sum(1 for w in uniq_words if w in text_tokens)
-        needed = 2 if len(uniq_words) >= 2 else 1
-        return hits >= needed
+        # Numeric fallback: tolerate locale/currency formatting differences
+        # (e.g., 1,920,000,000 vs 1.920.000.000).
+        vd = re.sub(r"\D+", "", v)
+        td = re.sub(r"\D+", "", text or "")
+        if len(vd) >= 3 and vd in td:
+            return True
+        return False
 
-    def _split_sentences(self, text: str) -> list[str]:
-        s = (text or "").replace("\r", "\n")
-        chunks = re.split(r"[\n\.]+", s)
-        return [c.strip() for c in chunks if c and c.strip()]
+    def _extract_doc_refs(self, text: str) -> list[str]:
+        s = str(text or "")
+        out: list[str] = []
+        # Common DQL citation style: D1, D.1, d 1, etc.
+        for m in re.finditer(r"(?i)\bd\s*[\.\-_:]?\s*(\d{1,4})\b", s):
+            out.append(m.group(1))
+        # Other textual mentions: doc 1, document #2, etc.
+        for m in re.finditer(r"(?i)\bdoc(?:ument)?\s*#?\s*(\d{1,4})\b", s):
+            out.append(m.group(1))
+        uniq = list(dict.fromkeys([v.strip() for v in out if v and v.strip()]))
+        return self._sort_ids(uniq)
 
-    def _parse_numeric_token(self, token: str) -> float | None:
-        t = (token or "").strip()
-        if not t:
-            return None
-        t = re.sub(r"[^0-9,\.\-]", "", t)
-        if not t:
-            return None
-        if "," in t and "." in t:
-            if t.rfind(",") > t.rfind("."):
-                t = t.replace(".", "").replace(",", ".")
-            else:
-                t = t.replace(",", "")
-        elif "," in t:
-            # decimal comma only when likely decimal precision, else thousand separator
-            if t.count(",") == 1 and len(t.split(",")[1]) <= 2:
-                t = t.replace(",", ".")
-            else:
-                t = t.replace(",", "")
-        try:
-            return float(t)
-        except Exception:
-            return None
+    def _row_id_candidates(self, row: dict, valid_ids: set[str]) -> list[str]:
+        raw_candidates: list[str] = []
 
-    def _numbers_from_sentence(self, sentence: str) -> list[float]:
-        out: list[float] = []
-        lowered = sentence.lower()
-        for tok in re.findall(r"[-+]?\d[\d\.,]*", sentence):
-            v = self._parse_numeric_token(tok)
-            if v is None:
-                continue
-            unit_mult = 1.0
-            if re.search(r"\b(milioni|milione|million|mln|mn)\b", lowered):
-                unit_mult = 1_000_000.0
-            elif re.search(r"\b(mila|thousand|k)\b", lowered):
-                unit_mult = 1_000.0
-            out.append(v * unit_mult)
-        return out
-
-    def _format_number(self, value: float) -> str:
-        if abs(value - round(value)) < 1e-9:
-            return str(int(round(value)))
-        return f"{value:.6f}".rstrip("0").rstrip(".")
-
-    def _infer_agg_value(self, group_value: str, agg_item: dict, narrative: str) -> str:
-        group = (group_value or "").strip()
-        if not group:
-            return ""
-        agg_func = str(agg_item.get("agg_func") or "").lower()
-        source = str(agg_item.get("source") or "").lower()
-        output = str(agg_item.get("output") or "").lower()
-
-        func_words = {
-            "max": ("max", "massimo", "highest"),
-            "min": ("min", "minimo", "lowest"),
-            "sum": ("sum", "somma", "totale", "total"),
-            "avg": ("avg", "average", "media"),
-            "count": ("count", "conteggio", "numero"),
+        # Prefer explicit id-like fields first.
+        id_key_norms = {
+            "id",
+            "ids",
+            "docid",
+            "documentid",
+            "doc",
+            "document",
+            "sourceid",
+            "docref",
+            "docrefs",
+            "documentref",
+            "documentrefs",
+            "docids",
+            "documentids",
         }
-        wanted_words = set(func_words.get(agg_func, (agg_func,)))
-        for w in re.findall(r"[a-zA-Z]{3,}", source + " " + output):
-            wanted_words.add(w.lower())
-
-        candidates: list[float] = []
-        for sent in self._split_sentences(narrative):
-            s_low = sent.lower()
-            if group.lower() not in s_low:
+        for key, val in row.items():
+            if self._norm_key(key) not in id_key_norms:
                 continue
-            if wanted_words and not any(w in s_low for w in wanted_words):
+            if val is None:
                 continue
-            candidates.extend(self._numbers_from_sentence(sent))
+            if isinstance(val, list):
+                for item in val:
+                    if item is None:
+                        continue
+                    sitem = str(item).strip()
+                    if not sitem:
+                        continue
+                    if re.fullmatch(r"\d+", sitem):
+                        raw_candidates.append(sitem)
+                    else:
+                        raw_candidates.extend(self._extract_doc_refs(sitem))
+                continue
+            sval = str(val).strip()
+            if not sval:
+                continue
+            if re.fullmatch(r"\d+", sval):
+                raw_candidates.append(sval)
+            else:
+                raw_candidates.extend(self._extract_doc_refs(sval))
 
-        if not candidates:
-            return ""
+        # Fallback: scan whole row textual payload (including evidence/source notes).
+        if not raw_candidates:
+            row_text = " ".join([str(v or "") for v in row.values()])
+            raw_candidates.extend(self._extract_doc_refs(row_text))
 
-        value: float
-        if agg_func == "max":
-            value = max(candidates)
-        elif agg_func == "min":
-            value = min(candidates)
-        elif agg_func == "sum":
-            value = sum(candidates)
-        elif agg_func == "avg":
-            value = sum(candidates) / len(candidates)
-        elif agg_func == "count":
-            ints = [int(round(v)) for v in candidates if v >= 0]
-            if not ints:
-                return ""
-            # Prefer realistic row-group counts when present.
-            bounded = [v for v in ints if v <= 1000]
-            value = float(max(bounded) if bounded else max(ints))
-        else:
-            value = candidates[0]
-        return self._format_number(value)
+        uniq = self._sort_ids(list(dict.fromkeys([c for c in raw_candidates if c])))
+        if valid_ids:
+            uniq = [c for c in uniq if c in valid_ids]
+        return uniq
 
-    def _narrative_to_agg_csv(self, payload: object, dataset: str, sql: str, result_csv: Path) -> bool:
-        items = self._split_select_items(sql)
-        if not items:
-            return False
-        group_by = self._group_by_columns(sql)
-        if not group_by:
-            # fallback: non-aggregate select columns
-            group_by = [str(i.get("source")) for i in items if not i.get("is_agg") and i.get("source")]
-        if not group_by:
-            return False
-
-        gt_csv = self._resolve_gt_csv(dataset, self._extract_from_table(sql))
-        if not gt_csv:
-            return False
+    def _llm_narrative_rows(self, payload: object, dataset: str, sql: str) -> tuple[list[dict], dict[str, object]]:
+        diag: dict[str, object] = {
+            "llm_backend": self._llm_backend(),
+            "llm_called": 0,
+            "llm_second_pass": 0,
+            "llm_no_response": 0,
+            "llm_invalid_json": 0,
+            "llm_no_rows_payload": 0,
+            "llm_rows_candidate": 0,
+            "llm_rows_kept": 0,
+            "llm_rows_scartate_per_id": 0,
+            "llm_rows_too_many_ids": 0,
+            "llm_rows_scartate_per_value": 0,
+            "llm_cells_scartate_per_value": 0,
+        }
         narrative = self._extract_narrative_text(payload)
         if not narrative:
-            return False
+            diag["llm_no_rows_payload"] = 1
+            return [], diag
+        max_chars = int(os.environ.get("DQL_LLM_MAX_CHARS", "60000"))
+        if max_chars > 0 and len(narrative) > max_chars:
+            narrative = narrative[:max_chars]
 
-        try:
-            with gt_csv.open("r", encoding="utf-8", newline="") as f:
-                reader = csv.DictReader(f)
-                gt_rows = list(reader)
-        except Exception:
-            return False
-        if not gt_rows:
-            return False
+        items = self._split_select_items(sql)
+        cols = [str(i.get("output") or "").strip() for i in items if str(i.get("output") or "").strip()]
+        if not cols:
+            diag["llm_no_rows_payload"] = 1
+            return [], diag
 
-        # Build distinct groups from GT to keep group values coherent.
-        group_index: dict[tuple[str, ...], dict] = {}
-        for r in gt_rows:
-            key = tuple(self._resolve_row_key(r, c) for c in group_by)
-            if key not in group_index:
-                group_index[key] = r
+        is_agg = self._is_agg_query(sql)
+        requires_id = not is_agg
+        schema_hint_strict = (
+            '{"rows":[{"id":"<doc_id>","<col1>":"<value>","<col2>":"<value>","evidence":"<exact quote from text>"}]}'
+            if requires_id
+            else '{"rows":[{"<col1>":"<value>","<col2>":"<value>","evidence":"<exact quote from text>"}]}'
+        )
+        schema_hint_relaxed = (
+            '{"rows":[{"id":"<doc_id_or_empty>","doc_refs":["D1","D2"],"<col1>":"<value_or_empty>","<col2>":"<value_or_empty>","evidence":"<quote>"}]}'
+            if requires_id
+            else '{"rows":[{"<col1>":"<value_or_empty>","<col2>":"<value_or_empty>","evidence":"<quote>"}]}'
+        )
 
-        out_rows: list[dict[str, str]] = []
-        for key, sample in group_index.items():
-            if not all(self._value_mentioned_in_text(v, self._normalize_text(narrative), set(re.findall(r"[a-zA-Z]{3,}", self._normalize_text(narrative)))) for v in key if str(v).strip()):
-                continue
-
-            out_row: dict[str, str] = {}
-            for item in items:
-                out = str(item.get("output"))
-                src = str(item.get("source") or "")
-                if item.get("is_agg"):
-                    # Link aggregate values to the first group key mention.
-                    out_row[out] = self._infer_agg_value(group_value=str(key[0]), agg_item=item, narrative=narrative)
+        def _build_prompt(relaxed: bool) -> str:
+            base = (
+                "Converti il testo in output JSON per una query SQL.\n"
+                "Regole obbligatorie:\n"
+                "1) Usa SOLO valori espliciti presenti nel testo fornito.\n"
+                "2) Non inventare valori e non usare conoscenza esterna.\n"
+                "3) Produci SOLO JSON valido.\n"
+                "4) Se non trovi dati, restituisci {\"rows\": []}.\n"
+                "5) Includi solo righe con almeno una colonna non vuota.\n"
+                f"6) Colonne richieste: {cols}.\n"
+                "7) Per ogni riga aggiungi 'evidence' con una breve frase/copiastralcio del testo che supporta i valori.\n"
+                "8) Estrai candidati in modo completo: se il testo contiene piu' valori plausibili, restituiscili tutti (senza duplicati identici).\n"
+                "9) Non lasciare vuoto un campo se nel testo e' presente un valore letterale per quella colonna.\n"
+                "10) Mantieni i valori il piu' possibile letterali (non normalizzare, non tradurre, non convertire unita').\n"
+            )
+            if requires_id:
+                if relaxed:
+                    base += (
+                        "11) Query non aggregata: per ogni riga prova a fornire 'id' numerico.\n"
+                        "12) Se l'id non e' certo, lascia id vuoto ma compila 'doc_refs' con riferimenti al documento (es. D1, D2, doc 3) quando presenti nel testo.\n"
+                        "13) Se una stessa evidenza cita piu' documenti (es. D1, D2, D3), includili tutti in 'doc_refs'.\n"
+                    )
                 else:
-                    out_row[out] = self._resolve_row_key(sample, src) if src else ""
-            # Keep rows that carry at least group keys.
-            if any(str(out_row.get(str(i.get("output")), "")).strip() for i in items if not i.get("is_agg")):
-                out_rows.append(out_row)
+                    base += (
+                        "11) Query non aggregata: ogni riga deve avere 'id' del documento come stringa numerica.\n"
+                        "12) Se nel testo trovi riferimenti tipo D1, D2, doc 3, convertili in id=1, id=2, id=3.\n"
+                        "13) Se una frase contiene valori ma non contiene id esplicito, usa id solo se ricavabile con alta confidenza dal contesto locale; altrimenti non creare la riga in questa passata.\n"
+                    )
+            schema = schema_hint_relaxed if relaxed else schema_hint_strict
+            return base + (
+                f"SQL:\n{sql}\n\n"
+                f"Formato JSON richiesto:\n{schema}\n\n"
+                f"TESTO:\n{narrative}\n"
+            )
 
-        if not out_rows:
-            return False
+        def _extract_rows(raw_text: str) -> tuple[list[object], bool]:
+            parsed = self._extract_json_payload(raw_text)
+            rows_local: list[object] = []
+            if isinstance(parsed, dict):
+                for k in ("rows", "data", "items", "results"):
+                    cand = parsed.get(k)
+                    if isinstance(cand, list):
+                        rows_local = cand
+                        break
+                return rows_local, True
+            if isinstance(parsed, list):
+                return parsed, True
+            return [], False
 
-        fieldnames = [str(i.get("output")) for i in items if i.get("output")]
-        result_csv.parent.mkdir(parents=True, exist_ok=True)
-        with result_csv.open("w", newline="", encoding="utf-8") as f:
-            writer = csv.DictWriter(f, fieldnames=fieldnames)
-            writer.writeheader()
-            writer.writerows(out_rows)
-        return True
+        diag["llm_called"] = 1
+        raw = self._call_llm(_build_prompt(relaxed=False))
+        if not str(raw or "").strip():
+            diag["llm_no_response"] = 1
+            return [], diag
+        rows, ok_shape = _extract_rows(raw)
+        if (not ok_shape) or (not rows):
+            diag["llm_second_pass"] = 1
+            raw2 = self._call_llm(_build_prompt(relaxed=True))
+            if str(raw2 or "").strip():
+                rows2, ok_shape2 = _extract_rows(raw2)
+                if ok_shape2:
+                    rows = rows2
+                    ok_shape = True
+
+        if not ok_shape:
+            diag["llm_invalid_json"] = 1
+            return [], diag
+        if not rows:
+            diag["llm_no_rows_payload"] = 1
+            return [], diag
+        diag["llm_rows_candidate"] = len(rows)
+
+        out_rows: list[dict] = []
+        valid_ids = set(self._dataset_doc_ids(dataset))
+        for row in rows:
+            if not isinstance(row, dict):
+                continue
+            id_candidates: list[str] = [""]
+            if requires_id:
+                id_candidates = self._row_id_candidates(row, valid_ids)
+                if not id_candidates:
+                    diag["llm_rows_scartate_per_id"] = int(diag["llm_rows_scartate_per_id"]) + 1
+                    continue
+                # Avoid exploding ambiguous rows to too many ids.
+                if len(id_candidates) > 20:
+                    diag["llm_rows_too_many_ids"] = int(diag["llm_rows_too_many_ids"]) + 1
+                    continue
+
+            for rid in id_candidates:
+                cleaned: dict[str, str] = {}
+                if requires_id:
+                    cleaned["id"] = rid
+
+                non_empty = 0
+                for c in cols:
+                    v = str(self._resolve_row_key(row, c) or "").strip()
+                    if not v:
+                        cleaned[c] = ""
+                        continue
+                    # Keep only values traceable to narrative text.
+                    if not self._value_in_text(v, narrative):
+                        cleaned[c] = ""
+                        diag["llm_cells_scartate_per_value"] = int(diag["llm_cells_scartate_per_value"]) + 1
+                        continue
+                    cleaned[c] = v
+                    non_empty += 1
+
+                if non_empty == 0:
+                    diag["llm_rows_scartate_per_value"] = int(diag["llm_rows_scartate_per_value"]) + 1
+                    continue
+                out_rows.append(cleaned)
+
+        diag["llm_rows_kept"] = len(out_rows)
+        return out_rows, diag
 
     def _narrative_to_csv(self, payload: object, dataset: str, sql: str, result_csv: Path) -> bool:
-        if self._is_agg_query(sql):
-            if self._narrative_to_agg_csv(payload, dataset=dataset, sql=sql, result_csv=result_csv):
-                return True
-
-        items = self._split_select_items(sql)
-        cols = [str(i.get("output")) for i in items if i.get("output")]
-        if not cols or not items:
-            return False
-        gt_csv = self._resolve_gt_csv(dataset, self._extract_from_table(sql))
-        if not gt_csv:
-            return False
-
-        narrative = self._extract_narrative_text(payload)
-        if not narrative:
-            return False
-        norm_text = self._normalize_text(narrative)
-        text_tokens = set(re.findall(r"[a-zA-Z]{3,}", norm_text))
-
-        try:
-            with gt_csv.open("r", encoding="utf-8", newline="") as f:
-                reader = csv.DictReader(f)
-                rows = list(reader)
-        except Exception:
-            return False
+        rows, diag = self._llm_narrative_rows(payload=payload, dataset=dataset, sql=sql)
+        self._last_llm_diag = diag
         if not rows:
             return False
+        return self._rows_to_csv(rows, dataset=dataset, sql=sql, result_csv=result_csv)
+
+    def _rows_to_csv(self, rows: list[dict], dataset: str, sql: str, result_csv: Path) -> bool:
+        if not rows:
+            return False
+        items = self._split_select_items(sql)
+        cols = [str(i.get("output")) for i in items if i.get("output")]
+        if not items or not cols:
+            return False
+
+        result_csv.parent.mkdir(parents=True, exist_ok=True)
+
+        if self._is_agg_query(sql):
+            fieldnames = cols
+            out_rows: list[dict[str, str]] = []
+            for r in rows:
+                projected = self._project_select_row(r, items)
+                if any(str(projected.get(c, "")).strip() for c in cols):
+                    out_rows.append({c: str(projected.get(c, "")) for c in cols})
+            if not out_rows:
+                return False
+            with result_csv.open("w", newline="", encoding="utf-8") as f:
+                writer = csv.DictWriter(f, fieldnames=fieldnames)
+                writer.writeheader()
+                writer.writerows(out_rows)
+            return True
+
+        id_to_row: dict[str, dict[str, str]] = {}
+        for r in rows:
+            rid = self._extract_row_id(r)
+            if not rid:
+                continue
+            projected = self._project_select_row(r, items)
+            if rid not in id_to_row:
+                id_to_row[rid] = {"id": rid, **{c: "" for c in cols}}
+            for c in cols:
+                val = str(projected.get(c, "")).strip()
+                if val:
+                    id_to_row[rid][c] = val
+
+        if not id_to_row:
+            return False
+
+        template_ids = self._dataset_doc_ids(dataset)
+        ordered_ids = list(template_ids)
+        for rid in self._sort_ids(list(id_to_row.keys())):
+            if rid not in ordered_ids:
+                ordered_ids.append(rid)
+        if not ordered_ids:
+            ordered_ids = self._sort_ids(list(id_to_row.keys()))
 
         fieldnames = ["id"] + cols
-        result_csv.parent.mkdir(parents=True, exist_ok=True)
         with result_csv.open("w", newline="", encoding="utf-8") as f:
             writer = csv.DictWriter(f, fieldnames=fieldnames)
             writer.writeheader()
-            for i, r in enumerate(rows, start=1):
-                rid = r.get("id")
-                out_row: dict[str, str] = {"id": str(rid) if rid not in (None, "") else str(i)}
-                for item in items:
-                    out = str(item.get("output"))
-                    src = str(item.get("source") or "")
-                    if item.get("is_agg"):
-                        out_row[out] = ""
-                        continue
-                    raw = self._resolve_row_key(r, src) if src else ""
-                    out_row[out] = raw if self._value_mentioned_in_text(raw, norm_text, text_tokens) else ""
-                writer.writerow(out_row)
+            for rid in ordered_ids:
+                row = {"id": rid, **{c: "" for c in cols}}
+                if rid in id_to_row:
+                    for c in cols:
+                        row[c] = id_to_row[rid].get(c, "")
+                writer.writerow(row)
         return True
 
     def _json_to_csv(
@@ -780,28 +1134,45 @@ class DQLAdapter:
                 return self._build_template_csv(dataset=dataset, sql=sql, result_csv=result_csv)
             return False
 
-        rows = self._extract_rows_for_csv(payload)
-        if not rows:
-            if allow_nlp_fallback and self._narrative_to_csv(payload, dataset=dataset, sql=sql, result_csv=result_csv):
-                return True
-            if allow_template:
-                return self._build_template_csv(dataset=dataset, sql=sql, result_csv=result_csv)
-            return False
+        self._last_llm_diag = None
+        # DQL outputs are narrative: use LLM extraction as the primary conversion path.
+        if allow_nlp_fallback and self._narrative_to_csv(payload, dataset=dataset, sql=sql, result_csv=result_csv):
+            diag = self._last_llm_diag or {}
+            print(
+                "[DQL-LLM] "
+                f"{results_json.parent.name}: "
+                f"backend={diag.get('llm_backend', '')} "
+                f"status=ok "
+                f"second_pass={diag.get('llm_second_pass', 0)} "
+                f"rows_candidate={diag.get('llm_rows_candidate', 0)} "
+                f"rows_kept={diag.get('llm_rows_kept', 0)} "
+                f"drop_id={diag.get('llm_rows_scartate_per_id', 0)} "
+                f"drop_value_row={diag.get('llm_rows_scartate_per_value', 0)} "
+                f"drop_value_cell={diag.get('llm_cells_scartate_per_value', 0)}"
+            )
+            return True
 
-        fieldnames: list[str] = []
-        seen = set()
-        for row in rows:
-            for key in row.keys():
-                if key not in seen:
-                    seen.add(key)
-                    fieldnames.append(key)
+        if allow_nlp_fallback:
+            diag = self._last_llm_diag or {}
+            print(
+                "[DQL-LLM] "
+                f"{results_json.parent.name}: "
+                f"backend={diag.get('llm_backend', '')} "
+                f"status=empty "
+                f"second_pass={diag.get('llm_second_pass', 0)} "
+                f"no_response={diag.get('llm_no_response', 0)} "
+                f"invalid_json={diag.get('llm_invalid_json', 0)} "
+                f"no_rows_payload={diag.get('llm_no_rows_payload', 0)} "
+                f"rows_candidate={diag.get('llm_rows_candidate', 0)} "
+                f"rows_kept={diag.get('llm_rows_kept', 0)} "
+                f"drop_id={diag.get('llm_rows_scartate_per_id', 0)} "
+                f"drop_value_row={diag.get('llm_rows_scartate_per_value', 0)} "
+                f"drop_value_cell={diag.get('llm_cells_scartate_per_value', 0)}"
+            )
 
-        result_csv.parent.mkdir(parents=True, exist_ok=True)
-        with result_csv.open("w", newline="", encoding="utf-8") as f:
-            writer = csv.DictWriter(f, fieldnames=fieldnames)
-            writer.writeheader()
-            writer.writerows(rows)
-        return True
+        if allow_template:
+            return self._build_template_csv(dataset=dataset, sql=sql, result_csv=result_csv)
+        return False
 
     def execute(
         self,
@@ -876,12 +1247,16 @@ class DQLAdapter:
         allow_template_csv = self._allow_template_csv()
         allow_nlp_csv = self._allow_nlp_csv_fallback()
         live_logs = self._live_logs_enabled()
+        category_query_idx: dict[str, int] = {}
         
         for i, item in enumerate(query_items):
             sql = str(item.get("sql", ""))
+            item_category = str(item.get("category", spec.query_type)).lower()
+            category_query_idx[item_category] = category_query_idx.get(item_category, 0) + 1
+            query_idx_in_category = category_query_idx[item_category]
             print(f"[INFO] Executing query {i+1}/{len(query_items)}: {sql}")
             eval_dir_name = self._eval_query_dir_name(
-                category=str(item.get("category", spec.query_type)),
+                category=item_category,
                 file_stem=str(item.get("file_stem", f"{spec.query_type}_queries")),
                 query_in_file=int(item.get("query_in_file", i + 1)),
             )
@@ -896,11 +1271,15 @@ class DQLAdapter:
             if api_url:
                 cmd.extend(["--api-url", api_url])
             
-            output_dir = self._dql_runtime_query_dir(spec.dataset, spec.query_type, i + 1)
-            legacy_output_dirs = self._legacy_query_dirs(spec.dataset, spec.query_type, i + 1)
+            runtime_query_type = item_category
+            output_dir = self._dql_runtime_query_dir(spec.dataset, runtime_query_type, query_idx_in_category)
+            legacy_output_dirs = self._legacy_query_dirs(spec.dataset, runtime_query_type, query_idx_in_category)
             output_dir.mkdir(parents=True, exist_ok=True)
             cmd.extend(["--out_dir", str(output_dir)])
-            acc_file = output_dir / "acc_result" / "acc.json"
+            runtime_acc_dir = output_dir / "acc_result"
+            runtime_acc_file = runtime_acc_dir / "acc.json"
+            eval_query_dir = self._dql_eval_roots(spec.dataset, spec.query_type)[0] / eval_dir_name
+            eval_acc_file = eval_query_dir / "acc.json"
             
             # Mode semantics aligned with other adapters:
             # - run: execute DQL only
@@ -969,32 +1348,51 @@ class DQLAdapter:
                             ):
                                 output_dir = legacy_output_dir
                                 break
-                acc_file = output_dir / "acc_result" / "acc.json"
             
             if spec.mode in {"eval", "run+eval"}:
                 # Keep evaluation incremental unless rebuild_eval is explicitly requested.
-                if not rebuild_eval and acc_file.exists():
+                if not rebuild_eval and eval_acc_file.exists():
                     all_stdout.append(f"[INFO] skip eval query_{i+1}: existing acc.json found")
                     try:
-                        with open(acc_file, "r", encoding="utf-8") as f:
+                        with open(eval_acc_file, "r", encoding="utf-8") as f:
                             acc = json.load(f)
                             f1 = self._extract_macro_f1(acc)
                             if f1 is not None:
                                 macro_f1s.append(f1)
                     except Exception:
                         pass
+                    self._prune_runtime_acc_if_duplicated(runtime_acc_dir, eval_query_dir)
                     self._mirror_query_csv(
                         dataset=spec.dataset,
                         eval_dir_name=eval_dir_name,
                         result_csv=output_dir / "results.csv",
                     )
+                    continue
+                elif not rebuild_eval and runtime_acc_file.exists():
+                    # Backward-compatibility path for older runs that stored acc_result under _runtime.
                     self._mirror_eval_artifacts(
                         dataset=spec.dataset,
                         query_type=spec.query_type,
                         eval_dir_name=eval_dir_name,
-                        acc_result_dir=acc_file.parent,
+                        acc_result_dir=runtime_acc_dir,
                     )
-                    continue
+                    if eval_acc_file.exists():
+                        all_stdout.append(f"[INFO] skip eval query_{i+1}: reused runtime acc_result")
+                        try:
+                            with open(eval_acc_file, "r", encoding="utf-8") as f:
+                                acc = json.load(f)
+                                f1 = self._extract_macro_f1(acc)
+                                if f1 is not None:
+                                    macro_f1s.append(f1)
+                        except Exception:
+                            pass
+                        self._prune_runtime_acc_if_duplicated(runtime_acc_dir, eval_query_dir)
+                        self._mirror_query_csv(
+                            dataset=spec.dataset,
+                            eval_dir_name=eval_dir_name,
+                            result_csv=output_dir / "results.csv",
+                        )
+                        continue
 
                 # Run evaluation for this query
                 sql_file = output_dir / "sql.json"
@@ -1043,9 +1441,10 @@ class DQLAdapter:
                     eval_cmd = [
                         python_exe, "-m", "evaluation.run_eval",
                         "--dataset", spec.dataset,
-                        "--task", spec.query_type,
+                        "--task", item_category,
                         "--sql-file", str(sql_file),
                         "--result-csv", str(result_csv),
+                        "--output-dir", str(eval_query_dir),
                         "--llm-provider", "none"
                     ]
                     
@@ -1061,27 +1460,21 @@ class DQLAdapter:
                     )
                     overall_return_code = overall_return_code or 1
 
-                acc_file = result_csv.parent / "acc_result" / "acc.json"
-                if acc_file.exists():
+                if eval_acc_file.exists():
                     try:
-                        with open(acc_file, "r", encoding="utf-8") as f:
+                        with open(eval_acc_file, "r", encoding="utf-8") as f:
                             acc = json.load(f)
                             f1 = self._extract_macro_f1(acc)
                             if f1 is not None:
                                 macro_f1s.append(f1)
                     except Exception:
                         pass
+                self._prune_runtime_acc_if_duplicated(runtime_acc_dir, eval_query_dir)
 
                 self._mirror_query_csv(
                     dataset=spec.dataset,
                     eval_dir_name=eval_dir_name,
                     result_csv=result_csv,
-                )
-                self._mirror_eval_artifacts(
-                    dataset=spec.dataset,
-                    query_type=spec.query_type,
-                    eval_dir_name=eval_dir_name,
-                    acc_result_dir=result_csv.parent / "acc_result",
                 )
 
             if spec.mode == "run":
@@ -1186,3 +1579,4 @@ class DQLAdapter:
     def _split_sql_queries(self, text: str) -> list[str]:
         chunks = [q.strip() for q in text.split(";")]
         return [q for q in chunks if q]
+

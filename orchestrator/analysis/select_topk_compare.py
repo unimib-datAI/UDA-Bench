@@ -652,8 +652,60 @@ def _render_overall_block(topk: int, overall_rows: list[Global], tasks: list[str
 """
 
 
+def _render_all_queries_block(
+    dataset: str,
+    docetl_dataset: str,
+    evaporate_dataset: str,
+    dql_dataset: str,
+    topk: int,
+    tasks: list[str],
+    per_query: list[PerQuery],
+    global_rows: list[Global],
+) -> str:
+    task_set = {t.lower() for t in tasks}
+    model_order = ["docetl", "evaporate", "dql"]
+    overall_by_model = {g.model: g for g in _build_overall_rows(global_rows, tasks)}
+
+    def fmt(v: float | None) -> str:
+        return "n/a" if v is None else f"{v:.4f}"
+
+    rows_html: list[str] = []
+    for model in model_order:
+        model_rows = [r for r in per_query if r.model == model and r.task in task_set]
+        total_q = len(model_rows)
+        completed_q = sum(1 for r in model_rows if r.status == "ok")
+        completion = (completed_q / total_q) if total_q else 0.0
+        macro_vals = [float(r.macro_f1) for r in model_rows if isinstance(r.macro_f1, (int, float))]
+        macro_mean = mean(macro_vals) if macro_vals else None
+        pooled = overall_by_model.get(model).pooled_f1 if model in overall_by_model else None
+
+        rows_html.append(
+            "<tr>"
+            f"<td>{html.escape(model)}</td>"
+            f"<td>{completed_q}/{total_q}</td>"
+            f"<td>{completion*100:.1f}%</td>"
+            f"<td>{fmt(macro_mean)}</td>"
+            f"<td>{fmt(pooled)}</td>"
+            "</tr>"
+        )
+
+    return f"""
+  <div class="card">
+    <h2>All queries comparison (DocETL vs Evaporate vs DQL)</h2>
+    <table>
+      <thead><tr><th>Model</th><th>Completed queries</th><th>Completion</th><th>Macro F1 Mean</th><th>Pooled Global F1</th></tr></thead>
+      <tbody>{''.join(rows_html)}</tbody>
+    </table>
+    <p class="muted">Sources: DocETL={html.escape(docetl_dataset)}, Evaporate={html.escape(evaporate_dataset)}, DQL={html.escape(dql_dataset)}. Query definitions/evaluation schema: {html.escape(dataset)}. DQL artifacts are natively limited to first {topk} docs and are compared on the same all-query index.</p>
+  </div>
+"""
+
+
 def _render_html(
     dataset: str,
+    docetl_dataset: str,
+    evaporate_dataset: str,
+    dql_dataset: str,
     tasks: list[str],
     topk: int,
     per_query: list[PerQuery],
@@ -663,6 +715,16 @@ def _render_html(
 ) -> str:
     overall_rows = _build_overall_rows(global_rows, tasks)
     overall_block = _render_overall_block(topk, overall_rows, tasks) if overall_rows else ""
+    all_queries_block = _render_all_queries_block(
+        dataset,
+        docetl_dataset,
+        evaporate_dataset,
+        dql_dataset,
+        topk,
+        tasks,
+        per_query,
+        global_rows,
+    )
     task_blocks = "".join(_render_task_block(t, topk, per_query, global_rows, include_lotus) for t in tasks)
 
     lotus_note = (
@@ -693,9 +755,11 @@ th{{background:#f1f5f9}}
   <div class="card">
     <h1>Comparison on first {topk} documents</h1>
     <div class="muted">Dataset: {html.escape(dataset)} | Tasks: {html.escape(', '.join(t.upper() for t in tasks))} | Generated from local artifacts and re-evaluation on top-{topk} rows where CSV outputs exist.</div>
+    <div class="muted">Artifact sources: DocETL={html.escape(docetl_dataset)}, Evaporate={html.escape(evaporate_dataset)}, DQL={html.escape(dql_dataset)}</div>
     <div class="muted">Output file: {html.escape(str(out_path))}</div>
     {lotus_note}
   </div>
+  {all_queries_block}
   {overall_block}
   {task_blocks}
 </div>
@@ -706,6 +770,9 @@ th{{background:#f1f5f9}}
 def main() -> int:
     parser = argparse.ArgumentParser(description="Compare tasks on first-k docs across DocETL/Evaporate/DQL")
     parser.add_argument("--dataset", default="Finan")
+    parser.add_argument("--docetl-dataset", default=None, help="Artifact dataset for DocETL outputs (default: --dataset)")
+    parser.add_argument("--evaporate-dataset", default=None, help="Artifact dataset for Evaporate outputs (default: --dataset)")
+    parser.add_argument("--dql-dataset", default=None, help="Artifact dataset for DQL outputs (default: --dataset)")
     parser.add_argument("--tasks", default="select,agg,mixed", help="Comma-separated tasks, e.g. select,agg,mixed")
     parser.add_argument("--topk", type=int, default=6)
     parser.add_argument(
@@ -721,6 +788,9 @@ def main() -> int:
     args = parser.parse_args()
 
     root = _repo_root()
+    docetl_ds = args.docetl_dataset or args.dataset
+    evaporate_ds = args.evaporate_dataset or args.dataset
+    dql_ds = args.dql_dataset or args.dataset
     tasks = [t.strip().lower() for t in args.tasks.split(",") if t.strip()]
     if not tasks:
         raise SystemExit("No tasks provided")
@@ -736,16 +806,16 @@ def main() -> int:
         sql_stem = sql_path.stem
 
         def docetl_csv(i: int, _task=task, _stem=sql_stem) -> Path:
-            return root / "systems" / "DocETL" / "outputs" / args.dataset.lower() / "csv" / f"{_task}_{_stem}_{i}.csv"
+            return root / "systems" / "DocETL" / "outputs" / docetl_ds.lower() / "csv" / f"{_task}_{_stem}_{i}.csv"
 
         def evaporate_csv(i: int, _task=task, _stem=sql_stem) -> Path:
-            return root / "systems" / "Evaporate" / "outputs" / args.dataset.lower() / "csv" / f"{_task}_{_stem}_{i}.csv"
+            return root / "systems" / "Evaporate" / "outputs" / evaporate_ds.lower() / "csv" / f"{_task}_{_stem}_{i}.csv"
 
         def dql_csv(i: int, _task=task, _stem=sql_stem) -> Path:
-            flat = root / "systems" / "DQL" / "outputs" / args.dataset.lower() / "csv" / f"{_task}_{_stem}_{i}.csv"
+            flat = root / "systems" / "DQL" / "outputs" / dql_ds.lower() / "csv" / f"{_task}_{_stem}_{i}.csv"
             if flat.exists():
                 return flat
-            return _resolve_dql_task_query_dir(root, args.dataset, _task, i) / "results.csv"
+            return _resolve_dql_task_query_dir(root, dql_ds, _task, i) / "results.csv"
 
         rows, g = _evaluate_model_topk("docetl", args.dataset, task, queries, sql_stem, docetl_csv, args.topk)
         per_query.extend(rows)
@@ -768,6 +838,9 @@ def main() -> int:
     out.parent.mkdir(parents=True, exist_ok=True)
     report_html = _render_html(
         args.dataset,
+        docetl_ds,
+        evaporate_ds,
+        dql_ds,
         tasks,
         args.topk,
         per_query,

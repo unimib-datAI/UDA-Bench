@@ -40,6 +40,7 @@ def _safe_decode(data: bytes | None) -> str:
         return data.decode("utf-8", errors="replace")
 
 
+
 def _load_table_name_map(root: Path, dataset_name: str) -> dict[str, str]:
     query_dir = root / "Query" / dataset_name
     gt_tables = [p.stem for p in sorted(query_dir.glob("*.csv"))]
@@ -305,6 +306,7 @@ def run_evaluation(dataset_name: str, rebuild: bool = False, query_type: str = "
             details.append({"query_id": query_id, "status": "missing_csv"})
             continue
 
+
         output_dir = eval_root / query_id
         acc_path = output_dir / "acc.json"
         if not rebuild and acc_path.exists():
@@ -466,4 +468,5 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     run_evaluation(args.dataset, rebuild=args.rebuild, query_type=args.query_type)
+
 
