@@ -8,7 +8,14 @@ def build_yaml(
     yaml_output_dir: str,
     json_output_dir: str,
     strict_mode: bool = False,
+    allow_strict_mode: bool = False,
 ) -> tuple[str, str]:
+    if strict_mode and not allow_strict_mode:
+        raise ValueError(
+            "strict_mode is disabled in benchmark mode. "
+            "Use the explicit debug-quality-retry path to enable it."
+        )
+
     os.makedirs(yaml_output_dir, exist_ok=True)
     os.makedirs(json_output_dir, exist_ok=True)
 

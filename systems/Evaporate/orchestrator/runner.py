@@ -241,12 +241,10 @@ def _build_table_json_from_dataset_csv(dataset_dir: Path, target_path: Path) -> 
                 by_doc[doc_key][str(c)] = str(row.get(c, ""))
 
     if not has_any_id:
-        # Final fallback: use first CSV and row index as doc id.
-        df = pd.read_csv(csv_files[0], dtype=str, keep_default_na=False)
-        cols = list(df.columns)
-        for idx, row in df.iterrows():
-            doc_key = f"{idx + 1}.txt"
-            by_doc[doc_key] = {str(c): str(row.get(c, "")) for c in cols}
+        raise ValueError(
+            f"Impossibile costruire table.json da {dataset_dir}: "
+            "nessun CSV contiene una colonna id/doc_id esplicita."
+        )
 
     if not by_doc:
         raise ValueError(f"Impossibile costruire table.json da {dataset_dir}")

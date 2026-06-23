@@ -32,6 +32,38 @@ Modello di default orchestrator:
 
 - `gemini/gemini-2.5-flash` (override con `DOCETL_DEFAULT_MODEL`)
 
+Per Azure OpenAI/LiteLLM:
+
+```env
+AZURE_API_KEY=...
+AZURE_API_BASE=https://<resource>.cognitiveservices.azure.com/
+AZURE_API_VERSION=2024-12-01-preview
+DOCETL_DEFAULT_MODEL=azure/<deployment-name>
+```
+
+## Tracciamento token e costo
+
+Durante l'esecuzione l'orchestrator salva metriche di usage in:
+
+```text
+systems/DocETL/outputs/<dataset>/usage/<query_id>.json
+systems/DocETL/outputs/<dataset>/usage/summary.json
+systems/DocETL/outputs/<dataset>/logs/docetl/<query_id>.stdout.log
+systems/DocETL/outputs/<dataset>/logs/docetl/<query_id>.stderr.log
+```
+
+Il tracciamento e' solo osservazionale: non modifica prompt, YAML, retry o valutazione.
+
+DocETL stampa anche un costo nel log CLI, ma puo' essere arrotondato. Per stimare il costo
+economico dai token, imposta opzionalmente le tariffe nel file `.env`:
+
+```env
+DOCETL_COST_INPUT_USD_PER_1M=...
+DOCETL_COST_OUTPUT_USD_PER_1M=...
+```
+
+Usa i valori del provider/portale Azure per il deployment effettivamente usato.
+
 ## Struttura attuale
 
 ```text

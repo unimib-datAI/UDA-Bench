@@ -76,9 +76,10 @@ python orchestrator/main.py --list
 
 ## Naming delle run
 
-- Se non passi `--run-id`, il nome viene generato automaticamente in modo descrittivo:
-  `<models>_<datasets>_<query_types>_YYYYMMDD_HHMMSS` (UTC)
-  - esempio: `docetl_finan_select_20260422_184501`
+- Se non passi `--run-id`, il nome viene generato automaticamente con modello e numero progressivo:
+  `<model>_<n>`
+  - esempio: `dql_1`, `dql_2`, `docetl_1`
+  - per run multi-modello: `docetl_dql_1`
 - Se passi `--run-id`, usi un nome personalizzato (es. `test_all_eval_sf`)
 
 Esempi:
@@ -173,8 +174,10 @@ Gli output nativi dei sistemi restano nelle rispettive cartelle (`systems/DocETL
 
 Per DQL, il meta-orchestrator esegue la stessa `evaluation.run_eval` usata dagli altri modelli.
 
-- Se `systems/DQL/.../results.json` contiene righe tabellari (`rows/data/results/items/records`), l'adapter genera `results.csv` da quelle righe.
-- Se l'output DQL è narrativo/non tabellare, l'adapter genera comunque un `results.csv` compatibile con l'evaluator (colonne richieste + `id`) per mantenere il flusso `run+eval` unificato da un unico entrypoint.
+- Se `systems/DQL/.../results.json` contiene il nuovo formato tabellare (`tables[].columns` + `tables[].rows`), l'adapter genera `results.csv` in modo deterministico.
+- Per query row-level, l'adapter usa `id` o riferimenti normalizzabili come `source_ref`, `source_name`, `file_name` per allineare le righe al ground truth UDA.
+- Se l'output DQL è narrativo/non tabellare, l'adapter usa l'estrazione LLM come fallback e genera comunque un `results.csv` compatibile con l'evaluator (colonne richieste + `id`) per mantenere il flusso `run+eval` unificato da un unico entrypoint.
+- Se DQL chiede chiarimenti (`details.sql.mode = needs_clarification`) o il JSON è vuoto/malformato, l'adapter crea un CSV template vuoto per non interrompere la run.
 - Dopo l'evaluation, l'adapter replica gli artifact query-level (`acc.json`, `gold_result.csv`, `matched_*.csv`) in cartelle `evaluation/<query_name>` con naming allineato a DocETL/Evaporate.
 - Per allineamento struttura con DocETL/Evaporate, DQL espone query CSV/evaluation nella struttura flat:
   - `systems/DQL/outputs/<dataset>/csv/<query_name>.csv`

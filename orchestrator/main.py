@@ -125,9 +125,21 @@ def _slug_token(values: list[str], max_items: int = 3, max_len: int = 48) -> str
     return out[:max_len].rstrip("-")
 
 
-def _make_run_id(models: list[str], datasets: list[str], query_types: list[str]) -> str:
-    stamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
-    return f"{_slug_token(models)}_{_slug_token(datasets)}_{_slug_token(query_types)}_{stamp}"
+def _make_run_id(models: list[str]) -> str:
+    prefix = _slug_token(models, max_items=3, max_len=48).replace("-", "_")
+    runs_dir = _repo_root() / "orchestrator" / "runs"
+    pattern = re.compile(rf"^{re.escape(prefix)}_(\d+)$")
+
+    max_idx = 0
+    if runs_dir.exists():
+        for run_dir in runs_dir.iterdir():
+            if not run_dir.is_dir():
+                continue
+            match = pattern.match(run_dir.name)
+            if match:
+                max_idx = max(max_idx, int(match.group(1)))
+
+    return f"{prefix}_{max_idx + 1}"
 
 
 def _split_sql_queries(text: str) -> list[str]:
@@ -418,7 +430,7 @@ def main() -> int:
         args.rebuild_extract = False
         args.rebuild_table = False
 
-    run_id = args.run_id or _make_run_id(models, datasets, query_types)
+    run_id = args.run_id or _make_run_id(models)
     run_dir = _repo_root() / "orchestrator" / "runs" / run_id
     run_paths = _prepare_run_dirs(run_dir)
     

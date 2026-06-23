@@ -1,9 +1,12 @@
 ﻿import argparse
+from datetime import datetime, timezone
 import json
+import os
 import re
 import time
 from pathlib import Path
 
+from dotenv import load_dotenv
 from sqlglot import parse_one, exp
 
 from dataset_loader import load_dataset_config
@@ -11,10 +14,12 @@ from query_loader import load_all_sql_queries
 from sql_parser import parse_sql
 from planner import build_plan
 from yaml_builder import build_yaml
-from runner import run_docetl
+from runner import DocETLRunResult, run_docetl
 from exporter import json_to_csv, json_to_query_csv
 from evaluate_all import run_evaluation
 from utils import repo_root, dataset_real_name
+
+load_dotenv(repo_root() / ".env", override=False)
 
 
 def _required_sql_columns(sql: str) -> set[str]:
@@ -42,12 +47,11 @@ def _is_transient_docetl_content_filter_error(exc: Exception) -> bool:
     return any(p in msg for p in patterns)
 
 
-def _run_docetl_with_retries(yaml_path: Path, max_attempts: int = 3) -> None:
+def _run_docetl_with_retries(yaml_path: Path, max_attempts: int = 3) -> DocETLRunResult:
     last_exc: Exception | None = None
     for attempt in range(1, max_attempts + 1):
         try:
-            run_docetl(str(yaml_path))
-            return
+            return run_docetl(str(yaml_path))
         except Exception as exc:
             last_exc = exc
             if not _is_transient_docetl_content_filter_error(exc):
@@ -62,6 +66,7 @@ def _run_docetl_with_retries(yaml_path: Path, max_attempts: int = 3) -> None:
             time.sleep(wait_s)
     if last_exc is not None:
         raise last_exc
+    raise RuntimeError(f"DocETL failed for {yaml_path}")
 
 
 def _json_columns(json_path: Path) -> set[str]:
@@ -189,7 +194,205 @@ def _augment_plan_with_missing_fields(plan: dict, config: dict, missing: set[str
     return changed
 
 
-def run_dataset(dataset_name: str, rebuild: bool = False):
+def _write_quality_diagnostics(
+    diagnostics_root: Path,
+    query_id: str,
+    *,
+    benchmark_mode: bool,
+    required_cols: set[str],
+    initial_produced_cols: set[str],
+    initial_missing_cols: set[str],
+    initial_low_quality: set[str],
+    initial_row_count: int,
+    final_produced_cols: set[str],
+    final_low_quality: set[str],
+    final_row_count: int,
+    missing_retry_applied: bool,
+    quality_retry_applied: bool,
+) -> None:
+    diagnostics_root.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "query_id": query_id,
+        "benchmark_mode": benchmark_mode,
+        "required_columns": sorted(required_cols),
+        "initial": {
+            "produced_columns": sorted(initial_produced_cols),
+            "missing_columns": sorted(initial_missing_cols),
+            "low_quality_fields": sorted(initial_low_quality),
+            "row_count": initial_row_count,
+        },
+        "final": {
+            "produced_columns": sorted(final_produced_cols),
+            "low_quality_fields": sorted(final_low_quality),
+            "row_count": final_row_count,
+        },
+        "retry_policy": {
+            "missing_field_retry_applied": missing_retry_applied,
+            "quality_retry_applied": quality_retry_applied,
+            "strict_mode_applied": missing_retry_applied or quality_retry_applied,
+        },
+    }
+    path = diagnostics_root / f"{query_id}.json"
+    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def _env_float(*names: str) -> float | None:
+    for name in names:
+        raw = os.environ.get(name)
+        if raw is None or str(raw).strip() == "":
+            continue
+        try:
+            return float(str(raw).strip())
+        except ValueError:
+            print(f"  WARN -> variabile costo non valida ignorata: {name}={raw!r}")
+    return None
+
+
+def _pricing_config() -> dict:
+    input_rate = _env_float("DOCETL_COST_INPUT_USD_PER_1M", "DOCETL_PRICE_INPUT_USD_PER_1M")
+    output_rate = _env_float("DOCETL_COST_OUTPUT_USD_PER_1M", "DOCETL_PRICE_OUTPUT_USD_PER_1M")
+    return {
+        "input_usd_per_1m_tokens": input_rate,
+        "output_usd_per_1m_tokens": output_rate,
+        "source": "env" if input_rate is not None and output_rate is not None else None,
+    }
+
+
+def _token_totals(token_usage: dict[str, dict[str, int]]) -> dict[str, int]:
+    prompt = sum(int(v.get("prompt_tokens", 0)) for v in token_usage.values())
+    completion = sum(int(v.get("completion_tokens", 0)) for v in token_usage.values())
+    cached = sum(int(v.get("cached_tokens", 0)) for v in token_usage.values())
+    return {
+        "prompt_tokens": prompt,
+        "completion_tokens": completion,
+        "cached_tokens": cached,
+        "total_tokens": prompt + completion,
+    }
+
+
+def _estimate_cost_usd(token_totals: dict[str, int], pricing: dict) -> float | None:
+    input_rate = pricing.get("input_usd_per_1m_tokens")
+    output_rate = pricing.get("output_usd_per_1m_tokens")
+    if input_rate is None or output_rate is None:
+        return None
+    return (
+        token_totals["prompt_tokens"] * float(input_rate)
+        + token_totals["completion_tokens"] * float(output_rate)
+    ) / 1_000_000
+
+
+def _write_docetl_usage_record(
+    usage_root: Path,
+    logs_root: Path,
+    *,
+    dataset_name: str,
+    query_id: str,
+    yaml_path: Path,
+    json_path: Path,
+    run_result: DocETLRunResult,
+) -> dict:
+    usage_root.mkdir(parents=True, exist_ok=True)
+    logs_root.mkdir(parents=True, exist_ok=True)
+
+    stdout_path = logs_root / f"{query_id}.stdout.log"
+    stderr_path = logs_root / f"{query_id}.stderr.log"
+    stdout_path.write_text(run_result.stdout, encoding="utf-8")
+    stderr_path.write_text(run_result.stderr, encoding="utf-8")
+
+    pricing = _pricing_config()
+    totals = _token_totals(run_result.token_usage)
+    estimated_cost = _estimate_cost_usd(totals, pricing)
+    payload = {
+        "dataset": dataset_name,
+        "query_id": query_id,
+        "timestamp_utc": datetime.now(timezone.utc).isoformat(),
+        "yaml_path": str(yaml_path),
+        "json_path": str(json_path),
+        "command": run_result.command,
+        "returncode": run_result.returncode,
+        "model_config": os.environ.get("DOCETL_DEFAULT_MODEL", "gemini/gemini-2.5-flash"),
+        "token_usage_by_model": run_result.token_usage,
+        "token_totals": totals,
+        "docetl_reported_cost_usd": run_result.docetl_reported_cost_usd,
+        "estimated_cost_usd": estimated_cost,
+        "pricing": pricing,
+        "logs": {
+            "stdout": str(stdout_path),
+            "stderr": str(stderr_path),
+        },
+        "notes": [
+            "docetl_reported_cost_usd is parsed from DocETL CLI output and may be rounded.",
+            "estimated_cost_usd is computed only when DOCETL_COST_INPUT_USD_PER_1M and DOCETL_COST_OUTPUT_USD_PER_1M are set.",
+            "Usage tracking is observational only and does not change prompts, YAML, retries, or evaluation.",
+        ],
+    }
+    (usage_root / f"{query_id}.json").write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+    return payload
+
+
+def _write_docetl_usage_summary(
+    usage_root: Path,
+    *,
+    dataset_name: str,
+    records: list[dict],
+    total_queries: int,
+    ok: int,
+    skipped: int,
+    failed: int,
+) -> None:
+    usage_root.mkdir(parents=True, exist_ok=True)
+
+    by_model: dict[str, dict[str, int]] = {}
+    for record in records:
+        for model, usage in record.get("token_usage_by_model", {}).items():
+            bucket = by_model.setdefault(
+                model,
+                {"prompt_tokens": 0, "completion_tokens": 0, "cached_tokens": 0},
+            )
+            bucket["prompt_tokens"] += int(usage.get("prompt_tokens", 0))
+            bucket["completion_tokens"] += int(usage.get("completion_tokens", 0))
+            bucket["cached_tokens"] += int(usage.get("cached_tokens", 0))
+
+    totals = _token_totals(by_model)
+    estimated_costs = [
+        float(record["estimated_cost_usd"])
+        for record in records
+        if record.get("estimated_cost_usd") is not None
+    ]
+    reported_costs = [
+        float(record["docetl_reported_cost_usd"])
+        for record in records
+        if record.get("docetl_reported_cost_usd") is not None
+    ]
+    summary = {
+        "dataset": dataset_name,
+        "timestamp_utc": datetime.now(timezone.utc).isoformat(),
+        "total_queries": total_queries,
+        "executed_queries": len(records),
+        "ok": ok,
+        "skipped": skipped,
+        "failed": failed,
+        "token_usage_by_model": by_model,
+        "token_totals": totals,
+        "docetl_reported_cost_usd_sum": sum(reported_costs) if reported_costs else None,
+        "estimated_cost_usd_sum": sum(estimated_costs) if estimated_costs else None,
+        "pricing": _pricing_config(),
+        "record_files": [str(usage_root / f"{record['query_id']}.json") for record in records],
+        "notes": [
+            "This summary covers queries executed in this run; skipped queries add no incremental cost.",
+            "For precise economic estimates, configure the per-1M token rates in .env.",
+        ],
+    }
+    (usage_root / "summary.json").write_text(
+        json.dumps(summary, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+
+
+def run_dataset(dataset_name: str, rebuild: bool = False, benchmark_mode: bool = True):
     root = repo_root()
 
     config = load_dataset_config(dataset_name)
@@ -205,15 +408,27 @@ def run_dataset(dataset_name: str, rebuild: bool = False):
     yaml_root = out_root / "yaml"
     json_root = out_root / "json"
     csv_root = out_root / "csv"
+    diagnostics_root = out_root / "diagnostics"
+    usage_root = out_root / "usage"
+    logs_root = out_root / "logs" / "docetl"
 
     yaml_root.mkdir(parents=True, exist_ok=True)
     json_root.mkdir(parents=True, exist_ok=True)
     csv_root.mkdir(parents=True, exist_ok=True)
+    diagnostics_root.mkdir(parents=True, exist_ok=True)
+    usage_root.mkdir(parents=True, exist_ok=True)
+    logs_root.mkdir(parents=True, exist_ok=True)
+
+    if benchmark_mode:
+        print("DocETL benchmark mode: single pass, no strict retry, diagnostics only.")
+    else:
+        print("DocETL debug mode: quality retries and strict mode are enabled.")
 
     total = len(queries)
     ok = 0
     failed = 0
     skipped = 0
+    usage_records: list[dict] = []
 
     for idx, query_meta in enumerate(queries, start=1):
         print(f"[{idx}/{total}] {query_meta['id']}")
@@ -242,43 +457,87 @@ def run_dataset(dataset_name: str, rebuild: bool = False):
             yaml_path = Path(yaml_path_str)
             json_path = Path(json_path_str)
 
-            _run_docetl_with_retries(yaml_path)
+            if benchmark_mode:
+                run_result = run_docetl(str(yaml_path))
+            else:
+                run_result = _run_docetl_with_retries(yaml_path)
 
-            # Retry once with targeted missing fields required by SQL.
+            # In benchmark mode, quality checks are diagnostic only. They must
+            # not alter the plan, prompt, YAML, or number of LLM attempts.
             required_cols = _required_sql_columns(query_meta["sql"])
-            produced_cols = _json_columns(json_path)
-            missing_cols = required_cols - produced_cols
-            did_retry = False
-            if missing_cols and _augment_plan_with_missing_fields(plan, config, missing_cols):
-                print(f"  INFO -> retry estrazione campi mancanti: {sorted(missing_cols)}")
-                yaml_path_str, json_path_str = build_yaml(
-                    config=config,
-                    plan=plan,
-                    yaml_output_dir=str(yaml_root),
-                    json_output_dir=str(json_root),
-                    strict_mode=True,
-                )
-                yaml_path = Path(yaml_path_str)
-                json_path = Path(json_path_str)
-                _run_docetl_with_retries(yaml_path)
-                did_retry = True
+            initial_produced_cols = _json_columns(json_path)
+            initial_missing_cols = required_cols - initial_produced_cols
+            initial_rows = _load_json_rows(json_path)
+            initial_low_quality = _low_quality_fields(initial_rows, required_cols, field_types)
 
-            # Retry once in strict mode if required fields are mostly missing/invalid.
-            rows = _load_json_rows(json_path)
-            low_quality = _low_quality_fields(rows, required_cols, field_types)
-            if low_quality and not did_retry:
-                _augment_plan_with_missing_fields(plan, config, low_quality)
-                print(f"  INFO -> retry qualitÃ  bassa campi: {sorted(low_quality)}")
+            missing_retry_applied = False
+            quality_retry_applied = False
+
+            if benchmark_mode:
+                if initial_missing_cols:
+                    print(f"  WARN -> colonne mancanti (diagnostica): {sorted(initial_missing_cols)}")
+                if initial_low_quality:
+                    print(f"  WARN -> campi qualita bassa (diagnostica): {sorted(initial_low_quality)}")
+            elif initial_missing_cols and _augment_plan_with_missing_fields(plan, config, initial_missing_cols):
+                print(f"  INFO -> retry estrazione campi mancanti: {sorted(initial_missing_cols)}")
                 yaml_path_str, json_path_str = build_yaml(
                     config=config,
                     plan=plan,
                     yaml_output_dir=str(yaml_root),
                     json_output_dir=str(json_root),
                     strict_mode=True,
+                    allow_strict_mode=True,
                 )
                 yaml_path = Path(yaml_path_str)
                 json_path = Path(json_path_str)
-                _run_docetl_with_retries(yaml_path)
+                run_result = _run_docetl_with_retries(yaml_path)
+                missing_retry_applied = True
+
+            if not benchmark_mode and initial_low_quality and not missing_retry_applied:
+                _augment_plan_with_missing_fields(plan, config, initial_low_quality)
+                print(f"  INFO -> retry qualita bassa campi: {sorted(initial_low_quality)}")
+                yaml_path_str, json_path_str = build_yaml(
+                    config=config,
+                    plan=plan,
+                    yaml_output_dir=str(yaml_root),
+                    json_output_dir=str(json_root),
+                    strict_mode=True,
+                    allow_strict_mode=True,
+                )
+                yaml_path = Path(yaml_path_str)
+                json_path = Path(json_path_str)
+                run_result = _run_docetl_with_retries(yaml_path)
+                quality_retry_applied = True
+
+            final_produced_cols = _json_columns(json_path)
+            final_rows = _load_json_rows(json_path)
+            final_low_quality = _low_quality_fields(final_rows, required_cols, field_types)
+            _write_quality_diagnostics(
+                diagnostics_root,
+                query_id,
+                benchmark_mode=benchmark_mode,
+                required_cols=required_cols,
+                initial_produced_cols=initial_produced_cols,
+                initial_missing_cols=initial_missing_cols,
+                initial_low_quality=initial_low_quality,
+                initial_row_count=len(initial_rows),
+                final_produced_cols=final_produced_cols,
+                final_low_quality=final_low_quality,
+                final_row_count=len(final_rows),
+                missing_retry_applied=missing_retry_applied,
+                quality_retry_applied=quality_retry_applied,
+            )
+            usage_records.append(
+                _write_docetl_usage_record(
+                    usage_root,
+                    logs_root,
+                    dataset_name=dataset_name,
+                    query_id=query_id,
+                    yaml_path=yaml_path,
+                    json_path=json_path,
+                    run_result=run_result,
+                )
+            )
 
             try:
                 json_to_query_csv(
@@ -301,12 +560,23 @@ def run_dataset(dataset_name: str, rebuild: bool = False):
             failed += 1
             print(f"  ERROR -> {e}")
 
+    _write_docetl_usage_summary(
+        usage_root,
+        dataset_name=dataset_name,
+        records=usage_records,
+        total_queries=total,
+        ok=ok,
+        skipped=skipped,
+        failed=failed,
+    )
+
     print("\n=== RIEPILOGO ===")
     print(f"Dataset: {dataset_name}")
     print(f"Totali : {total}")
     print(f"OK     : {ok}")
     print(f"Skip   : {skipped}")
     print(f"Errori : {failed}")
+    print(f"Usage  : {usage_root / 'summary.json'}")
 
 
 if __name__ == "__main__":
@@ -338,11 +608,23 @@ if __name__ == "__main__":
         choices=["all", "agg", "filter", "select", "mixed", "join"],
         help="Categoria query da valutare (all, agg, filter, select, mixed, join)",
     )
+    parser.add_argument(
+        "--debug-quality-retry",
+        action="store_true",
+        help=(
+            "Abilita retry su colonne mancanti/campi di bassa qualita e strict_mode. "
+            "Non usare per i risultati benchmark principali."
+        ),
+    )
     args = parser.parse_args()
 
     # In eval-only mode we intentionally skip any pipeline execution.
     if not args.eval_only:
-        run_dataset(args.dataset, rebuild=args.rebuild)
+        run_dataset(
+            args.dataset,
+            rebuild=args.rebuild,
+            benchmark_mode=not args.debug_quality_retry,
+        )
     # Evaluation can be triggered either standalone (--eval-only) or after pipeline (--eval).
     if args.eval or args.eval_only:
         run_evaluation(args.dataset, rebuild=args.rebuild_eval, query_type=args.query_type)

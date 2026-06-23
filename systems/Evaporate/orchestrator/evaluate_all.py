@@ -259,7 +259,9 @@ def _prepare_result_csv_for_eval(
             if source_col is not None:
                 df.insert(0, "id", _extract_id_series(df[source_col]))
             else:
-                df.insert(0, "id", pd.Series(range(1, len(df) + 1), index=df.index).astype(str))
+                # Keep the evaluator key column present without inventing a
+                # document alignment from row order.
+                df.insert(0, "id", "")
         else:
             id_col = lower_to_col["id"]
             df[id_col] = _extract_id_series(df[id_col])
@@ -273,10 +275,6 @@ def _prepare_result_csv_for_eval(
                 if source_col is not None:
                     recovered = _extract_id_series(df[source_col])
                     df.loc[missing_mask, id_col] = recovered.loc[missing_mask]
-                still_missing = df[id_col].astype(str).str.strip().eq("")
-                if still_missing.any():
-                    fallback = pd.Series(range(1, len(df) + 1), index=df.index).astype(str)
-                    df.loc[still_missing, id_col] = fallback.loc[still_missing]
 
     temp_root.mkdir(parents=True, exist_ok=True)
     safe_csv_path = temp_root / f"{query_id}.csv"

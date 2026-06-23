@@ -67,6 +67,7 @@ class DQLAdapter:
 
     def __init__(self) -> None:
         self._last_llm_diag: dict[str, object] | None = None
+        self._doc_index_cache: dict[str, list[dict[str, str]]] = {}
 
     def _has_usable_csv(self, path: Path) -> bool:
         if not path.exists() or path.stat().st_size == 0:
@@ -111,9 +112,9 @@ class DQLAdapter:
 
     def _allow_template_csv(self) -> bool:
         """
-        When True, non-tabular DQL JSON is converted to a template CSV
-        (id + requested columns, empty values).
-        Default is True so results.csv is always materialized.
+        When True, non-tabular DQL JSON is converted to a schema-only CSV.
+        Default is True so failed conversions are evaluated as empty predictions
+        instead of being skipped, without fabricating document id alignments.
         """
         raw = os.environ.get("DQL_ALLOW_TEMPLATE_CSV")
         if raw is None or not str(raw).strip():
@@ -375,6 +376,17 @@ class DQLAdapter:
             return True
         return bool(self._group_by_columns(sql))
 
+    def _row_level_value_columns(self, cols: list[str]) -> list[str]:
+        value_cols: list[str] = []
+        seen = {"id"}
+        for col in cols:
+            norm = self._norm_key(col)
+            if not norm or norm in seen:
+                continue
+            seen.add(norm)
+            value_cols.append(col)
+        return value_cols
+
     def _extract_from_table(self, sql: str) -> str | None:
         m = re.search(r"(?is)\bfrom\b\s+([a-zA-Z0-9_\.\"`\[\]]+)", sql or "")
         if not m:
@@ -465,6 +477,66 @@ class DQLAdapter:
         ids = [p.stem.strip() for p in txt_dir.glob("*.txt") if p.stem.strip()]
         return self._sort_ids(ids)
 
+    def _dataset_doc_texts(self, dataset: str) -> dict[str, str]:
+        txt_dir = self._resolve_dataset_txt_dir(dataset)
+        if not txt_dir:
+            return {}
+        texts: dict[str, str] = {}
+        for path in sorted(txt_dir.glob("*.txt"), key=lambda p: p.name.lower()):
+            try:
+                texts[path.stem.strip()] = path.read_text(encoding="utf-8", errors="replace")
+            except Exception:
+                continue
+        return texts
+
+    def _dataset_doc_index(self, dataset: str) -> list[dict[str, str]]:
+        key = dataset.lower()
+        if key not in self._doc_index_cache:
+            self._doc_index_cache[key] = [
+                {
+                    "id": doc_id,
+                    "norm_text": self._norm_key(text),
+                    "digits_text": re.sub(r"\D+", "", text or ""),
+                }
+                for doc_id, text in self._dataset_doc_texts(dataset).items()
+            ]
+        return self._doc_index_cache[key]
+
+    def _load_selected_attributes(self, dataset: str, cols: list[str]) -> dict[str, dict[str, object]]:
+        root = _repo_root()
+        candidates = [
+            root / "Query" / dataset / f"{dataset}_attributes.json",
+            root / "Query" / dataset.capitalize() / f"{dataset.capitalize()}_attributes.json",
+            root / "Query" / dataset.lower() / f"{dataset.lower()}_attributes.json",
+        ]
+        attr_path = next((p for p in candidates if p.exists()), None)
+        if not attr_path:
+            return {}
+        try:
+            payload = json.loads(attr_path.read_text(encoding="utf-8"))
+        except Exception:
+            return {}
+        if not isinstance(payload, dict):
+            return {}
+
+        all_attrs: dict[str, object] = {}
+        for table_attrs in payload.values():
+            if isinstance(table_attrs, dict):
+                all_attrs.update(table_attrs)
+        by_norm = {self._norm_key(k): v for k, v in all_attrs.items() if isinstance(v, dict)}
+
+        selected: dict[str, dict[str, object]] = {}
+        for col in cols:
+            meta = by_norm.get(self._norm_key(col))
+            if not isinstance(meta, dict):
+                continue
+            selected[col] = {
+                "value_type": meta.get("value_type", ""),
+                "description": meta.get("description", ""),
+                "is_fixed": bool(meta.get("is_fixed", False)),
+            }
+        return selected
+
     def _project_select_row(self, row: dict, items: list[dict]) -> dict[str, str]:
         projected: dict[str, str] = {}
         for item in items:
@@ -479,16 +551,89 @@ class DQLAdapter:
             projected[out] = str(val or "")
         return projected
 
-    def _extract_row_id(self, row: dict) -> str:
-        candidates = ("id", "doc_id", "document_id", "file_id", "row_id")
+    def _normalize_row_id_value(self, value: object, valid_ids: set[str] | None = None) -> str:
+        if value is None:
+            return ""
+        text = str(value).strip()
+        if not text:
+            return ""
+
+        normalized_path = text.replace("\\", "/")
+        basename = normalized_path.rsplit("/", 1)[-1].strip()
+        stem = basename.rsplit(".", 1)[0].strip() if "." in basename else basename
+
+        candidates: list[str] = []
+        for cand in (text, basename, stem):
+            cand = str(cand or "").strip().strip('"').strip("'")
+            if cand:
+                candidates.append(cand)
+
+        # Common corpus references: finance_001.txt, D1, doc 001, source: 001.
+        for cand in list(candidates):
+            candidates.extend(self._extract_doc_refs(cand))
+            for m in re.finditer(r"(?<!\d)(\d{1,6})(?!\d)", cand):
+                candidates.append(m.group(1))
+            m_suffix = re.search(r"(?i)(?:^|[_\-\s])(?:finance|doc|document|source)[_\-\s]*(\d{1,6})$", cand)
+            if m_suffix:
+                candidates.append(m_suffix.group(1))
+
+        dedup = [c for c in dict.fromkeys(candidates) if str(c or "").strip()]
+        if valid_ids:
+            for cand in dedup:
+                if cand in valid_ids:
+                    return cand
+
+            by_norm = {self._norm_key(v): v for v in valid_ids}
+            for cand in dedup:
+                match = by_norm.get(self._norm_key(cand))
+                if match:
+                    return match
+
+            numeric_matches: dict[int, str] = {}
+            for vid in valid_ids:
+                if re.fullmatch(r"\d+", str(vid)):
+                    numeric_matches.setdefault(int(str(vid)), str(vid))
+            for cand in dedup:
+                if re.fullmatch(r"\d+", str(cand)):
+                    match = numeric_matches.get(int(str(cand)))
+                    if match:
+                        return match
+
+        # Without a dataset id index, prefer the file stem because UDA ids are
+        # commonly derived from document names.
+        return stem or basename or text
+
+    def _extract_row_id(self, row: dict, valid_ids: set[str] | None = None) -> str:
+        candidates = (
+            "id",
+            "doc_id",
+            "document_id",
+            "file_id",
+            "row_id",
+            "source_ref",
+            "source_id",
+            "source_name",
+            "file_name",
+            "filename",
+        )
         for key in candidates:
             val = self._resolve_row_key(row, key)
             if val:
-                return str(val).strip()
+                return self._normalize_row_id_value(val, valid_ids=valid_ids)
         for k, v in row.items():
             key_norm = re.sub(r"[^a-z0-9]+", "", str(k).strip().lower())
-            if key_norm in {"id", "docid", "documentid", "fileid", "rowid"}:
-                return str(v or "").strip()
+            if key_norm in {
+                "id",
+                "docid",
+                "documentid",
+                "fileid",
+                "rowid",
+                "sourceref",
+                "sourceid",
+                "sourcename",
+                "filename",
+            }:
+                return self._normalize_row_id_value(v, valid_ids=valid_ids)
         return ""
 
     def _align_sql_from_table(self, dataset: str, sql: str) -> str:
@@ -534,26 +679,19 @@ class DQLAdapter:
         result_csv: Path,
     ) -> bool:
         """
-        Build evaluator-compatible CSV with required columns + id keys.
-        Values are left empty when DQL response is non-tabular narrative text.
+        Build a schema-only CSV. This keeps the artifact readable without
+        fabricating document rows or id alignments not present in DQL output.
         """
         items = self._split_select_items(sql)
         cols = [str(i.get("output")) for i in items if i.get("output")]
-        id_values = self._dataset_doc_ids(dataset)
-        if not id_values:
-            # Dataset ids unavailable: still emit a valid header-only CSV.
-            id_values = []
+        if not cols:
+            return False
 
-        fieldnames = ["id"] + cols
+        fieldnames = cols if self._is_agg_query(sql) else ["id"] + self._row_level_value_columns(cols)
         result_csv.parent.mkdir(parents=True, exist_ok=True)
         with result_csv.open("w", newline="", encoding="utf-8") as f:
             writer = csv.DictWriter(f, fieldnames=fieldnames)
             writer.writeheader()
-            for rid in id_values:
-                row = {"id": rid}
-                for c in cols:
-                    row[c] = ""
-                writer.writerow(row)
         return True
 
     def _extract_narrative_text(self, payload: object) -> str:
@@ -822,6 +960,16 @@ class DQLAdapter:
             return True
         return False
 
+    def _value_in_normalized_text(self, value: str, norm_text: str, digits_text: str) -> bool:
+        v = str(value or "").strip()
+        if not v:
+            return False
+        nv = self._norm_key(v)
+        if len(nv) >= 2 and nv in norm_text:
+            return True
+        vd = re.sub(r"\D+", "", v)
+        return len(vd) >= 3 and vd in digits_text
+
     def _extract_doc_refs(self, text: str) -> list[str]:
         s = str(text or "")
         out: list[str] = []
@@ -845,13 +993,21 @@ class DQLAdapter:
             "documentid",
             "doc",
             "document",
+            "source",
             "sourceid",
+            "sourceref",
+            "sourcerefs",
+            "sourcename",
             "docref",
             "docrefs",
             "documentref",
             "documentrefs",
             "docids",
             "documentids",
+            "fileid",
+            "filename",
+            "filenames",
+            "filepath",
         }
         for key, val in row.items():
             if self._norm_key(key) not in id_key_norms:
@@ -865,18 +1021,18 @@ class DQLAdapter:
                     sitem = str(item).strip()
                     if not sitem:
                         continue
-                    if re.fullmatch(r"\d+", sitem):
-                        raw_candidates.append(sitem)
-                    else:
-                        raw_candidates.extend(self._extract_doc_refs(sitem))
+                    norm_id = self._normalize_row_id_value(sitem, valid_ids=valid_ids)
+                    if norm_id:
+                        raw_candidates.append(norm_id)
+                    raw_candidates.extend(self._extract_doc_refs(sitem))
                 continue
             sval = str(val).strip()
             if not sval:
                 continue
-            if re.fullmatch(r"\d+", sval):
-                raw_candidates.append(sval)
-            else:
-                raw_candidates.extend(self._extract_doc_refs(sval))
+            norm_id = self._normalize_row_id_value(sval, valid_ids=valid_ids)
+            if norm_id:
+                raw_candidates.append(norm_id)
+            raw_candidates.extend(self._extract_doc_refs(sval))
 
         # Fallback: scan whole row textual payload (including evidence/source notes).
         if not raw_candidates:
@@ -898,6 +1054,10 @@ class DQLAdapter:
             "llm_no_rows_payload": 0,
             "llm_rows_candidate": 0,
             "llm_rows_kept": 0,
+            "llm_rows_unlocalized": 0,
+            "llm_rows_linked": 0,
+            "llm_rows_ambiguous": 0,
+            "llm_rows_unlinked": 0,
             "llm_rows_scartate_per_id": 0,
             "llm_rows_too_many_ids": 0,
             "llm_rows_scartate_per_value": 0,
@@ -917,10 +1077,19 @@ class DQLAdapter:
             diag["llm_no_rows_payload"] = 1
             return [], diag
 
+        attr_schema = self._load_selected_attributes(dataset, cols)
+        attr_hint = ""
+        if attr_schema:
+            attr_hint = (
+                "Schema descrittivo delle colonne richieste. Usalo solo per capire il significato dei campi; "
+                "non usarlo per inventare, completare o correggere valori assenti dal testo:\n"
+                f"{json.dumps(attr_schema, ensure_ascii=False)}\n\n"
+            )
+
         is_agg = self._is_agg_query(sql)
         requires_id = not is_agg
         schema_hint_strict = (
-            '{"rows":[{"id":"<doc_id>","<col1>":"<value>","<col2>":"<value>","evidence":"<exact quote from text>"}]}'
+            '{"rows":[{"id":"<explicit_doc_id_or_empty>","<col1>":"<value>","<col2>":"<value>","evidence":"<exact quote from text>"}]}'
             if requires_id
             else '{"rows":[{"<col1>":"<value>","<col2>":"<value>","evidence":"<exact quote from text>"}]}'
         )
@@ -948,19 +1117,20 @@ class DQLAdapter:
             if requires_id:
                 if relaxed:
                     base += (
-                        "11) Query non aggregata: per ogni riga prova a fornire 'id' numerico.\n"
-                        "12) Se l'id non e' certo, lascia id vuoto ma compila 'doc_refs' con riferimenti al documento (es. D1, D2, doc 3) quando presenti nel testo.\n"
-                        "13) Se una stessa evidenza cita piu' documenti (es. D1, D2, D3), includili tutti in 'doc_refs'.\n"
+                        "11) Query non aggregata: compila 'id' solo se nel testo compare un riferimento esplicito al documento/riga.\n"
+                        "12) Se l'id non e' esplicito, lascia id vuoto; non dedurlo da ordine, posizione, valori o conoscenza esterna.\n"
+                        "13) Compila 'doc_refs' solo con riferimenti presenti nel testo (es. D1, D2, doc 3).\n"
                     )
                 else:
                     base += (
-                        "11) Query non aggregata: ogni riga deve avere 'id' del documento come stringa numerica.\n"
-                        "12) Se nel testo trovi riferimenti tipo D1, D2, doc 3, convertili in id=1, id=2, id=3.\n"
-                        "13) Se una frase contiene valori ma non contiene id esplicito, usa id solo se ricavabile con alta confidenza dal contesto locale; altrimenti non creare la riga in questa passata.\n"
+                        "11) Query non aggregata: includi 'id' solo quando il testo contiene riferimenti tipo D1, D2, doc 3.\n"
+                        "12) Se una frase contiene valori ma nessun id esplicito, restituisci comunque i valori con id vuoto.\n"
+                        "13) Non inventare id e non assegnare documenti per somiglianza o per ordine di apparizione.\n"
                     )
             schema = schema_hint_relaxed if relaxed else schema_hint_strict
             return base + (
                 f"SQL:\n{sql}\n\n"
+                f"{attr_hint}"
                 f"Formato JSON richiesto:\n{schema}\n\n"
                 f"TESTO:\n{narrative}\n"
             )
@@ -1007,12 +1177,32 @@ class DQLAdapter:
         for row in rows:
             if not isinstance(row, dict):
                 continue
+
+            cleaned_values: dict[str, str] = {}
+            non_empty = 0
+            for c in cols:
+                v = str(self._resolve_row_key(row, c) or "").strip()
+                if not v:
+                    cleaned_values[c] = ""
+                    continue
+                # Keep only values traceable to narrative text.
+                if not self._value_in_text(v, narrative):
+                    cleaned_values[c] = ""
+                    diag["llm_cells_scartate_per_value"] = int(diag["llm_cells_scartate_per_value"]) + 1
+                    continue
+                cleaned_values[c] = v
+                non_empty += 1
+
+            if non_empty == 0:
+                diag["llm_rows_scartate_per_value"] = int(diag["llm_rows_scartate_per_value"]) + 1
+                continue
+
             id_candidates: list[str] = [""]
             if requires_id:
                 id_candidates = self._row_id_candidates(row, valid_ids)
                 if not id_candidates:
-                    diag["llm_rows_scartate_per_id"] = int(diag["llm_rows_scartate_per_id"]) + 1
-                    continue
+                    diag["llm_rows_unlocalized"] = int(diag["llm_rows_unlocalized"]) + 1
+                    id_candidates = [""]
                 # Avoid exploding ambiguous rows to too many ids.
                 if len(id_candidates) > 20:
                     diag["llm_rows_too_many_ids"] = int(diag["llm_rows_too_many_ids"]) + 1
@@ -1022,35 +1212,202 @@ class DQLAdapter:
                 cleaned: dict[str, str] = {}
                 if requires_id:
                     cleaned["id"] = rid
-
-                non_empty = 0
                 for c in cols:
-                    v = str(self._resolve_row_key(row, c) or "").strip()
-                    if not v:
-                        cleaned[c] = ""
-                        continue
-                    # Keep only values traceable to narrative text.
-                    if not self._value_in_text(v, narrative):
-                        cleaned[c] = ""
-                        diag["llm_cells_scartate_per_value"] = int(diag["llm_cells_scartate_per_value"]) + 1
-                        continue
-                    cleaned[c] = v
-                    non_empty += 1
-
-                if non_empty == 0:
-                    diag["llm_rows_scartate_per_value"] = int(diag["llm_rows_scartate_per_value"]) + 1
-                    continue
+                    cleaned[c] = cleaned_values.get(c, "")
+                evidence = str(self._resolve_row_key(row, "evidence") or "").strip()
+                if evidence:
+                    cleaned["evidence"] = evidence
                 out_rows.append(cleaned)
 
         diag["llm_rows_kept"] = len(out_rows)
         return out_rows, diag
 
+    def _field_match(
+        self,
+        col: str,
+        value: str,
+        norm_text: str,
+        digits_text: str,
+        attr_schema: dict[str, dict[str, object]],
+    ) -> dict[str, object] | None:
+        raw = str(value or "").strip()
+        if not raw:
+            return None
+
+        parts = [p.strip() for p in raw.split("||") if p.strip()] if "||" in raw else [raw]
+        matched = [p for p in parts if self._value_in_normalized_text(p, norm_text, digits_text)]
+        if not matched and self._value_in_normalized_text(raw, norm_text, digits_text):
+            matched = [raw]
+        if not matched:
+            return None
+
+        meta = attr_schema.get(col, {})
+        value_type = str(meta.get("value_type", "") if isinstance(meta, dict) else "")
+        generic = {"yes", "no", "other", "fixed", "mixed", "notdisclosed", "0"}
+        all_generic = all(self._norm_key(p) in generic for p in matched)
+
+        if self._norm_key(col) == "companyname":
+            weight = 3.0
+        elif value_type in {"int", "float"}:
+            weight = 1.0
+        elif all_generic:
+            weight = 0.5
+        else:
+            weight = 2.0
+
+        coverage = len(matched) / max(1, len(parts))
+        return {
+            "field": col,
+            "score": max(0.5, weight * coverage),
+            "matched_values": matched[:5],
+        }
+
+    def _link_row_to_docs(
+        self,
+        row: dict,
+        dataset: str,
+        cols: list[str],
+        attr_schema: dict[str, dict[str, object]],
+    ) -> dict[str, object]:
+        docs = self._dataset_doc_index(dataset)
+        values = {c: str(row.get(c, "") or "").strip() for c in cols if str(row.get(c, "") or "").strip()}
+        if not docs or not values:
+            return {"status": "unlocalized", "id": None, "candidate_docs": [], "reason": "no_documents_or_values"}
+
+        candidates: list[dict[str, object]] = []
+        for doc in docs:
+            doc_id = doc["id"]
+            norm_text = doc["norm_text"]
+            digits_text = doc["digits_text"]
+            matches: list[dict[str, object]] = []
+            score = 0.0
+            for col, value in values.items():
+                match = self._field_match(col, value, norm_text, digits_text, attr_schema)
+                if match:
+                    matches.append(match)
+                    score += float(match["score"])
+            if score > 0:
+                candidates.append(
+                    {
+                        "id": doc_id,
+                        "score": round(score, 3),
+                        "matched_fields": [str(m["field"]) for m in matches],
+                        "matches": matches,
+                    }
+                )
+
+        candidates.sort(key=lambda item: (-float(item["score"]), str(item["id"])))
+        top = candidates[:5]
+        if not top:
+            return {"status": "unlocalized", "id": None, "candidate_docs": [], "reason": "no_tuple_match"}
+
+        best = top[0]
+        second_score = float(top[1]["score"]) if len(top) > 1 else 0.0
+        matched_fields = set(str(f) for f in best.get("matched_fields", []))
+        strong_enough = "company_name" in matched_fields or len(matched_fields) >= 2
+        separated = len(top) == 1 or (float(best["score"]) - second_score) >= 1.0
+
+        if float(best["score"]) >= 2.0 and strong_enough and separated:
+            return {
+                "status": "linked",
+                "id": str(best["id"]),
+                "candidate_docs": top,
+                "reason": "unique_tuple_match",
+            }
+
+        return {
+            "status": "ambiguous",
+            "id": None,
+            "candidate_docs": top,
+            "reason": "weak_or_non_unique_tuple_match",
+        }
+
+    def _localize_rows(
+        self,
+        rows: list[dict],
+        dataset: str,
+        sql: str,
+        cols: list[str],
+        attr_schema: dict[str, dict[str, object]],
+        diag: dict[str, object],
+    ) -> list[dict]:
+        if self._is_agg_query(sql):
+            for row in rows:
+                row["_localization"] = {"status": "not_required", "id": None, "candidate_docs": []}
+            diag["llm_rows_linked"] = len(rows)
+            return rows
+
+        valid_ids = set(self._dataset_doc_ids(dataset))
+        linked_rows: list[dict] = []
+        for row in rows:
+            rid = self._extract_row_id(row, valid_ids=valid_ids)
+            if rid and (not valid_ids or rid in valid_ids):
+                row["_localization"] = {"status": "explicit", "id": rid, "candidate_docs": []}
+                linked_rows.append(row)
+                diag["llm_rows_linked"] = int(diag.get("llm_rows_linked", 0)) + 1
+                continue
+
+            loc = self._link_row_to_docs(row, dataset, cols, attr_schema)
+            row["_localization"] = loc
+            if loc.get("status") == "linked" and loc.get("id"):
+                row["id"] = str(loc["id"])
+                linked_rows.append(row)
+                diag["llm_rows_linked"] = int(diag.get("llm_rows_linked", 0)) + 1
+            elif loc.get("status") == "ambiguous":
+                diag["llm_rows_ambiguous"] = int(diag.get("llm_rows_ambiguous", 0)) + 1
+                diag["llm_rows_scartate_per_id"] = int(diag.get("llm_rows_scartate_per_id", 0)) + 1
+            else:
+                diag["llm_rows_unlinked"] = int(diag.get("llm_rows_unlinked", 0)) + 1
+                diag["llm_rows_scartate_per_id"] = int(diag.get("llm_rows_scartate_per_id", 0)) + 1
+        return linked_rows
+
+    def _write_intermediate_rows(
+        self,
+        result_csv: Path,
+        dataset: str,
+        sql: str,
+        cols: list[str],
+        attr_schema: dict[str, dict[str, object]],
+        rows: list[dict],
+        diag: dict[str, object],
+    ) -> None:
+        payload = {
+            "dataset": dataset,
+            "sql": sql,
+            "query_type": "aggregation" if self._is_agg_query(sql) else "row_level",
+            "columns": attr_schema,
+            "rows": [],
+            "diagnostics": diag,
+        }
+        for row in rows:
+            loc = row.get("_localization")
+            payload["rows"].append(
+                {
+                    "values": {c: str(row.get(c, "") or "") for c in cols},
+                    "evidence": str(row.get("evidence", "") or ""),
+                    "localization": loc if isinstance(loc, dict) else {"status": "unlocalized", "id": None},
+                }
+            )
+
+        path = result_csv.with_name("intermediate_rows.json")
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+
     def _narrative_to_csv(self, payload: object, dataset: str, sql: str, result_csv: Path) -> bool:
         rows, diag = self._llm_narrative_rows(payload=payload, dataset=dataset, sql=sql)
         self._last_llm_diag = diag
+        items = self._split_select_items(sql)
+        cols = [str(i.get("output")) for i in items if i.get("output")]
+        attr_schema = self._load_selected_attributes(dataset, cols)
         if not rows:
+            self._write_intermediate_rows(result_csv, dataset, sql, cols, attr_schema, [], diag)
             return False
-        return self._rows_to_csv(rows, dataset=dataset, sql=sql, result_csv=result_csv)
+        linked_rows = self._localize_rows(rows, dataset, sql, cols, attr_schema, diag)
+        self._last_llm_diag = diag
+        self._write_intermediate_rows(result_csv, dataset, sql, cols, attr_schema, rows, diag)
+        if not linked_rows:
+            return False
+        return self._rows_to_csv(linked_rows, dataset=dataset, sql=sql, result_csv=result_csv)
 
     def _rows_to_csv(self, rows: list[dict], dataset: str, sql: str, result_csv: Path) -> bool:
         if not rows:
@@ -1077,15 +1434,17 @@ class DQLAdapter:
                 writer.writerows(out_rows)
             return True
 
+        value_cols = self._row_level_value_columns(cols)
+        valid_ids = set(self._dataset_doc_ids(dataset))
         id_to_row: dict[str, dict[str, str]] = {}
         for r in rows:
-            rid = self._extract_row_id(r)
+            rid = self._extract_row_id(r, valid_ids=valid_ids)
             if not rid:
                 continue
             projected = self._project_select_row(r, items)
             if rid not in id_to_row:
-                id_to_row[rid] = {"id": rid, **{c: "" for c in cols}}
-            for c in cols:
+                id_to_row[rid] = {"id": rid, **{c: "" for c in value_cols}}
+            for c in value_cols:
                 val = str(projected.get(c, "")).strip()
                 if val:
                     id_to_row[rid][c] = val
@@ -1093,25 +1452,153 @@ class DQLAdapter:
         if not id_to_row:
             return False
 
-        template_ids = self._dataset_doc_ids(dataset)
-        ordered_ids = list(template_ids)
-        for rid in self._sort_ids(list(id_to_row.keys())):
-            if rid not in ordered_ids:
-                ordered_ids.append(rid)
-        if not ordered_ids:
-            ordered_ids = self._sort_ids(list(id_to_row.keys()))
+        ordered_ids = self._sort_ids(list(id_to_row.keys()))
 
-        fieldnames = ["id"] + cols
+        fieldnames = ["id"] + value_cols
         with result_csv.open("w", newline="", encoding="utf-8") as f:
             writer = csv.DictWriter(f, fieldnames=fieldnames)
             writer.writeheader()
             for rid in ordered_ids:
-                row = {"id": rid, **{c: "" for c in cols}}
+                row = {"id": rid, **{c: "" for c in value_cols}}
                 if rid in id_to_row:
-                    for c in cols:
+                    for c in value_cols:
                         row[c] = id_to_row[rid].get(c, "")
                 writer.writerow(row)
         return True
+
+    def _json_needs_clarification(self, payload: object) -> bool:
+        if not isinstance(payload, dict):
+            return False
+        details = payload.get("details")
+        if not isinstance(details, dict):
+            return False
+        sql_details = details.get("sql")
+        if not isinstance(sql_details, dict):
+            return False
+        return str(sql_details.get("mode") or "").strip().lower() == "needs_clarification"
+
+    def _coerce_table_row(self, row: object, columns: list[str]) -> dict[str, object] | None:
+        if isinstance(row, dict):
+            return dict(row)
+        if isinstance(row, (list, tuple)):
+            return {columns[i]: row[i] if i < len(row) else "" for i in range(len(columns))}
+        return None
+
+    def _select_json_table(self, tables: object) -> dict | None:
+        if not isinstance(tables, list):
+            return None
+
+        candidates: list[dict] = []
+        for table in tables:
+            if not isinstance(table, dict):
+                continue
+            columns = table.get("columns")
+            rows = table.get("rows")
+            if isinstance(columns, list) and isinstance(rows, list):
+                candidates.append(table)
+
+        if not candidates:
+            return None
+
+        for table in candidates:
+            if str(table.get("id") or "").strip().lower() == "sql_result":
+                return table
+        for table in candidates:
+            if table.get("rows"):
+                return table
+        return candidates[0]
+
+    def _write_empty_csv_for_sql(self, sql: str, result_csv: Path) -> bool:
+        items = self._split_select_items(sql)
+        cols = [str(i.get("output")) for i in items if i.get("output")]
+        if not cols:
+            return False
+        fieldnames = cols if self._is_agg_query(sql) else ["id"] + self._row_level_value_columns(cols)
+        result_csv.parent.mkdir(parents=True, exist_ok=True)
+        with result_csv.open("w", newline="", encoding="utf-8") as f:
+            writer = csv.DictWriter(f, fieldnames=fieldnames)
+            writer.writeheader()
+        return True
+
+    def _table_json_to_csv(
+        self,
+        payload: object,
+        dataset: str,
+        sql: str,
+        result_csv: Path,
+    ) -> bool:
+        if self._json_needs_clarification(payload):
+            print("[DQL-TABLE] status=needs_clarification; generated empty CSV template")
+            return self._write_empty_csv_for_sql(sql, result_csv)
+
+        if not isinstance(payload, dict):
+            return False
+        if "tables" not in payload:
+            return False
+
+        table = self._select_json_table(payload.get("tables"))
+        if table is None:
+            tables = payload.get("tables")
+            if isinstance(tables, list) and not tables:
+                print("[DQL-TABLE] status=empty_tables; generated empty CSV template")
+                return self._write_empty_csv_for_sql(sql, result_csv)
+            return False
+
+        raw_columns = table.get("columns")
+        raw_rows = table.get("rows")
+        if not isinstance(raw_columns, list) or not isinstance(raw_rows, list):
+            return False
+
+        columns = [str(c).strip() for c in raw_columns if str(c or "").strip()]
+        if not columns:
+            return self._write_empty_csv_for_sql(sql, result_csv)
+
+        rows: list[dict] = []
+        for raw_row in raw_rows:
+            row = self._coerce_table_row(raw_row, columns)
+            if row is not None:
+                rows.append(row)
+
+        if not rows:
+            print("[DQL-TABLE] status=empty_rows; generated empty CSV template")
+            return self._write_empty_csv_for_sql(sql, result_csv)
+
+        valid_ids = set(self._dataset_doc_ids(dataset))
+        is_agg = self._is_agg_query(sql)
+        normalized_rows: list[dict] = []
+        skipped_no_id = 0
+
+        for row in rows:
+            out_row = dict(row)
+            if not is_agg:
+                rid = self._extract_row_id(out_row, valid_ids=valid_ids)
+                if not rid:
+                    name_val = self._resolve_row_key(out_row, "name")
+                    if name_val and re.search(r"(?i)\.(txt|pdf|docx?|csv|xlsx?)$", str(name_val).strip()):
+                        rid = self._normalize_row_id_value(name_val, valid_ids=valid_ids)
+                if not rid:
+                    skipped_no_id += 1
+                    continue
+                out_row["id"] = rid
+            normalized_rows.append(out_row)
+
+        if not normalized_rows:
+            print(
+                "[DQL-TABLE] "
+                f"status=no_usable_rows skipped_no_id={skipped_no_id}; generated empty CSV template"
+            )
+            return self._write_empty_csv_for_sql(sql, result_csv)
+
+        ok = self._rows_to_csv(normalized_rows, dataset=dataset, sql=sql, result_csv=result_csv)
+        if ok:
+            print(
+                "[DQL-TABLE] "
+                f"status=ok rows={len(normalized_rows)} skipped_no_id={skipped_no_id}"
+            )
+            return True
+
+        print("[DQL-TABLE] status=conversion_failed; generated empty CSV template")
+        return self._write_empty_csv_for_sql(sql, result_csv)
 
     def _json_to_csv(
         self,
@@ -1135,7 +1622,11 @@ class DQLAdapter:
             return False
 
         self._last_llm_diag = None
-        # DQL outputs are narrative: use LLM extraction as the primary conversion path.
+        # Prefer structured DQL tables when present. Narrative extraction remains
+        # a fallback for legacy/non-tabular DQL responses.
+        if self._table_json_to_csv(payload, dataset=dataset, sql=sql, result_csv=result_csv):
+            return True
+
         if allow_nlp_fallback and self._narrative_to_csv(payload, dataset=dataset, sql=sql, result_csv=result_csv):
             diag = self._last_llm_diag or {}
             print(
@@ -1146,6 +1637,10 @@ class DQLAdapter:
                 f"second_pass={diag.get('llm_second_pass', 0)} "
                 f"rows_candidate={diag.get('llm_rows_candidate', 0)} "
                 f"rows_kept={diag.get('llm_rows_kept', 0)} "
+                f"unlocalized={diag.get('llm_rows_unlocalized', 0)} "
+                f"linked={diag.get('llm_rows_linked', 0)} "
+                f"ambiguous={diag.get('llm_rows_ambiguous', 0)} "
+                f"unlinked={diag.get('llm_rows_unlinked', 0)} "
                 f"drop_id={diag.get('llm_rows_scartate_per_id', 0)} "
                 f"drop_value_row={diag.get('llm_rows_scartate_per_value', 0)} "
                 f"drop_value_cell={diag.get('llm_cells_scartate_per_value', 0)}"
@@ -1165,6 +1660,10 @@ class DQLAdapter:
                 f"no_rows_payload={diag.get('llm_no_rows_payload', 0)} "
                 f"rows_candidate={diag.get('llm_rows_candidate', 0)} "
                 f"rows_kept={diag.get('llm_rows_kept', 0)} "
+                f"unlocalized={diag.get('llm_rows_unlocalized', 0)} "
+                f"linked={diag.get('llm_rows_linked', 0)} "
+                f"ambiguous={diag.get('llm_rows_ambiguous', 0)} "
+                f"unlinked={diag.get('llm_rows_unlinked', 0)} "
                 f"drop_id={diag.get('llm_rows_scartate_per_id', 0)} "
                 f"drop_value_row={diag.get('llm_rows_scartate_per_value', 0)} "
                 f"drop_value_cell={diag.get('llm_cells_scartate_per_value', 0)}"
@@ -1434,7 +1933,7 @@ class DQLAdapter:
                                 pass
                         all_stderr.append(
                             f"[WARN] Non-tabular or invalid results.json for query_{i+1}; "
-                            "results.csv not generated (set DQL_ALLOW_TEMPLATE_CSV=1 to allow template fallback)."
+                            "results.csv not generated (set DQL_ALLOW_TEMPLATE_CSV=1 to allow schema-only fallback)."
                         )
 
                 if result_csv.exists():

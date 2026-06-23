@@ -1,7 +1,19 @@
+from dataclasses import dataclass
+import re
 import subprocess
 import sys
 from pathlib import Path
 import os
+
+
+@dataclass
+class DocETLRunResult:
+    command: list[str]
+    returncode: int
+    stdout: str
+    stderr: str
+    docetl_reported_cost_usd: float | None
+    token_usage: dict[str, dict[str, int]]
 
 
 def _safe_decode(data: bytes | None) -> str:
@@ -13,7 +25,61 @@ def _safe_decode(data: bytes | None) -> str:
         return data.decode("utf-8", errors="replace")
 
 
-def run_docetl(yaml_path: str):
+def _clean_console_text(text: str) -> str:
+    # Remove ANSI escape sequences and common Rich markup left in captured logs.
+    text = re.sub(r"\x1b\[[0-9;?]*[ -/]*[@-~]", "", text)
+    text = re.sub(r"\[/?[a-zA-Z][^\]]*\]", "", text)
+    return text
+
+
+def _parse_int_token(value: str | None) -> int:
+    if not value:
+        return 0
+    return int(value.replace(",", ""))
+
+
+def _parse_docetl_metrics(stdout: str, stderr: str) -> tuple[float | None, dict[str, dict[str, int]]]:
+    text = _clean_console_text(stdout + "\n" + stderr)
+
+    costs = re.findall(r"Cost:\s*\$([0-9][0-9,]*(?:\.[0-9]+)?)", text)
+    reported_cost = float(costs[-1].replace(",", "")) if costs else None
+
+    usage: dict[str, dict[str, int]] = {}
+    token_re = re.compile(
+        r"(?P<model>[A-Za-z0-9_./:-]+):\s*"
+        r"(?P<prompt>[\d,]+)\s+input"
+        r"(?:\s*\((?P<cached>[\d,]+)\s+cached\))?,\s*"
+        r"(?P<completion>[\d,]+)\s+output",
+        re.IGNORECASE,
+    )
+    for match in token_re.finditer(text):
+        model = match.group("model").strip()
+        if model.lower() == "total":
+            continue
+        usage[model] = {
+            "prompt_tokens": _parse_int_token(match.group("prompt")),
+            "completion_tokens": _parse_int_token(match.group("completion")),
+        }
+        cached = _parse_int_token(match.group("cached"))
+        if cached:
+            usage[model]["cached_tokens"] = cached
+
+    return reported_cost, usage
+
+
+def _build_run_result(cmd: list[str], returncode: int, stdout: str, stderr: str) -> DocETLRunResult:
+    reported_cost, token_usage = _parse_docetl_metrics(stdout, stderr)
+    return DocETLRunResult(
+        command=cmd,
+        returncode=returncode,
+        stdout=stdout,
+        stderr=stderr,
+        docetl_reported_cost_usd=reported_cost,
+        token_usage=token_usage,
+    )
+
+
+def run_docetl(yaml_path: str) -> DocETLRunResult:
     commands = []
     docetl_exe = Path(sys.executable).with_name("docetl.exe")
     if docetl_exe.exists():
@@ -40,7 +106,7 @@ def run_docetl(yaml_path: str):
         stderr = _safe_decode(result.stderr)
         attempts.append((cmd, result.returncode, stdout, stderr))
         if result.returncode == 0:
-            return stdout
+            return _build_run_result(cmd, result.returncode, stdout, stderr)
 
     details = []
     for cmd, returncode, stdout, stderr in attempts:
@@ -56,12 +122,14 @@ def run_docetl(yaml_path: str):
         "OPENAI_API_KEY" in full_errors
         or "GEMINI_API_KEY" in full_errors
         or "GOOGLE_API_KEY" in full_errors
+        or "AZURE_API_KEY" in full_errors
+        or "AZURE_API_BASE" in full_errors
         or "AuthenticationError" in full_errors
     ):
         raise RuntimeError(
             f"DocETL failed for {yaml_path}\n"
             "Autenticazione LLM fallita: imposta una chiave valida nel file .env "
-            "(OPENAI_API_KEY oppure GEMINI_API_KEY/GOOGLE_API_KEY)."
+            "(AZURE_API_KEY/AZURE_API_BASE, OPENAI_API_KEY oppure GEMINI_API_KEY/GOOGLE_API_KEY)."
         )
 
     raise RuntimeError(
