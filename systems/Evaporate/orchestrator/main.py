@@ -1,7 +1,22 @@
 import argparse
+import os
+from pathlib import Path
+
+from dotenv import load_dotenv
 
 from runner import run_dataset
 from evaluate_all import run_evaluation
+
+load_dotenv(Path(__file__).resolve().parents[3] / ".env", override=False)
+
+
+def _default_model() -> str:
+    return (
+        os.environ.get("EVAPORATE_MODEL")
+        or os.environ.get("AZURE_OPENAI_DEPLOYMENT")
+        or os.environ.get("AZURE_OPENAI_MODEL")
+        or "gemini-2.5-flash"
+    )
 
 
 def main():
@@ -39,7 +54,7 @@ def main():
         choices=["all", "agg", "filter", "select", "mixed", "join"],
         help="Categoria query da valutare (all, agg, filter, select, mixed, join)",
     )
-    parser.add_argument("--model", default="gemini-2.5-flash")
+    parser.add_argument("--model", default=_default_model())
     parser.add_argument("--train-size", type=int, default=20)
     parser.add_argument("--num-top-k-scripts", type=int, default=2)
     parser.add_argument("--chunk-size", type=int, default=2000)

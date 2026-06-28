@@ -17,7 +17,6 @@ from datetime import datetime, timezone
 from itertools import product
 from pathlib import Path
 from shutil import copy2
-import re
 
 # Allow execution both as module and as script path.
 if __package__ in {None, ""}:
@@ -32,6 +31,54 @@ VALID_QUERY_TYPES = {"all", "agg", "filter", "select", "mixed", "join"}
 
 def _repo_root() -> Path:
     return Path(__file__).resolve().parents[1]
+
+
+def _load_env_file(path: Path) -> None:
+    if not path.exists():
+        return
+
+    loaded: dict[str, str] = {}
+    for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
+        raw = line.strip()
+        if not raw or raw.startswith("#") or "=" not in raw:
+            continue
+        key, value = raw.split("=", 1)
+        key = key.strip()
+        value = value.strip().strip('"').strip("'")
+        if not key or key in os.environ:
+            continue
+
+        def repl(match: re.Match) -> str:
+            name = match.group(1)
+            return os.environ.get(name) or loaded.get(name, "")
+
+        value = re.sub(r"\$\{([^}]+)\}", repl, value)
+        os.environ[key] = value
+        loaded[key] = value
+
+
+def _normalize_azure_endpoint(value: str) -> str:
+    value = (value or "").strip().rstrip("/")
+    for suffix in ("/openai/v1", "/openai"):
+        if value.lower().endswith(suffix):
+            return value[: -len(suffix)].rstrip("/")
+    return value
+
+
+def _configure_azure_env_defaults() -> None:
+    azure_key = os.environ.get("AZURE_OPENAI_API_KEY")
+    azure_endpoint = _normalize_azure_endpoint(os.environ.get("AZURE_OPENAI_ENDPOINT", ""))
+    azure_version = os.environ.get("OPENAI_API_VERSION")
+    azure_deployment = os.environ.get("AZURE_OPENAI_DEPLOYMENT")
+
+    if azure_key:
+        os.environ.setdefault("AZURE_API_KEY", azure_key)
+    if azure_endpoint:
+        os.environ.setdefault("AZURE_API_BASE", azure_endpoint)
+    if azure_version:
+        os.environ.setdefault("AZURE_API_VERSION", azure_version)
+    if azure_deployment:
+        os.environ.setdefault("DOCETL_DEFAULT_MODEL", f"azure/{azure_deployment}")
 
 
 def _discover_datasets() -> list[str]:
@@ -369,6 +416,9 @@ def _aggregate_summary(results: list[JobResult]) -> dict:
 
 
 def main() -> int:
+    _load_env_file(_repo_root() / ".env")
+    _configure_azure_env_defaults()
+
     parser = argparse.ArgumentParser(description="Root meta-orchestrator for UDA-Bench systems")
     parser.add_argument(
         "--model",

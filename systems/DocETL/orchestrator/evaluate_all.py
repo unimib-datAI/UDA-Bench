@@ -24,6 +24,45 @@ TASK_MAP = {
 VALID_QUERY_TYPES = {"all", "agg", "filter", "select", "mixed", "join"}
 
 
+def _load_local_env(root: Path) -> None:
+    env_path = root / ".env"
+    if not env_path.exists():
+        return
+    for raw_line in env_path.read_text(encoding="utf-8", errors="replace").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        if line.startswith("export "):
+            line = line[len("export ") :].strip()
+        key, value = line.split("=", 1)
+        key = key.strip()
+        value = value.strip().strip('"').strip("'")
+        if key and key not in os.environ:
+            os.environ[key] = value
+
+
+def _resolve_llm_model(provider: str, model: str | None) -> str | None:
+    provider = (provider or "none").strip().lower()
+    if provider == "none":
+        return None
+    if model:
+        return model
+    if provider in {"azure", "azure_openai"}:
+        deployment = os.environ.get("AZURE_OPENAI_DEPLOYMENT") or os.environ.get("AZURE_OPENAI_MODEL")
+        if deployment:
+            return f"azure/{deployment}"
+    return "openai/gpt-4.1-mini"
+
+
+def _eval_dir_name(eval_suffix: str | None) -> str:
+    if not eval_suffix:
+        return "evaluation"
+    safe_suffix = re.sub(r"[^A-Za-z0-9_.-]+", "_", eval_suffix.strip()).strip("_")
+    if not safe_suffix:
+        return "evaluation"
+    return f"evaluation_{safe_suffix}"
+
+
 def _query_index_from_id(query_id: str) -> int:
     try:
         return int(query_id.rsplit("_", 1)[-1])
@@ -269,15 +308,25 @@ def _normalize_query_type(query_type: str | None) -> str:
     return qt
 
 
-def run_evaluation(dataset_name: str, rebuild: bool = False, query_type: str = "all"):
+def run_evaluation(
+    dataset_name: str,
+    rebuild: bool = False,
+    query_type: str = "all",
+    llm_provider: str = "none",
+    llm_model: str | None = None,
+    eval_suffix: str | None = None,
+):
     root = repo_root()
+    _load_local_env(root)
+    llm_provider = (llm_provider or "none").strip().lower()
+    resolved_llm_model = _resolve_llm_model(llm_provider, llm_model)
     all_queries = load_all_sql_queries(dataset_name)
     qt = _normalize_query_type(query_type)
     # Filter at loader-level to avoid touching any existing CSV/acc artifacts.
     queries = all_queries if qt == "all" else [q for q in all_queries if str(q.get("category", "")).lower() == qt]
 
     csv_root = root / "systems" / "DocETL" / "outputs" / dataset_real_name(dataset_name) / "csv"
-    eval_root = root / "systems" / "DocETL" / "outputs" / dataset_real_name(dataset_name) / "evaluation"
+    eval_root = root / "systems" / "DocETL" / "outputs" / dataset_real_name(dataset_name) / _eval_dir_name(eval_suffix)
     eval_root.mkdir(parents=True, exist_ok=True)
     sql_json_root = eval_root / "_sql_json"
     sql_json_root.mkdir(parents=True, exist_ok=True)
@@ -365,8 +414,10 @@ def run_evaluation(dataset_name: str, rebuild: bool = False, query_type: str = "
             "--gt-dir",
             str(gt_dir),
             "--llm-provider",
-            "none",
+            llm_provider,
         ]
+        if resolved_llm_model:
+            cmd.extend(["--llm-model", resolved_llm_model])
 
         env = dict()
         env.update(os.environ)
@@ -430,6 +481,8 @@ def run_evaluation(dataset_name: str, rebuild: bool = False, query_type: str = "
         "ok": ok,
         "skip": skipped,
         "errors": failed,
+        "llm_provider": llm_provider,
+        "llm_model": resolved_llm_model,
         "macro_f1_mean": (sum(macro_f1_values) / len(macro_f1_values)) if macro_f1_values else None,
         "details": details,
     }
@@ -443,6 +496,8 @@ def run_evaluation(dataset_name: str, rebuild: bool = False, query_type: str = "
     print("\n=== EVAL RIEPILOGO ===")
     print(f"Dataset      : {dataset_name}")
     print(f"Query type   : {qt}")
+    print(f"LLM provider : {llm_provider}")
+    print(f"LLM model    : {resolved_llm_model}")
     print(f"Totali       : {total}")
     print(f"OK           : {ok}")
     print(f"Skip         : {skipped}")
@@ -465,8 +520,28 @@ if __name__ == "__main__":
         choices=sorted(VALID_QUERY_TYPES),
         help="Valuta solo una categoria di query (all, agg, filter, select, mixed, join)",
     )
+    parser.add_argument(
+        "--llm-provider",
+        default="none",
+        help="Provider LLM per semantic cell matching della evaluation (default: none). Usa azure per Azure OpenAI.",
+    )
+    parser.add_argument(
+        "--llm-model",
+        help="Modello LiteLLM da usare per il judge, es. azure/<deployment>. Se omesso con Azure usa AZURE_OPENAI_DEPLOYMENT.",
+    )
+    parser.add_argument(
+        "--eval-suffix",
+        help="Suffisso cartella evaluation, es. llm_azure crea outputs/<dataset>/evaluation_llm_azure.",
+    )
     args = parser.parse_args()
 
-    run_evaluation(args.dataset, rebuild=args.rebuild, query_type=args.query_type)
+    run_evaluation(
+        args.dataset,
+        rebuild=args.rebuild,
+        query_type=args.query_type,
+        llm_provider=args.llm_provider,
+        llm_model=args.llm_model,
+        eval_suffix=args.eval_suffix,
+    )
 
 

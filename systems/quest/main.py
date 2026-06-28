@@ -24,6 +24,8 @@ from utils.log import print_log
 from conf.settings import SYSTEM_ROOT, PROJECT_ROOT, opengauss_conn
 
 def get_attributes_info(path, attr, table):
+    if not os.path.exists(path):
+        return None
     with open(path, "r", encoding="utf-8") as f:
         attr_info = json.load(f)
         if table in attr_info and attr in attr_info[table]:
@@ -75,7 +77,7 @@ def run(sql, debug=False, output_dir=os.path.join(SYSTEM_ROOT, "results", f"{int
             attr_desc = get_attributes_info(DATASET_DIR / table / "Attributes.json", attr, table)
             if attr_desc:
                 prompt_info.append(attr_desc)
-        else:
+        elif DATASET_DIR.exists():
             for folder in DATASET_DIR.iterdir():
                 for subfolder in folder.iterdir():
                     if subfolder.is_dir() and subfolder.name.lower() == table.lower() and (subfolder / "Attributes.json").exists():

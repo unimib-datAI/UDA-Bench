@@ -22,6 +22,33 @@ from utils import repo_root, dataset_real_name
 load_dotenv(repo_root() / ".env", override=False)
 
 
+def _normalize_azure_endpoint(value: str) -> str:
+    value = (value or "").strip().rstrip("/")
+    for suffix in ("/openai/v1", "/openai"):
+        if value.lower().endswith(suffix):
+            return value[: -len(suffix)].rstrip("/")
+    return value
+
+
+def _configure_azure_env_defaults() -> None:
+    azure_key = os.environ.get("AZURE_OPENAI_API_KEY")
+    azure_endpoint = _normalize_azure_endpoint(os.environ.get("AZURE_OPENAI_ENDPOINT", ""))
+    azure_version = os.environ.get("OPENAI_API_VERSION")
+    azure_deployment = os.environ.get("AZURE_OPENAI_DEPLOYMENT")
+
+    if azure_key:
+        os.environ.setdefault("AZURE_API_KEY", azure_key)
+    if azure_endpoint:
+        os.environ.setdefault("AZURE_API_BASE", azure_endpoint)
+    if azure_version:
+        os.environ.setdefault("AZURE_API_VERSION", azure_version)
+    if azure_deployment:
+        os.environ.setdefault("DOCETL_DEFAULT_MODEL", f"azure/{azure_deployment}")
+
+
+_configure_azure_env_defaults()
+
+
 def _required_sql_columns(sql: str) -> set[str]:
     try:
         tree = parse_one(sql, error_level="ignore")

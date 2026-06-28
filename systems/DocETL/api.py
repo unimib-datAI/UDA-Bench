@@ -46,10 +46,50 @@ import litellm
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-# Imposta la chiave Gemini (Google AI Studio)
-os.environ["GOOGLE_API_KEY"] = os.getenv("GEMINI_API_KEY", "")
-if not os.environ["GOOGLE_API_KEY"]:
-    raise RuntimeError("GEMINI_API_KEY non impostata")
+def _first_env(*names: str) -> str:
+    for name in names:
+        value = os.getenv(name)
+        if value and value.strip():
+            return value.strip()
+    return ""
+
+
+def _normalize_azure_base(value: str) -> str:
+    value = (value or "").strip().rstrip("/")
+    for suffix in ("/openai/v1", "/openai"):
+        if value.lower().endswith(suffix):
+            return value[: -len(suffix)].rstrip("/")
+    return value
+
+
+def _configure_llm_env() -> None:
+    gemini_key = _first_env("GEMINI_API_KEY", "GOOGLE_API_KEY")
+    if gemini_key:
+        os.environ.setdefault("GOOGLE_API_KEY", gemini_key)
+
+    azure_key = _first_env("AZURE_API_KEY", "AZURE_OPENAI_API_KEY")
+    azure_base = _normalize_azure_base(_first_env("AZURE_API_BASE", "AZURE_OPENAI_ENDPOINT"))
+    azure_version = _first_env("AZURE_API_VERSION", "OPENAI_API_VERSION")
+    if azure_key:
+        os.environ.setdefault("AZURE_API_KEY", azure_key)
+    if azure_base:
+        os.environ.setdefault("AZURE_API_BASE", azure_base)
+    if azure_version:
+        os.environ.setdefault("AZURE_API_VERSION", azure_version)
+
+    has_azure = bool(
+        _first_env("AZURE_API_KEY", "AZURE_OPENAI_API_KEY")
+        and _first_env("AZURE_API_BASE", "AZURE_OPENAI_ENDPOINT")
+    )
+    if not has_azure and not _first_env("OPENAI_API_KEY", "GEMINI_API_KEY", "GOOGLE_API_KEY"):
+        raise RuntimeError(
+            "Nessuna chiave LLM impostata: configura Azure OpenAI "
+            "(AZURE_OPENAI_API_KEY/AZURE_OPENAI_ENDPOINT o AZURE_API_KEY/AZURE_API_BASE), "
+            "oppure OPENAI_API_KEY/GEMINI_API_KEY."
+        )
+
+
+_configure_llm_env()
 
 BASIC_MODELS = ["gemini/gemini-2.0-flash"]
 

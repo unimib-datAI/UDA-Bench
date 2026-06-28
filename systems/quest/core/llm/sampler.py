@@ -8,7 +8,7 @@ import logging
 import conf.settings as settings
 import copy
 import random
-from core.llm.llm_query import LLMInfo
+from core.llm.llm_query import LLMInfo, add_litellm_auth
 
 
 def normalize_api_base(api_base):
@@ -263,6 +263,7 @@ class AttrSampler:
         }
         if self.api_base:
             api_kwargs["api_base"] = self.api_base
+        add_litellm_auth(api_kwargs)
 
         temp_gemini_base = os.environ.pop("GEMINI_API_BASE", None)
         temp_api_base = os.environ.pop("API_BASE", None)

@@ -42,10 +42,20 @@ DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY")
 DEEPSEEK_BASE_URL = os.getenv("DEEPSEEK_BASE_URL")
 
 # 初始化DeepSeek客户端
-client = OpenAI(
-    api_key=DEEPSEEK_API_KEY,
-    base_url=DEEPSEEK_BASE_URL
-)
+client = None
+
+
+def get_deepseek_client():
+    global client
+    if client is not None:
+        return client
+    if not DEEPSEEK_API_KEY:
+        raise RuntimeError("DEEPSEEK_API_KEY is required only when using ZenDB indexing.")
+    client = OpenAI(
+        api_key=DEEPSEEK_API_KEY,
+        base_url=DEEPSEEK_BASE_URL
+    )
+    return client
 
 @dataclass
 class SHTNode:
@@ -1267,7 +1277,7 @@ Key Content: {sentences}"""
         """LLM调用封装"""
         for attempt in range(max_retries):
             try:
-                response = client.chat.completions.create(
+                response = get_deepseek_client().chat.completions.create(
                     model=model,
                     messages=[{"role": "user", "content": prompt}],
                     temperature=0,

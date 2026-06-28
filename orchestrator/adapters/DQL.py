@@ -62,6 +62,22 @@ def _summary_path(dataset: str, query_type: str) -> Path:
     return roots[0] / summary_name
 
 
+def _eval_dir_name() -> str:
+    raw = os.environ.get("DQL_EVAL_SUFFIX") or os.environ.get("UDA_EVAL_SUFFIX")
+    if not raw or not raw.strip():
+        return "evaluation"
+    safe = re.sub(r"[^A-Za-z0-9_.-]+", "_", raw.strip()).strip("_")
+    return f"evaluation_{safe}" if safe else "evaluation"
+
+
+def _eval_llm_provider() -> str:
+    return (os.environ.get("DQL_EVAL_LLM_PROVIDER") or os.environ.get("UDA_EVAL_LLM_PROVIDER") or "none").strip()
+
+
+def _eval_llm_model() -> str:
+    return (os.environ.get("DQL_EVAL_LLM_MODEL") or os.environ.get("UDA_EVAL_LLM_MODEL") or "").strip()
+
+
 class DQLAdapter:
     name = "dql"
 
@@ -167,7 +183,7 @@ class DQLAdapter:
     def _dql_eval_roots(self, dataset: str, query_type: str) -> list[Path]:
         root = _repo_root()
         return [
-            root / "systems" / "DQL" / "outputs" / dataset.lower() / "evaluation",
+            root / "systems" / "DQL" / "outputs" / dataset.lower() / _eval_dir_name(),
         ]
 
     def _dql_eval_summary_path(self, dataset: str, query_type: str) -> Path:
@@ -800,9 +816,45 @@ class DQLAdapter:
             raw = self._dotenv_value("DQL_LLM_BACKEND").strip().lower()
         if raw:
             return raw
+        if self._azure_openai_api_key() and self._azure_openai_endpoint() and self._azure_openai_deployment():
+            return "azure"
         if self._llm_openai_api_base():
             return "openai"
         return "gemini"
+
+    def _env_or_dotenv(self, *keys: str) -> str:
+        for key in keys:
+            value = (os.environ.get(key) or "").strip()
+            if not value:
+                value = self._dotenv_value(key)
+            value = value.strip().strip('"').strip("'")
+            if value:
+                return value
+        return ""
+
+    def _azure_openai_api_key(self) -> str:
+        return self._env_or_dotenv("AZURE_OPENAI_API_KEY", "AZURE_API_KEY")
+
+    def _normalize_azure_endpoint(self, value: str) -> str:
+        value = (value or "").strip().rstrip("/")
+        for suffix in ("/openai/v1", "/openai"):
+            if value.lower().endswith(suffix):
+                return value[: -len(suffix)].rstrip("/")
+        return value
+
+    def _azure_openai_endpoint(self) -> str:
+        return self._normalize_azure_endpoint(
+            self._env_or_dotenv("AZURE_OPENAI_ENDPOINT", "AZURE_API_BASE", "DQL_LLM_API_BASE")
+        )
+
+    def _azure_openai_api_version(self) -> str:
+        return self._env_or_dotenv("OPENAI_API_VERSION", "AZURE_API_VERSION") or "2024-12-01-preview"
+
+    def _azure_openai_deployment(self) -> str:
+        model = self._env_or_dotenv("DQL_LLM_MODEL", "AZURE_OPENAI_DEPLOYMENT", "AZURE_OPENAI_MODEL")
+        if model.startswith("azure/"):
+            model = model.split("/", 1)[1].strip()
+        return model
 
     def _llm_openai_api_base(self) -> str:
         base = (os.environ.get("DQL_LLM_API_BASE") or "").strip()
@@ -845,6 +897,67 @@ class DQLAdapter:
             headers={
                 "Content-Type": "application/json",
                 "Authorization": f"Bearer {api_key}",
+            },
+            method="POST",
+        )
+        try:
+            with urlrequest.urlopen(req, timeout=timeout_sec) as resp:
+                raw = resp.read().decode("utf-8", errors="replace")
+        except (urlerror.URLError, TimeoutError, ValueError):
+            return ""
+        except Exception:
+            return ""
+
+        try:
+            parsed = json.loads(raw)
+        except Exception:
+            return ""
+
+        choices = parsed.get("choices")
+        if not isinstance(choices, list) or not choices:
+            return ""
+        first = choices[0]
+        if not isinstance(first, dict):
+            return ""
+        msg = first.get("message")
+        if not isinstance(msg, dict):
+            return ""
+        content = msg.get("content")
+        if isinstance(content, str):
+            return content.strip()
+        return ""
+
+    def _call_azure_openai(self, prompt: str) -> str:
+        api_key = self._azure_openai_api_key()
+        endpoint = self._azure_openai_endpoint()
+        deployment = self._azure_openai_deployment()
+        api_version = self._azure_openai_api_version()
+        if not api_key or not endpoint or not deployment:
+            return ""
+
+        try:
+            timeout_sec = int(self._env_or_dotenv("DQL_LLM_TIMEOUT_SEC") or "60")
+        except ValueError:
+            timeout_sec = 60
+
+        if "/openai/deployments/" in endpoint:
+            url = endpoint
+            if "api-version=" not in url:
+                sep = "&" if "?" in url else "?"
+                url = f"{url}{sep}api-version={api_version}"
+        else:
+            url = f"{endpoint}/openai/deployments/{deployment}/chat/completions?api-version={api_version}"
+
+        payload = {
+            "messages": [{"role": "user", "content": prompt}],
+            "temperature": 0,
+        }
+        req = urlrequest.Request(
+            url=url,
+            data=json.dumps(payload).encode("utf-8"),
+            headers={
+                "Content-Type": "application/json",
+                "api-key": api_key,
             },
             method="POST",
         )
@@ -937,6 +1050,8 @@ class DQLAdapter:
 
     def _call_llm(self, prompt: str) -> str:
         backend = self._llm_backend()
+        if backend in {"azure", "azure_openai", "azure-openai"}:
+            return self._call_azure_openai(prompt)
         if backend == "openai":
             return self._call_openai_compatible(prompt)
         return self._call_gemini(prompt)
@@ -1937,6 +2052,8 @@ class DQLAdapter:
                         )
 
                 if result_csv.exists():
+                    eval_llm_provider = _eval_llm_provider()
+                    eval_llm_model = _eval_llm_model()
                     eval_cmd = [
                         python_exe, "-m", "evaluation.run_eval",
                         "--dataset", spec.dataset,
@@ -1944,8 +2061,10 @@ class DQLAdapter:
                         "--sql-file", str(sql_file),
                         "--result-csv", str(result_csv),
                         "--output-dir", str(eval_query_dir),
-                        "--llm-provider", "none"
+                        "--llm-provider", eval_llm_provider,
                     ]
+                    if eval_llm_model:
+                        eval_cmd.extend(["--llm-model", eval_llm_model])
                     
                     eval_proc = subprocess.run(
                         eval_cmd,
@@ -1995,6 +2114,8 @@ class DQLAdapter:
                 "dataset": spec.dataset,
                 "query_type": spec.query_type,
                 "mode": spec.mode,
+                "llm_provider": _eval_llm_provider(),
+                "llm_model": _eval_llm_model() or None,
                 "queries_total": len(query_items),
                 "queries_evaluated": len(macro_f1s),
                 "macro_f1_mean": macro_f1_mean,

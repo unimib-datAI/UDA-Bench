@@ -27,6 +27,12 @@ def parse_result(text, doc_id, attributeList):
         dic.setdefault(attr, None)
     return dic
 
+
+def add_litellm_auth(api_kwargs):
+    api_kwargs["api_key"] = settings.GPT_API_KEY
+    api_kwargs["api_version"] = settings.GPT_API_VERSION
+    return api_kwargs
+
 class LLMInfo(object):
     # static variables
     tot_query_times = 0
@@ -57,7 +63,7 @@ class TextLLMQuerier(object):
     """
     used for extract attributes with LLMs
     """
-    def __init__(self, prompt, llm=settings.LLM_MODEL, api_base=settings.GEMINI_API_BASE):
+    def __init__(self, prompt, llm=settings.LLM_MODEL, api_base=settings.GPT_API_BASE):
         self.api_base = normalize_api_base(api_base)
         self.llm = llm
         self.attr_descriptions = prompt
@@ -307,6 +313,7 @@ class TextLLMQuerier(object):
             }
             if self.api_base:
                 api_kwargs["api_base"] = self.api_base
+            add_litellm_auth(api_kwargs)
 
             temp_gemini_base = os.environ.pop("GEMINI_API_BASE", None)
             temp_api_base = os.environ.pop("API_BASE", None)
@@ -343,6 +350,7 @@ class TextLLMQuerier(object):
         }
         if self.api_base:
             api_kwargs["api_base"] = self.api_base
+        add_litellm_auth(api_kwargs)
 
         temp_gemini_base = os.environ.pop("GEMINI_API_BASE", None)
         temp_api_base = os.environ.pop("API_BASE", None)

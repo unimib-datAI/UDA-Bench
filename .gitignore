@@ -43,6 +43,7 @@ __pycache__/
 .venv-evaporate/
 .venv-docetl/
 .venv-DQL/
+.venv-quest/
 venv/
 venv-evaporate/
 venv-docetl/

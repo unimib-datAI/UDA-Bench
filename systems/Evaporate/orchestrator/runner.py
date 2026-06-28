@@ -9,9 +9,21 @@ from pathlib import Path
 
 import duckdb
 import pandas as pd
+from dotenv import load_dotenv
 
 from query_loader import load_all_sql_queries
 from utils import dataset_real_name, repo_root
+
+load_dotenv(repo_root() / ".env", override=False)
+
+
+def _default_model() -> str:
+    return (
+        os.environ.get("EVAPORATE_MODEL")
+        or os.environ.get("AZURE_OPENAI_DEPLOYMENT")
+        or os.environ.get("AZURE_OPENAI_MODEL")
+        or "gemini-2.5-flash"
+    )
 
 
 COLUMN_ALIASES = {
@@ -458,7 +470,7 @@ def run_dataset(
     rebuild: bool = False,
     rebuild_extract: bool = False,
     rebuild_table: bool = False,
-    model: str = "gemini-2.5-flash",
+    model: str = _default_model(),
     train_size: int = 20,
     num_top_k_scripts: int = 2,
     chunk_size: int = 2000,
@@ -572,7 +584,7 @@ if __name__ == "__main__":
         action="store_true",
         help="Ricostruisce evaporate_full_table.csv",
     )
-    parser.add_argument("--model", default="gemini-2.5-flash")
+    parser.add_argument("--model", default=_default_model())
     parser.add_argument("--train-size", type=int, default=20)
     parser.add_argument("--num-top-k-scripts", type=int, default=2)
     parser.add_argument("--chunk-size", type=int, default=2000)

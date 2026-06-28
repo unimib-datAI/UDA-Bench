@@ -100,6 +100,9 @@ class QuestAdapter:
         all_stdout = []
         all_stderr = []
         overall_return_code = 0
+        child_env = os.environ.copy()
+        child_env.setdefault("PYTHONUTF8", "1")
+        child_env.setdefault("PYTHONIOENCODING", "utf-8")
         
         for i, sql in enumerate(sql_queries):
             print(f"[INFO] Executing query {i+1}/{len(sql_queries)}: {sql}")
@@ -123,6 +126,7 @@ class QuestAdapter:
                     proc = subprocess.run(
                         cmd,
                         cwd=str(root),
+                        env=child_env,
                         capture_output=True,
                         text=True,
                         encoding="utf-8",
@@ -168,7 +172,8 @@ class QuestAdapter:
                     
                     eval_proc = subprocess.run(
                         eval_cmd,
-                        cwd=str(root)
+                        cwd=str(root),
+                        env=child_env,
                     )
                     
                     acc_file = result_csv.parent / "acc_result" / "acc.json"

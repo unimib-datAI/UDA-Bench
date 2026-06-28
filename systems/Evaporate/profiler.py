@@ -13,7 +13,7 @@ import json
 import math
 import time
 import ast
-from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
+import subprocess
 import pandas as pd
 import numpy as np
 from bs4 import BeautifulSoup
@@ -51,6 +51,43 @@ except ImportError:
 
 class TimeoutException(Exception):
     pass
+
+
+_GENERATED_FUNCTION_SUBPROCESS_CODE = r"""
+import contextlib
+import io
+import json
+import sys
+
+payload = json.load(sys.stdin)
+fn_code = payload["fn_code"]
+function_field = payload["function_field"]
+input_text = payload["input_text"]
+fn_name = f"get_{function_field}_field"
+
+try:
+    local_env = {}
+    with contextlib.redirect_stdout(io.StringIO()):
+        exec(fn_code, local_env, local_env)
+        fn_obj = local_env.get(fn_name)
+        if not callable(fn_obj):
+            raise ValueError(f"Generated function not found: {fn_name}")
+        result = fn_obj(input_text)
+    sys.stdout.write(json.dumps({"status": "ok", "result": result}, ensure_ascii=False))
+except BaseException as exc:
+    sys.stdout.write(json.dumps({"status": "error", "error": repr(exc)}, ensure_ascii=False))
+"""
+
+
+def _generated_function_timeout_seconds(default: float = 30.0) -> float:
+    raw = os.environ.get("EVAPORATE_FUNCTION_TIMEOUT_SECONDS", "").strip()
+    if not raw:
+        return default
+    try:
+        value = float(raw)
+    except ValueError:
+        return default
+    return value if value > 0 else default
 
 
 def _is_reasonable_fallback_value(value: str, attribute: str) -> bool:
@@ -130,14 +167,15 @@ def _validate_generated_function(script: str, function_field: str, sample_text: 
     if not has_return:
         return False
 
-    local_env = {}
     try:
-        exec(script, local_env, local_env)
-        fn = local_env.get(fn_name)
-        if not callable(fn):
-            return False
-        out = fn(sample_text if isinstance(sample_text, str) else str(sample_text))
+        out, timed_out = _run_generated_function_with_timeout(
+            script,
+            function_field,
+            sample_text if isinstance(sample_text, str) else str(sample_text),
+        )
     except Exception:
+        return False
+    if timed_out:
         return False
 
     if out is None:
@@ -188,15 +226,15 @@ def _passes_behavioral_quality_gate(script: str, function_field: str, sample_tex
     Second-level quality gate:
     run function and reject obvious explanatory / malformed outputs.
     """
-    fn_name = f"get_{function_field}_field"
-    local_env = {}
     try:
-        exec(script, local_env, local_env)
-        fn = local_env.get(fn_name)
-        if not callable(fn):
-            return False
-        out = fn(sample_text if isinstance(sample_text, str) else str(sample_text))
+        out, timed_out = _run_generated_function_with_timeout(
+            script,
+            function_field,
+            sample_text if isinstance(sample_text, str) else str(sample_text),
+        )
     except Exception:
+        return False
+    if timed_out:
         return False
 
     normalized = _normalize_function_output_for_check(out)
@@ -209,28 +247,52 @@ def _run_generated_function_with_timeout(
     fn_code: str,
     function_field: str,
     input_text: str,
-    timeout_seconds: float = 1.0,
+    timeout_seconds: float | None = None,
 ):
     """
-    Cross-platform timeout guard for generated functions.
+    Cross-platform hard timeout guard for generated functions.
     Returns: (result, timed_out)
     """
-    fn_name = f"get_{function_field}_field"
+    timeout_seconds = (
+        _generated_function_timeout_seconds()
+        if timeout_seconds is None
+        else float(timeout_seconds)
+    )
+    payload = json.dumps(
+        {
+            "fn_code": fn_code,
+            "function_field": function_field,
+            "input_text": input_text,
+        },
+        ensure_ascii=False,
+    )
+    try:
+        completed = subprocess.run(
+            [sys.executable, "-c", _GENERATED_FUNCTION_SUBPROCESS_CODE],
+            input=payload,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            encoding="utf-8",
+            errors="replace",
+            timeout=timeout_seconds,
+        )
+    except subprocess.TimeoutExpired:
+        return None, True
 
-    def _runner():
-        local_env = {}
-        exec(fn_code, local_env, local_env)
-        fn_obj = local_env.get(fn_name)
-        if not callable(fn_obj):
-            raise ValueError(f"Generated function not found: {fn_name}")
-        return fn_obj(input_text)
+    if completed.returncode != 0:
+        detail = (completed.stderr or completed.stdout).strip()
+        raise RuntimeError(f"Generated function subprocess failed: {detail}")
 
-    with ThreadPoolExecutor(max_workers=1) as executor:
-        future = executor.submit(_runner)
-        try:
-            return future.result(timeout=timeout_seconds), False
-        except FuturesTimeoutError:
-            return None, True
+    try:
+        response = json.loads(completed.stdout)
+    except json.JSONDecodeError as exc:
+        detail = (completed.stderr or completed.stdout).strip()
+        raise RuntimeError(f"Generated function subprocess returned invalid JSON: {detail}") from exc
+
+    if response.get("status") == "ok":
+        return response.get("result"), False
+    raise RuntimeError(response.get("error", "Generated function failed"))
 
 
 @contextmanager
@@ -490,6 +552,7 @@ def apply_final_profiling_functions(
     all_extractions = {}
     num_function_errors = 0
     num_timeouts = 0
+    function_timeout_seconds = _generated_function_timeout_seconds()
 
     for i, file in enumerate(sample_files):
         content = files2contents[file]
@@ -535,10 +598,17 @@ def apply_final_profiling_functions(
                 err = 0
                 try:
                     result, timed_out = _run_generated_function_with_timeout(
-                        fn, function_field, text, timeout_seconds=1.0
+                        fn,
+                        function_field,
+                        text,
+                        timeout_seconds=function_timeout_seconds,
                     )
                     if timed_out:
-                        print(f"Timeout {num_timeouts}")
+                        print(
+                            "FUNCTION TIMEOUT "
+                            f"after {function_timeout_seconds:g}s "
+                            f"for attribute={attribute} file={file}"
+                        )
                         num_timeouts += 1
                         raise TimeoutException("Generated function timeout on text")
                     print("FUNCTION RESULT ON text:", repr(result))
@@ -550,10 +620,18 @@ def apply_final_profiling_functions(
                 if err:
                     try:
                         result, timed_out = _run_generated_function_with_timeout(
-                            fn, function_field, preprocessed_text, timeout_seconds=1.0
+                            fn,
+                            function_field,
+                            preprocessed_text,
+                            timeout_seconds=function_timeout_seconds,
                         )
                         if timed_out:
-                            print("Timeout")
+                            print(
+                                "FUNCTION TIMEOUT "
+                                f"after {function_timeout_seconds:g}s "
+                                f"for attribute={attribute} file={file} "
+                                "on preprocessed_text"
+                            )
                             raise TimeoutException("Generated function timeout on preprocessed_text")
                         print("FUNCTION RESULT ON preprocessed_text:", repr(result))
                         extractions.append(result)

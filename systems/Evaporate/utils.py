@@ -5,10 +5,9 @@ import time  # NEW ADDITION: Added for performance tracking
 from collections import Counter, defaultdict
 from dotenv import load_dotenv
 
-from manifest import Manifest
 from configs import get_args
 from prompts import Step
-from openai import OpenAI
+from openai import AzureOpenAI, OpenAI
 from llm_metrics import LLMCallMetrics, get_global_tracker  # NEW ADDITION: Added for LLM call tracking
 
 # Carica il file .env dalla root della repo UDA-Bench
@@ -21,18 +20,72 @@ TOGETHER_API_KEY = os.environ.get("TOGETHER_API_KEY")
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
 
 
+def _first_env(*names: str) -> str:
+    for name in names:
+        value = os.environ.get(name)
+        if value and value.strip():
+            return value.strip().strip('"').strip("'")
+    return ""
+
+
+def _normalize_azure_endpoint(value: str) -> str:
+    value = (value or "").strip().rstrip("/")
+    for suffix in ("/openai/v1", "/openai"):
+        if value.lower().endswith(suffix):
+            return value[: -len(suffix)].rstrip("/")
+    return value
+
+
+def _azure_openai_config() -> tuple[str, str, str, str]:
+    api_key = _first_env("AZURE_OPENAI_API_KEY", "AZURE_API_KEY")
+    endpoint = _normalize_azure_endpoint(_first_env("AZURE_OPENAI_ENDPOINT", "AZURE_API_BASE"))
+    api_version = _first_env("OPENAI_API_VERSION", "AZURE_API_VERSION") or "2024-12-01-preview"
+    deployment = _first_env("AZURE_OPENAI_DEPLOYMENT", "AZURE_OPENAI_MODEL")
+    return api_key, endpoint, api_version, deployment
+
+
+def _resolve_azure_deployment(model: str) -> str:
+    model = str(model or "").strip()
+    if model.startswith("azure/"):
+        model = model.split("/", 1)[1].strip()
+    if model and "gemini" not in model.lower():
+        return model
+    return _azure_openai_config()[3] or model
+
+
 def together_call(prompt, model, streaming=False, max_tokens=1024):
-    """Call Gemini through Google's OpenAI-compatible endpoint and track usage metrics."""
+    """Call the configured LLM provider and track usage metrics."""
     start_time = time.time()
 
-    api_key = os.environ.get("GEMINI_API_KEY")
-    if not api_key:
-        raise ValueError("Missing GEMINI_API_KEY environment variable")
+    provider = _first_env("EVAPORATE_LLM_PROVIDER").lower()
+    azure_key, azure_endpoint, azure_api_version, _ = _azure_openai_config()
+    gemini_key = _first_env("GEMINI_API_KEY", "GOOGLE_API_KEY")
+    openai_key = _first_env("OPENAI_API_KEY")
 
-    client = OpenAI(
-        api_key=api_key,
-        base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
-    )
+    if provider in {"azure", "azure_openai"} or (azure_key and azure_endpoint and not gemini_key):
+        if not azure_key or not azure_endpoint:
+            raise ValueError("Missing Azure OpenAI environment variables")
+        client = AzureOpenAI(
+            api_key=azure_key,
+            azure_endpoint=azure_endpoint,
+            api_version=azure_api_version,
+        )
+        call_model = _resolve_azure_deployment(model)
+    elif provider == "openai" or (openai_key and not gemini_key):
+        if not openai_key:
+            raise ValueError("Missing OPENAI_API_KEY environment variable")
+        client = OpenAI(api_key=openai_key)
+        call_model = model
+    else:
+        if not gemini_key:
+            raise ValueError(
+                "Missing LLM credentials: set Azure OpenAI variables, OPENAI_API_KEY, or GEMINI_API_KEY"
+            )
+        client = OpenAI(
+            api_key=gemini_key,
+            base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
+        )
+        call_model = model
 
     messages = [
         {
@@ -48,7 +101,7 @@ def together_call(prompt, model, streaming=False, max_tokens=1024):
     try:
         chat_completion = client.chat.completions.create(
             messages=messages,
-            model=model,
+            model=call_model,
             max_tokens=max_tokens,
             stream=streaming,
         )
@@ -66,7 +119,7 @@ def together_call(prompt, model, streaming=False, max_tokens=1024):
             total_tokens = usage.total_tokens if usage else (prompt_tokens + completion_tokens)
 
             metrics = LLMCallMetrics(
-                model=model,
+                model=call_model,
                 prompt_tokens=prompt_tokens,
                 completion_tokens=completion_tokens,
                 total_tokens=total_tokens,
@@ -103,7 +156,7 @@ def together_call(prompt, model, streaming=False, max_tokens=1024):
             total_tokens = prompt_tokens + completion_tokens
 
         metrics = LLMCallMetrics(
-            model=model,
+            model=call_model,
             prompt_tokens=prompt_tokens,
             completion_tokens=completion_tokens,
             total_tokens=total_tokens,
@@ -293,6 +346,15 @@ def get_manifest_session(
     temperature=0,
     top_p=1.0,
 ):
+    try:
+        from manifest import Manifest
+    except ImportError as exc:
+        raise ImportError(
+            "The 'manifest' package is required only for legacy Manifest-backed "
+            "OpenAI/HuggingFace Evaporate runs. Azure/OpenAI direct runs do not "
+            "need this path."
+        ) from exc
+
     if client_name == "huggingface" and temperature == 0:
         params = {
             "temperature": 0.001,

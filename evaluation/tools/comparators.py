@@ -15,6 +15,43 @@ from .logging_utils import setup_logger
 from .utils import normalize_whitespace, split_multi_value
 
 
+def _first_env(*names: str) -> str:
+    for name in names:
+        value = os.environ.get(name)
+        if value:
+            return value
+    return ""
+
+
+def _load_repo_env() -> None:
+    env_path = Path(__file__).resolve().parents[2] / ".env"
+    if not env_path.exists():
+        return
+    for raw_line in env_path.read_text(encoding="utf-8", errors="replace").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        if line.startswith("export "):
+            line = line[len("export ") :].strip()
+        key, value = line.split("=", 1)
+        key = key.strip()
+        value = value.strip().strip('"').strip("'")
+        if key and key not in os.environ:
+            os.environ[key] = value
+
+
+def _normalize_azure_base(value: str) -> str:
+    cleaned = (value or "").strip().rstrip("/")
+    for suffix in ("/openai/v1", "/openai"):
+        if cleaned.lower().endswith(suffix):
+            cleaned = cleaned[: -len(suffix)].rstrip("/")
+    marker = "/openai/deployments/"
+    lowered = cleaned.lower()
+    if marker in lowered:
+        cleaned = cleaned[: lowered.index(marker)].rstrip("/")
+    return cleaned
+
+
 def f1_score(p: float, r: float) -> float:
     if p + r == 0:
         return 0.0
@@ -63,21 +100,43 @@ class LlmClient:
         self.model = settings.llm_model
         provider = settings.llm_provider.lower()
         if provider and provider != "none":
+            _load_repo_env()
             try:
                 api_key, api_base = load_api_keys(provider)
             except Exception as exc:  # pragma: no cover - defensive logging
                 self.logger.warning("Failed to load API config for provider '%s': %s", provider, exc)
                 api_key, api_base = None, None
 
-            env_api_key = os.environ.get("OPENAI_API_KEY")
-            env_api_base = os.environ.get("OPENAI_API_BASE")
+            if provider in {"azure", "azure_openai"}:
+                azure_key = _first_env("AZURE_API_KEY", "AZURE_OPENAI_API_KEY", "OPENAI_API_KEY")
+                azure_base = _normalize_azure_base(
+                    api_base or _first_env("AZURE_API_BASE", "AZURE_OPENAI_ENDPOINT", "OPENAI_API_BASE")
+                )
+                azure_version = _first_env("AZURE_API_VERSION", "AZURE_OPENAI_API_VERSION", "OPENAI_API_VERSION")
+                azure_deployment = _first_env("AZURE_OPENAI_DEPLOYMENT", "AZURE_OPENAI_MODEL")
 
-            if api_base and not env_api_base:
-                os.environ["OPENAI_API_BASE"] = api_base
-            if api_key and not env_api_key:
-                os.environ["OPENAI_API_KEY"] = api_key
+                if azure_key:
+                    os.environ.setdefault("AZURE_API_KEY", azure_key)
+                if azure_base:
+                    os.environ.setdefault("AZURE_API_BASE", azure_base)
+                if azure_version:
+                    os.environ.setdefault("AZURE_API_VERSION", azure_version)
+                if azure_deployment and (not self.model or not self.model.startswith("azure/")):
+                    self.model = f"azure/{azure_deployment}"
 
-            if api_key or env_api_key:
+                has_auth = bool(azure_key and azure_base)
+            else:
+                env_api_key = os.environ.get("OPENAI_API_KEY")
+                env_api_base = os.environ.get("OPENAI_API_BASE")
+
+                if api_base and not env_api_base:
+                    os.environ["OPENAI_API_BASE"] = api_base
+                if api_key and not env_api_key:
+                    os.environ["OPENAI_API_KEY"] = api_key
+
+                has_auth = bool(api_key or env_api_key)
+
+            if has_auth:
                 try:
                     import litellm  # type: ignore
 
@@ -293,6 +352,7 @@ class MultiValueComparator(CellComparator):
         )
         if matched is None:
             matched = self._lexical_match_count(pred_values, gold_values)
+        matched = max(0, min(int(matched), len(pred_values), len(gold_values)))
 
         precision = matched / len(pred_values) if pred_values else 0.0
         recall = matched / len(gold_values) if gold_values else 0.0

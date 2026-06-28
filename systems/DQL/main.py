@@ -7,6 +7,30 @@ import os
 import time
 
 
+def _repo_root() -> Path:
+    return Path(__file__).resolve().parents[2]
+
+
+def _load_env_file(path: Path) -> None:
+    if not path.exists():
+        return
+
+    loaded: dict[str, str] = {}
+    for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
+        raw = line.strip()
+        if not raw or raw.startswith("#") or "=" not in raw:
+            continue
+        key, value = raw.split("=", 1)
+        key = key.strip()
+        value = value.strip().strip('"').strip("'")
+        if not key or key in os.environ:
+            continue
+        for name, loaded_value in {**loaded, **os.environ}.items():
+            value = value.replace(f"${{{name}}}", loaded_value)
+        os.environ[key] = value
+        loaded[key] = value
+
+
 def _load_extra_payload() -> dict:
     """
     Optional extension point:
@@ -109,6 +133,8 @@ def process_single_query(api_url: str, query: str, user_id, chat_id, request_id,
     return False
 
 def main():
+    _load_env_file(_repo_root() / ".env")
+
     parser = argparse.ArgumentParser(
         description="Script batch per inviare query all'API dell'Orchestrator DQL."
     )
@@ -117,7 +143,7 @@ def main():
         "--api-url", 
         type=str,
         required=False,
-        default="http://127.0.0.1:9000/api/answer", 
+        default=os.environ.get("DQL_API_URL", "http://127.0.0.1:9000/api/answer"),
         help="URL dell'endpoint API (default: http://127.0.0.1:9000/api/answer)"
     )
     

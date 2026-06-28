@@ -1,12 +1,19 @@
 import os
 from pathlib import Path
 from dotenv import load_dotenv
-import google.generativeai as genai
 import tiktoken
 
 load_dotenv()
 
 from db.connector.connector import create_opengauss_engine
+
+
+def _normalize_azure_endpoint(value: str | None) -> str:
+    value = (value or "").strip().rstrip("/")
+    for suffix in ("/openai/v1", "/openai"):
+        if value.lower().endswith(suffix):
+            return value[: -len(suffix)].rstrip("/")
+    return value
 
 opengauss_conn = create_opengauss_engine()
 
@@ -29,39 +36,54 @@ DATASET_DIR = PROJECT_ROOT / "Dataset"
 
 # index file
 INDEX_ROOT_DIR = PROJECT_ROOT / "Data" / "Index/"
-OLLAMA_BASE =  "http://localhost:11434"
+OLLAMA_BASE = "http://localhost:11434"
 
-GEMINI_API_BASE = os.getenv("GEMINI_API_BASE", "https://generativelanguage.googleapis.com")
+AZURE_OPENAI_API_KEY = os.getenv("AZURE_OPENAI_API_KEY")
+AZURE_OPENAI_ENDPOINT = _normalize_azure_endpoint(os.getenv("AZURE_OPENAI_ENDPOINT"))
+AZURE_OPENAI_DEPLOYMENT = os.getenv("AZURE_OPENAI_DEPLOYMENT")
+OPENAI_API_VERSION = os.getenv("OPENAI_API_VERSION")
 
-LLM_MODEL = 'gemini/gemini-2.5-flash'
+missing_azure_vars = [
+    name
+    for name, value in {
+        "AZURE_OPENAI_API_KEY": AZURE_OPENAI_API_KEY,
+        "AZURE_OPENAI_ENDPOINT": AZURE_OPENAI_ENDPOINT,
+        "AZURE_OPENAI_DEPLOYMENT": AZURE_OPENAI_DEPLOYMENT,
+        "OPENAI_API_VERSION": OPENAI_API_VERSION,
+    }.items()
+    if not value
+]
+if missing_azure_vars:
+    raise ValueError(f"Missing Azure OpenAI configuration: {', '.join(missing_azure_vars)}")
 
-API_EMB_MODEL = "gemini/gemini-embedding-001" 
+LLM_MODEL = f"azure/{AZURE_OPENAI_DEPLOYMENT}"
 
-API_EMB_API_KEY = os.getenv("GEMINI_API_KEY")
-if not API_EMB_API_KEY:
-    raise ValueError("⚠️ ERRORE CRITICO: GEMINI_API_KEY mancante. Inseriscila nel file .env!")
+# QUEST uses local E5 embeddings by default. These API embedding settings are
+# retained only for compatibility with the optional ApiEmbeddings path.
+API_EMB_MODEL = os.getenv("AZURE_OPENAI_EMBEDDING_DEPLOYMENT", "")
+API_EMB_API_KEY = AZURE_OPENAI_API_KEY
 
 GPT_MODEL = LLM_MODEL
-GPT_API_BASE = GEMINI_API_BASE
+GPT_API_BASE = AZURE_OPENAI_ENDPOINT
 GPT_API_KEY = API_EMB_API_KEY
+GPT_API_VERSION = OPENAI_API_VERSION
 
 LLM_BATCH_SIZE = 10
 
-os.environ['GEMINI_API_KEY'] = GPT_API_KEY
-#os.environ['GEMINI_API_BASE'] = GPT_API_BASE
+os.environ["AZURE_API_KEY"] = GPT_API_KEY
+os.environ["AZURE_API_BASE"] = GPT_API_BASE
+os.environ["AZURE_API_VERSION"] = GPT_API_VERSION
 
-# <-- MODIFICA GEMINI: Setup del conteggio token con il tokenizer reale di Gemini
-genai.configure(api_key=GPT_API_KEY)
-# Rimuoviamo il prefisso 'gemini/' solo per l'SDK genai interno
-gemini_token_model = genai.GenerativeModel('gemini-2.0-flash')
+# Backward-compatible name used by old call sites; Azure calls should use GPT_API_BASE.
+GEMINI_API_BASE = None
 
 enc = tiktoken.get_encoding("cl100k_base")
 Enc_token_cnt = enc
 
+
 def count_tokens(text):
-    # Calcola in modo esatto i token fatturati/gestiti da Gemini
-    response = gemini_token_model.count_tokens(text)
-    return response.total_tokens
+    return len(enc.encode(text or ""))
+
 
 # SAMPLE
 SAMPLE_NUM = 5
