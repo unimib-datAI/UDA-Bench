@@ -1,84 +1,106 @@
-# 🚀 Quest – Quick Start Guide
+# QUEST Quick Start
 
-This guide explains how to set up the project and run a test execution.
+This guide assumes commands are run from the repository root (`UDA-Bench`).
 
----
+## Local prerequisites
 
-## 📂 Setup & Run
+These paths are intentionally not versioned and must exist locally:
 
-From the root of the repository (`UDA-Bench`):
+- `.env`
+- `.venv-quest/` or a Python 3.10 environment exposed through `QUEST_PYTHON`
+- `Data/Finan/txt/*.txt`
+- `systems/quest/model/intfloat/multilingual-e5-large/*`
+- Docker volume `quest_pgvector_data`
+- `systems/quest/results/`
 
-### 1. Navigate to the project directory
+`Query/Finan/Finan_attributes.json` is versioned and is used as a fallback for Finance attribute metadata, so a local `Dataset/finance/Attributes.json` copy is not required.
 
-```bash
-cd systems/quest
+## 1. Configure `.env`
+
+Create or update `.env` in the repository root:
+
+```env
+AZURE_OPENAI_API_KEY=
+AZURE_OPENAI_ENDPOINT=https://<resource>.openai.azure.com
+AZURE_OPENAI_DEPLOYMENT=
+OPENAI_API_VERSION=2024-12-01-preview
+
+HOST=localhost
+DATABASE=quest
+USER=quest
+PASSWORD=quest_password
+DB_PORT_EXTERNAL=5433
+DB_PORT_INTERNAL=5432
 ```
 
----
+Use `--env-file .env` with Docker Compose, because the compose file lives under `systems/quest`.
 
-### 2. Create and activate the Conda environment
+## 2. Create the QUEST environment
 
-```bash
-conda create -n quest_env python=3.10.16
-conda activate quest_env
+```powershell
+py -3.10 -m venv .venv-quest
+.\.venv-quest\Scripts\python.exe -m pip install --upgrade pip
+.\.venv-quest\Scripts\pip.exe install torch==2.1.2 torchvision==0.16.2 torchaudio==2.1.2 --index-url https://download.pytorch.org/whl/cu121
+.\.venv-quest\Scripts\pip.exe install -r systems\quest\requirements.txt
 ```
 
----
+If the spaCy models are missing:
 
-### 3. Install dependencies
-
-```bash
-pip install torch==2.1.2 torchvision==0.16.2 torchaudio==2.1.2 --index-url https://download.pytorch.org/whl/cu121
-
-pip install -r requirements.txt
-
-python -m spacy download en_core_web_sm
-python -m spacy download en_core_web_md
+```powershell
+.\.venv-quest\Scripts\python.exe -m spacy download en_core_web_sm
+.\.venv-quest\Scripts\python.exe -m spacy download en_core_web_md
 ```
 
----
+## 3. Download the local embedding model
 
-### 4. Configure the `.env` file
+The standard Finance run uses `intfloat/multilingual-e5-large`:
 
-Use the `.env.example` file to create your personal `.env` file in the root of quest
-
-⚠️ Note: the credentials of deepseek in the original repository were exposed in plain text.
-
----
-
-### 5. Download local models
-
-Run the following command from the project root directory:
-
-```bash
-mkdir -p model/BAAI model/intfloat model/sentence-transformers
-git clone https://huggingface.co/BAAI/bge-m3 model/BAAI/bge-m3
-git clone https://huggingface.co/intfloat/multilingual-e5-large model/intfloat/multilingual-e5-large
-git clone https://huggingface.co/sentence-transformers/all-mpnet-base-v2 model/sentence-transformers/all-mpnet-base-v2
+```powershell
+.\.venv-quest\Scripts\huggingface-cli.exe download intfloat/multilingual-e5-large --local-dir systems\quest\model\intfloat\multilingual-e5-large
 ```
 
----
+Expected files include:
 
-### 6. Build and start the database
-
-```bash
-docker compose up --build -d
+```text
+systems/quest/model/intfloat/multilingual-e5-large/config.json
+systems/quest/model/intfloat/multilingual-e5-large/model.safetensors
 ```
 
----
+The README from the original QUEST project also mentions `BAAI/bge-m3` and `sentence-transformers/all-mpnet-base-v2`; those are only needed for alternate code paths.
 
-### 7. Run a query
+## 4. Start pgvector
 
-```bash
-python main.py \
-  --sql "<your_sql_query>" \
-  --debug
+```powershell
+docker compose --env-file .env -f systems\quest\docker-compose.yml up --build -d
+docker compose --env-file .env -f systems\quest\docker-compose.yml ps
 ```
 
-#### Parameters:
+The `quest_pgvector` container should be healthy.
 
-* `--sql` → list of SQL queries to execute
-* `--out_dir` → directory where data is stored (default `quest/results`)
-* `--debug` → if present, only 5 documents are indexed (useful for quick testing)
+## 5. Smoke test
 
-⚠️ Note: When switching between debug and non-debug mode, you must manually empty the database.
+```powershell
+$env:PYTHONUTF8='1'
+$env:PYTHONIOENCODING='utf-8'
+
+.\.venv-quest\Scripts\python.exe systems\quest\main.py --sql "SELECT company_name FROM finance" --debug --out_dir systems\quest\results\Finan\smoke
+```
+
+When switching from `--debug` to a full run, reset the DB volume:
+
+```powershell
+docker compose --env-file .env -f systems\quest\docker-compose.yml down -v
+docker compose --env-file .env -f systems\quest\docker-compose.yml up --build -d
+```
+
+## 6. Full run through the orchestrator
+
+```powershell
+.\.venv-quest\Scripts\python.exe orchestrator\main.py --model quest --dataset Finan --query-type all --mode run+eval --run-id quest_finan_run_eval
+```
+
+To resume after failures or interrupted network calls:
+
+```powershell
+.\.venv-quest\Scripts\python.exe orchestrator\main.py --model quest --dataset Finan --query-type all --mode run+eval --retry-failed --run-id quest_finan_run_eval_retry
+```

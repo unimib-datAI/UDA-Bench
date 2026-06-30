@@ -8,7 +8,7 @@ import logging
 import conf.settings as settings
 import copy
 import random
-from core.llm.llm_query import LLMInfo, add_litellm_auth
+from core.llm.llm_query import LLMInfo, add_litellm_auth, completion_with_retries, response_content
 
 
 def normalize_api_base(api_base):
@@ -268,14 +268,14 @@ class AttrSampler:
         temp_gemini_base = os.environ.pop("GEMINI_API_BASE", None)
         temp_api_base = os.environ.pop("API_BASE", None)
         try:
-            response = completion(**api_kwargs)
+            response = completion_with_retries(api_kwargs)
         finally:
             if temp_gemini_base is not None:
                 os.environ["GEMINI_API_BASE"] = temp_gemini_base
             if temp_api_base is not None:
                 os.environ["API_BASE"] = temp_api_base
 
-        result = response.choices[0].message['content'].strip()     
+        result = response_content(response).strip()
         LLMInfo.add_output_tokens(len(settings.enc.encode(result)))
 
         return result        

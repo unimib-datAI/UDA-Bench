@@ -9,6 +9,7 @@ import conf.settings as settings
 from utils import table_util
 from utils.log import print_log
 import copy
+import time
 
 
 def normalize_api_base(api_base):
@@ -32,6 +33,65 @@ def add_litellm_auth(api_kwargs):
     api_kwargs["api_key"] = settings.GPT_API_KEY
     api_kwargs["api_version"] = settings.GPT_API_VERSION
     return api_kwargs
+
+
+def response_content(response):
+    if isinstance(response, Exception):
+        raise response
+    if not hasattr(response, "choices"):
+        raise RuntimeError(f"Invalid LiteLLM response: {response!r}")
+    message = response.choices[0].message
+    if isinstance(message, dict):
+        return message.get("content", "")
+    return message.content
+
+
+def retry_sleep_seconds(exc, attempt):
+    wait = settings.LLM_RETRY_BASE_SECONDS * (2 ** attempt)
+    response = getattr(exc, "response", None)
+    headers = getattr(response, "headers", {}) if response is not None else {}
+    retry_after = headers.get("retry-after") or headers.get("Retry-After")
+    if retry_after:
+        try:
+            wait = max(wait, float(retry_after))
+        except ValueError:
+            pass
+    return min(wait, 180)
+
+
+def completion_with_retries(api_kwargs):
+    last_exc = None
+    for attempt in range(settings.LLM_MAX_RETRIES):
+        try:
+            response = completion(**api_kwargs)
+            response_content(response)
+            return response
+        except Exception as exc:
+            last_exc = exc
+            if attempt + 1 >= settings.LLM_MAX_RETRIES:
+                raise
+            wait = retry_sleep_seconds(exc, attempt)
+            print_log(f"LiteLLM call failed ({exc.__class__.__name__}); retrying in {wait:.1f}s")
+            time.sleep(wait)
+    raise last_exc
+
+
+def batch_completion_with_retries(api_kwargs):
+    last_exc = None
+    for attempt in range(settings.LLM_MAX_RETRIES):
+        try:
+            responses = batch_completion(**api_kwargs)
+            for response in responses:
+                response_content(response)
+            return responses
+        except Exception as exc:
+            last_exc = exc
+            if attempt + 1 >= settings.LLM_MAX_RETRIES:
+                raise
+            wait = retry_sleep_seconds(exc, attempt)
+            print_log(f"LiteLLM batch failed ({exc.__class__.__name__}); retrying in {wait:.1f}s")
+            time.sleep(wait)
+    raise last_exc
 
 class LLMInfo(object):
     # static variables
@@ -318,14 +378,14 @@ class TextLLMQuerier(object):
             temp_gemini_base = os.environ.pop("GEMINI_API_BASE", None)
             temp_api_base = os.environ.pop("API_BASE", None)
             try:
-                response = completion(**api_kwargs)
+                response = completion_with_retries(api_kwargs)
             finally:
                 if temp_gemini_base is not None:
                     os.environ["GEMINI_API_BASE"] = temp_gemini_base
                 if temp_api_base is not None:
                     os.environ["API_BASE"] = temp_api_base
 
-            results.append(response.choices[0].message.content)
+            results.append(response_content(response))
         
         for prompt in prompts:
             for talk in prompt:
@@ -341,29 +401,34 @@ class TextLLMQuerier(object):
         results = []
         LLMInfo.add_query_times(len(prompts))
 
-        api_kwargs = {
+        batch_size = max(1, settings.LLM_BATCH_SIZE)
+
+        base_api_kwargs = {
                 "model": self.llm,
-                "messages": prompts,
                 "max_tokens": 128,
                 "stop": None,
                 "temperature": 0,
         }
         if self.api_base:
-            api_kwargs["api_base"] = self.api_base
-        add_litellm_auth(api_kwargs)
+            base_api_kwargs["api_base"] = self.api_base
+        add_litellm_auth(base_api_kwargs)
 
-        temp_gemini_base = os.environ.pop("GEMINI_API_BASE", None)
-        temp_api_base = os.environ.pop("API_BASE", None)
-        try:
-            batch_responses = batch_completion(**api_kwargs)
-        finally:
-            if temp_gemini_base is not None:
-                os.environ["GEMINI_API_BASE"] = temp_gemini_base
-            if temp_api_base is not None:
-                os.environ["API_BASE"] = temp_api_base
-        
-        for response in batch_responses:
-            results.append(response.choices[0].message.content)
+        for i in range(0, len(prompts), batch_size):
+            api_kwargs = dict(base_api_kwargs)
+            api_kwargs["messages"] = prompts[i:i + batch_size]
+
+            temp_gemini_base = os.environ.pop("GEMINI_API_BASE", None)
+            temp_api_base = os.environ.pop("API_BASE", None)
+            try:
+                batch_responses = batch_completion_with_retries(api_kwargs)
+            finally:
+                if temp_gemini_base is not None:
+                    os.environ["GEMINI_API_BASE"] = temp_gemini_base
+                if temp_api_base is not None:
+                    os.environ["API_BASE"] = temp_api_base
+
+            for response in batch_responses:
+                results.append(response_content(response))
 
         for prompt in prompts:
             for talk in prompt:

@@ -1,6 +1,7 @@
 import argparse
 import os
 import json
+import re
 from pathlib import Path
 import time
 from sqlalchemy import inspect, text
@@ -23,20 +24,76 @@ from core.llm.llm_query import TextLLMQuerier, LLMInfo
 from utils.log import print_log
 from conf.settings import SYSTEM_ROOT, PROJECT_ROOT, opengauss_conn
 
+SQL_KEYWORDS = {
+    "SELECT", "FROM", "WHERE", "ON", "IN", "AS", "INNER", "JOIN", "LEFT",
+    "GROUP", "ORDER", "BY", "HAVING", "MIN", "MAX", "COUNT", "SUM", "AVG",
+    "DISTINCT", "AND", "OR", "ASC", "DESC",
+}
+
+
+def normalize_sql_identifiers(sql):
+    parts = re.split(r"('(?:''|[^'])*'|\"(?:\"\"|[^\"])*\")", sql)
+    identifier_re = re.compile(r"\b[A-Za-z_][A-Za-z0-9_]*\b")
+
+    def normalize_token(match):
+        token = match.group(0)
+        upper_token = token.upper()
+        if upper_token in SQL_KEYWORDS:
+            return upper_token
+        return token.lower()
+
+    for i in range(0, len(parts), 2):
+        parts[i] = identifier_re.sub(normalize_token, parts[i])
+    return "".join(parts)
+
+
 def get_attributes_info(path, attr, table):
     if not os.path.exists(path):
         return None
     with open(path, "r", encoding="utf-8") as f:
         attr_info = json.load(f)
-        if table in attr_info and attr in attr_info[table]:
-            return f"{attr}: {attr_info[table][attr]['description']}"
+        table_info = attr_info.get(table)
+        if table_info is None:
+            table_info = next((v for k, v in attr_info.items() if k.lower() == table.lower()), None)
+        if table_info and attr in table_info:
+            return f"{attr}: {table_info[attr]['description']}"
     
     return None
 
+
+def iter_attribute_files(table):
+    seen = set()
+    dataset_dir = PROJECT_ROOT / "Dataset"
+
+    candidates = [dataset_dir / table / "Attributes.json"]
+
+    if dataset_dir.exists():
+        for folder in dataset_dir.iterdir():
+            if not folder.is_dir():
+                continue
+            for subfolder in folder.iterdir():
+                if subfolder.is_dir() and subfolder.name.lower() == table.lower():
+                    candidates.append(subfolder / "Attributes.json")
+
+    query_dir = PROJECT_ROOT / "Query"
+    if query_dir.exists():
+        candidates.extend(query_dir.glob("*/*_attributes.json"))
+
+    for path in candidates:
+        normalized = str(path.resolve()).lower()
+        if normalized in seen:
+            continue
+        seen.add(normalized)
+        if path.exists():
+            yield path
+
 def run(sql, debug=False, output_dir=os.path.join(SYSTEM_ROOT, "results", f"{int(time.time())}")):
     print(f"SQL Query: {sql}")
+    normalized_sql = normalize_sql_identifiers(sql)
+    if normalized_sql != sql:
+        print(f"Normalized SQL Query: {normalized_sql}")
     
-    parser = Parser(sql)
+    parser = Parser(normalized_sql)
 
     columns = parser.columns
     tables = parser.tables
@@ -70,21 +127,12 @@ def run(sql, debug=False, output_dir=os.path.join(SYSTEM_ROOT, "results", f"{int
     
     prompt_info = []
     
-    DATASET_DIR = PROJECT_ROOT / "Dataset"
-    
     for attr, table in attributes:
-        if os.path.exists(os.path.join(DATASET_DIR, table)):
-            attr_desc = get_attributes_info(DATASET_DIR / table / "Attributes.json", attr, table)
+        for attr_file in iter_attribute_files(table):
+            attr_desc = get_attributes_info(attr_file, attr, table)
             if attr_desc:
                 prompt_info.append(attr_desc)
-        elif DATASET_DIR.exists():
-            for folder in DATASET_DIR.iterdir():
-                for subfolder in folder.iterdir():
-                    if subfolder.is_dir() and subfolder.name.lower() == table.lower() and (subfolder / "Attributes.json").exists():
-                        attr_desc = get_attributes_info(subfolder / "Attributes.json", attr, table)
-                        if attr_desc:
-                            prompt_info.append(attr_desc)
-                            break
+                break
             
     prompt = "\n".join(prompt_info)
     
@@ -94,7 +142,7 @@ def run(sql, debug=False, output_dir=os.path.join(SYSTEM_ROOT, "results", f"{int
     start_time = time.perf_counter()
     try:
         # Build AST
-        ast = sqlparser.parse_sql(sql)
+        ast = sqlparser.parse_sql(normalized_sql)
         jsonConverter = ClassToJson()
         js = jsonConverter.toJson(ast)
         print("AST:\n", js)
@@ -127,6 +175,8 @@ def run(sql, debug=False, output_dir=os.path.join(SYSTEM_ROOT, "results", f"{int
         query_info = LLMInfo.get_dict_info()
     except Exception as e:
         print(f"Error during query execution: {e}")
+        if os.getenv("QUEST_WRITE_FALLBACK_ON_ERROR", "").lower() not in {"1", "true", "yes"}:
+            raise
         
         # Create the fallback DataFrame as requested
         fallback_data = {col: [""] * 100 for col in columns}

@@ -69,7 +69,7 @@ t_RPAREN = r'\)'
 t_COMA = r','
 t_DOT = r'\.'
 t_DQ = r'"'
-t_EQ = r'=='
+t_EQ = r'==|='
 t_NEQ = r'<>|!='
 t_LT = r'<'
 t_LEQ = r'<='
@@ -249,13 +249,20 @@ def p_columns(p):
 # TODO update other aggrs
 def p_function(p):
     """
-    function : MIN LPAREN column RPAREN
-             | MAX LPAREN column RPAREN
-             | SUM LPAREN column RPAREN
-             | AVG LPAREN column RPAREN
-             | COUNT LPAREN column RPAREN
-             | COUNT LPAREN DISTINCT column RPAREN
-             | COUNT LPAREN STAR RPAREN
+    function : function_value
+             | function_value AS IDENTIFIER
+    """
+    p[0] = p[1]
+
+def p_function_value(p):
+    """
+    function_value : MIN LPAREN column RPAREN
+                   | MAX LPAREN column RPAREN
+                   | SUM LPAREN column RPAREN
+                   | AVG LPAREN column RPAREN
+                   | COUNT LPAREN column RPAREN
+                   | COUNT LPAREN DISTINCT column RPAREN
+                   | COUNT LPAREN STAR RPAREN
     """
     if p[1]=='COUNT':
         if p[3]=='*':

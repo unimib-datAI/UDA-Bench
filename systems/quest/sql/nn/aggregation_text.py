@@ -63,8 +63,6 @@ class AggregationText(Aggregation):
             df[sqlconst.ALL_COLUMNS] = df[sqlconst.ALL_COLUMNS].fillna(1)
         print_log("now_table to aggr: ",df)
 
-        return df
-        
         # Step 2 : aggr
         now_table = table_util.aggregation_table_transform(df, functions, gp_columns) # always only one gp_column
         self.output.append(TablePack('Result', now_table))
@@ -72,4 +70,3 @@ class AggregationText(Aggregation):
         print("aggr_table:\n", now_table)
 
         return now_table
-        
