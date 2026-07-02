@@ -139,7 +139,7 @@ class TextLLMQuerier(object):
         for line in descriptions:
             if line.strip() == "":
                 continue
-            attr_name, description = line.split(":")
+            attr_name, description = line.split(":", 1)
             self.attr_descriptions_dict[attr_name.strip()] = description.strip()
         return
     

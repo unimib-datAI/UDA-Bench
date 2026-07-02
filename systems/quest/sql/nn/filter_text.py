@@ -119,7 +119,9 @@ class FilterText(Filter):
                 exist_idx = [idx for idx in now_doc_idList if idx in now_data_table.index] # check exist
                 now_data_table = now_data_table.loc[exist_idx]
                 now_data_table.reset_index(inplace=True)
-                now_data_table = now_data_table.query(condition)
+                query_op = '==' if filter.op == '=' else filter.op
+                query_condition = '`' + filter.lhs.parse_full() + '`' + ' ' + query_op + ' ' + str(filter.rhs.parse_full())
+                now_data_table = now_data_table.query(query_condition)
                 
                 #print("after filter:\n", now_data_table)
 

@@ -103,16 +103,18 @@ def split_multi_value(cell: Any, sep: str = "||") -> List[str]:
 def coerce_numeric(value: Any, value_type: str) -> Any:
     if value is None or (isinstance(value, float) and pd.isna(value)):
         return value
-    if value_type == "int":
+    if value_type in {"int", "float"}:
+        text = str(value).strip()
+        if text.lower() in DEFAULT_EMPTY_TOKENS or text == "":
+            return pd.NA
+        text = text.replace(",", "").replace("%", "")
+        text = re.sub(r"[^0-9eE+\-.]", "", text)
+        if text in {"", "+", "-", ".", "+.", "-."}:
+            return pd.NA
         try:
-            return int(str(value).strip())
+            return float(text)
         except Exception:
-            return value
-    if value_type == "float":
-        try:
-            return float(str(value).strip())
-        except Exception:
-            return value
+            return pd.NA
     return value
 
 
@@ -127,9 +129,13 @@ def normalize_types(df: pd.DataFrame, attributes: Mapping[str, Mapping[str, Mapp
             value_type = meta.get("value_type")
             if value_type and col in df.columns:
                 df[col] = df[col].apply(lambda x: coerce_numeric(x, value_type))
+                if value_type in {"int", "float"}:
+                    df[col] = pd.to_numeric(df[col], errors="coerce")
             dotted = f"{table}.{col}"
             if dotted in df.columns:
                 df[dotted] = df[dotted].apply(lambda x: coerce_numeric(x, value_type))
+                if value_type in {"int", "float"}:
+                    df[dotted] = pd.to_numeric(df[dotted], errors="coerce")
     return df
 
 

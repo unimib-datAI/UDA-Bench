@@ -93,6 +93,8 @@ systems/Evaporate/scratch/
 systems/DQL/results/
 
 # Root orchestrator artifacts
+/_export/
+/_tmp/
 orchestrator/runs/
 orchestrator/reports/*.csv
 orchestrator/analysis/_tmp_topk/

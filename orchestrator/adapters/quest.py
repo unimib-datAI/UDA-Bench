@@ -155,8 +155,8 @@ class QuestAdapter:
                         pass
                     continue
 
-                # Run evaluation for this query
-                sql_file = root / f"temp_sql_{i}.json"
+                # Keep the evaluation SQL snapshot next to the query artifacts.
+                sql_file = output_dir / "sql.json"
                 with open(sql_file, "w", encoding="utf-8") as f:
                     json.dump({"sql": sql.replace("FROM finance", "FROM Finan").replace("FROM Finance", "FROM Finan")}, f)
 
