@@ -12,6 +12,19 @@ import copy
 import time
 
 
+def is_content_policy_violation(exc):
+    text = f"{exc.__class__.__name__}: {exc}"
+    return any(
+        marker in text
+        for marker in (
+            "ContentPolicyViolation",
+            "content_filter",
+            "content management policy",
+            "ResponsibleAIPolicyViolation",
+        )
+    )
+
+
 def normalize_api_base(api_base):
     if not api_base:
         return None
@@ -68,6 +81,8 @@ def completion_with_retries(api_kwargs):
             return response
         except Exception as exc:
             last_exc = exc
+            if is_content_policy_violation(exc):
+                raise
             if attempt + 1 >= settings.LLM_MAX_RETRIES:
                 raise
             wait = retry_sleep_seconds(exc, attempt)
@@ -86,6 +101,8 @@ def batch_completion_with_retries(api_kwargs):
             return responses
         except Exception as exc:
             last_exc = exc
+            if is_content_policy_violation(exc):
+                raise
             if attempt + 1 >= settings.LLM_MAX_RETRIES:
                 raise
             wait = retry_sleep_seconds(exc, attempt)
@@ -420,7 +437,25 @@ class TextLLMQuerier(object):
             temp_gemini_base = os.environ.pop("GEMINI_API_BASE", None)
             temp_api_base = os.environ.pop("API_BASE", None)
             try:
-                batch_responses = batch_completion_with_retries(api_kwargs)
+                try:
+                    batch_responses = batch_completion_with_retries(api_kwargs)
+                except Exception as exc:
+                    reason = "content policy" if is_content_policy_violation(exc) else exc.__class__.__name__
+                    print_log(
+                        f"LiteLLM batch failed ({reason}); retrying the same prompts one by one"
+                    )
+                    batch_responses = []
+                    for prompt in prompts[i:i + batch_size]:
+                        single_kwargs = dict(base_api_kwargs)
+                        single_kwargs["messages"] = prompt
+                        try:
+                            batch_responses.append(completion_with_retries(single_kwargs))
+                        except Exception as single_exc:
+                            print_log(
+                                f"LiteLLM single prompt failed ({single_exc.__class__.__name__}); "
+                                "using empty/False fallback"
+                            )
+                            batch_responses.append("fcondition: False")
             finally:
                 if temp_gemini_base is not None:
                     os.environ["GEMINI_API_BASE"] = temp_gemini_base
@@ -428,7 +463,10 @@ class TextLLMQuerier(object):
                     os.environ["API_BASE"] = temp_api_base
 
             for response in batch_responses:
-                results.append(response_content(response))
+                if isinstance(response, str):
+                    results.append(response)
+                else:
+                    results.append(response_content(response))
 
         for prompt in prompts:
             for talk in prompt:

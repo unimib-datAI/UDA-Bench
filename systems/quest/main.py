@@ -2,6 +2,7 @@ import argparse
 import os
 import json
 import re
+import sys
 from pathlib import Path
 import time
 from sqlalchemy import inspect, text
@@ -240,6 +241,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     # Call the run function with the parsed arguments
+    failed = False
     for i, sql in enumerate(args.sql):
         current_out_dir = Path(str(args.out_dir).strip('"'))
         
@@ -253,5 +255,9 @@ if __name__ == "__main__":
                 run(sql.replace(';', ''), args.debug, current_out_dir)
             except Exception as e:
                 print_log(f"Error executing query {i+1}: {e}")
+                failed = True
         else:
             print_log(f"Skipping query {i+1}: results.csv already exists at {file_dir}")
+
+    if failed:
+        sys.exit(1)
