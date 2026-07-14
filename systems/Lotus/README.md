@@ -11,7 +11,7 @@ From the root of the repository (`UDA-Bench`):
 ### 1. Navigate to the project directory
 
 ```bash
-cd systems/lotus
+cd systems/Lotus
 ```
 
 ---
@@ -35,7 +35,7 @@ pip install -r requirements.txt
 
 ### 4. Configure the `.env` file
 
-Use the `.env.example` file to create your personal `.env` file in the root of lotus
+Copy `.env.example` to `.env` in `systems/Lotus/` and set `GEMINI_API_KEY`. When Lotus is launched by the root orchestrator, the repository-root `.env` is loaded by the parent process instead.
 
 ---
 
@@ -45,7 +45,8 @@ Use the `.env.example` file to create your personal `.env` file in the root of l
 python main.py \
   --sql "<your_sql_query>" \
   [--limit <num_rows>] \
-  [--cascade]
+  [--cascade] \
+  [--out_dir <output_directory>]
 ```
 
 #### Parameters
@@ -60,11 +61,14 @@ python main.py \
 * `--cascade` *(optional)*
   Abilita la strategia di *LM cascade*.
 
+* `--out_dir` *(optional)*
+  Directory base degli output. Se il basename non contiene `query_`, il runner aggiunge `query_<n>` per ogni SQL.
+
 ---
 
 ### 7. Output
 
-Results are available in the folder `results`
+By default, each invocation writes `systems/Lotus/results/<timestamp>/query_<n>/results.csv`. A custom `--out_dir` changes only the base directory.
 
 ---
 

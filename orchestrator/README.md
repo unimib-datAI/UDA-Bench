@@ -129,7 +129,7 @@ Ogni run crea una struttura standardizzata:
 - `manifest/run_manifest.json`
   - configurazione completa input run
   - modelli/dataset/query-type selezionati, modalità, flag rebuild
-  - puntatori agli artifact principali della run
+  - puntatori agli artifact principali della run e alla snapshot delle query
 
 - `queries/`
   - snapshot dei file SQL usati nella run, copiati da `Query/<dataset>/...`
@@ -168,7 +168,7 @@ Ogni run crea una struttura standardizzata:
 ## Nota importante
 
 `orchestrator/runs/` è il livello centralizzato per il tracking e il confronto tra run.
-Gli output nativi dei sistemi restano nelle rispettive cartelle (`systems/DocETL/outputs`, `systems/Evaporate/outputs`) e vengono referenziati dal meta-orchestrator.
+Gli output nativi restano nelle cartelle dei singoli sistemi (`outputs/` per DocETL, Evaporate e DQL; `results/` per Lotus e QUEST). Il meta-orchestrator ne materializza una copia filtrata sotto la run quando riconosce la struttura dell'adapter.
 
 ## Nota DQL (conversione JSON -> CSV)
 
@@ -213,24 +213,22 @@ python orchestrator/report.py --run-id test_docetl_eval_select,test_evaporate_ev
 
 Output default: `orchestrator/reports/runs_report.csv`
 
-## Final HTML report (SELECT)
+## Report HTML Finance
 
 Generate:
 
 ```powershell
-.\.venv-DQL\Scripts\python.exe orchestrator/analysis/select_eval_report.py --dataset Finan --output orchestrator/analysis/select_report.html
+.\.venv-docetl\Scripts\python.exe orchestrator/analysis/finance_outputs_report.py --dataset Finan
 ```
 
 Open from command line:
 
 ```powershell
-start .\orchestrator\analysis\select_report.html
+start .\orchestrator\analysis\finance_outputs_report_llm.html
 ```
 
-## Top-k HTML report (multi-task: SELECT/AGG/MIXED)
-
-Generate:
+Lo script usa di default la variante `llm`; per il report deterministico:
 
 ```powershell
-.\.venv-DQL\Scripts\python.exe orchestrator/analysis/select_topk_compare.py --dataset Finan --tasks select,agg,mixed --topk 6 --include-lotus-from-benchmark --output orchestrator/analysis/select_top6_compare.html
+.\.venv-docetl\Scripts\python.exe orchestrator/analysis/finance_outputs_report.py --dataset Finan --variant standard
 ```

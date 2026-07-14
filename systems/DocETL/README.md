@@ -144,6 +144,14 @@ Evaluation per tipologia query:
 python systems/DocETL/orchestrator/evaluate_all.py --dataset Finan --query-type select
 ```
 
+Evaluation con matching LLM in una cartella separata:
+
+```bash
+python systems/DocETL/orchestrator/evaluate_all.py --dataset Finan --query-type select --llm-provider azure --llm-model azure/<deployment> --eval-suffix llm_azure
+```
+
+Il suffisso dell'esempio produce `outputs/<dataset>/evaluation_llm_azure/`. Senza questi flag l'evaluation usa matching deterministico (`--llm-provider none`).
+
 Da `main.py` puoi anche lanciare solo evaluation:
 
 ```bash
@@ -209,6 +217,7 @@ Note tecniche importanti:
 - casting numerico guidato da `Query/<Dataset>/*_attributes.json`
 - supporto a condizioni complesse (`IN`, `LIKE`, `BETWEEN`)
 - iniezione colonne `id` per allineamento corretto con evaluator
+- `--debug-quality-retry` abilita retry/strict mode diagnostici e non va usato per i risultati benchmark principali
 
 ## Riesecuzione singola query (consigliata per debug)
 

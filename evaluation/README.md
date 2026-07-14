@@ -37,24 +37,27 @@ Argomenti opzionali rilevanti:
 - `--multi-value-sep` (default `||`): separatore per campi multi-valore.
 - `--llm-provider`, `--llm-model`: matching semantico per stringhe/chiavi.
 - `--semantic-join*`: abilita/controlla join semantico durante esecuzione GT.
+- `--log-level`: livello del logging (default `INFO`).
+
+`--result-csv`, `--attributes-file`, `--gt-dir` e `--output-dir` sono opzionali nella CLI perché il codice può inferirli. Per run riproducibili è comunque preferibile passarli esplicitamente come nell'esempio.
 
 ## 2) Input attesi (contratto)
 
-## 2.1 Ground truth (GT)
+### 2.1 Ground truth (GT)
 
 In `--gt-dir` devono esserci CSV tabellari con nome tabella = nome file:
 - `Query/<dataset>/<table>.csv`
 
 L'SQL deve referenziare tabelle esistenti in quella directory (stesso stem file).
 
-## 2.2 Metadata attributi
+### 2.2 Metadata attributi
 
 `--attributes-file` deve puntare a `*_attributes.json` con struttura per tabella/colonna.
 I campi usati dal core sono soprattutto:
 - `value_type` (`str`, `int`, `float`, `multi_str`, ...)
 - `description` (usata per LLM semantic match)
 
-## 2.3 SQL
+### 2.3 SQL
 
 Supportati:
 - file `.sql` con query;
@@ -68,7 +71,7 @@ La query viene parse-ata per:
 
 Nota: per query join, il parser può aggiungere alias mancanti (`table.column`) via `tools/sql_aliaser.py`.
 
-## 2.4 CSV risultato del sistema (fondamentale)
+### 2.4 CSV risultato del sistema (fondamentale)
 
 `--result-csv` deve contenere almeno i campi richiesti dalla SELECT target.
 Il loader normalizza automaticamente:
@@ -153,10 +156,8 @@ In pratica, il contratto minimo è:
 
 ## 7) Configurazioni opzionali (LLM / embedding)
 
-- `evaluation/conf/template_api_key.yaml`:
-  struttura per provider (`api_key`, `api_base`) letta da `tools/load_api_keys.py`.
-- `config/embedding_model.yaml`:
-  usato da `tools/text_embedding.py` per semantic join vector prefilter.
+- `evaluation/conf/api_key.yaml`: configurazione runtime per provider (`api_key`, `api_base`) letta da `tools/load_api_keys.py`; `evaluation/conf/template_api_key.yaml` è il template versionato.
+- `config/embedding_model.yaml`: configurazione runtime letta dal semantic-join vector prefilter. Il template versionato è `evaluation/conf/template_embedding_model.yaml`; la directory `config/` va creata in root quando si abilita questa integrazione.
 
 Se LLM non disponibile:
 - il sistema degrada a matching deterministico/lessicale (non blocca la run).

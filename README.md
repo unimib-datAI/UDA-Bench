@@ -1,6 +1,6 @@
 # <img src="img/UDA.png" alt="UDA" width="80" height="80" style="vertical-align: middle; margin-right: 8px;" /> Unstructured Data Analysis Benchmark
 
-## Repository Quick Start (Updated)
+## Repository Quick Start
 
 This repository contains:
 
@@ -14,7 +14,7 @@ This repository contains:
 Run everything from:
 
 ```powershell
-python orchestrator/main.py --model <model|all> --dataset <dataset|all> --query-type <select|filter|...|all> --mode <run|eval|run+eval>
+python orchestrator/main.py --model <model|all|list:m1,m2> --dataset <dataset|all|list:d1,d2> --query-type <type|all|list:t1,t2> --mode <run|eval|run+eval>
 ```
 
 Examples:
@@ -31,25 +31,25 @@ Main run artifacts are written under:
 
 - `orchestrator/runs/<run_id>/...`
 
-### Final HTML report
+### Finance HTML report
 
 Generate:
 
 ```powershell
-.\.venv-DQL\Scripts\python.exe orchestrator/analysis/select_eval_report.py --dataset Finan --output orchestrator/analysis/select_report.html
+.\.venv-docetl\Scripts\python.exe orchestrator/analysis/finance_outputs_report.py --dataset Finan
 ```
 
 Open:
 
 ```powershell
-start .\orchestrator\analysis\select_report.html
+start .\orchestrator\analysis\finance_outputs_report_llm.html
 ```
 
 
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
-[![Python](https://img.shields.io/badge/Python-3.8+-blue.svg)](https://www.python.org/)
-[![Dataset](https://img.shields.io/badge/Datasets-5-orange.svg)](https://github.com/example/datasets)
-[![Systems](https://img.shields.io/badge/Systems-7-purple.svg)](https://github.com/example/systems)
+[![Python](https://img.shields.io/badge/Python-3.10+-blue.svg)](https://www.python.org/)
+[![Dataset](https://img.shields.io/badge/Datasets-6-orange.svg)](#dataset-statistics)
+[![Systems](https://img.shields.io/badge/Integrated_systems-5-purple.svg)](#systems-for-evaluation)
 
 <div align="center">
   <img src="img/UDA-big.png" alt="Benchmark Construction Process" width="600" height="800" style="max-width: 60%; height: auto;">
@@ -82,8 +82,7 @@ To help users quickly grasp each dataset’s schema, attributes, data distributi
 
 ## 💾 Data Access
 
-[![Download](https://img.shields.io/badge/Download-Datasets-brightgreen.svg)](https://github.com/example/datasets)
-<!-- [![Size](https://img.shields.io/badge/total_size-1GB-red.svg)](https://github.com/example/datasets) -->
+[![Download](https://img.shields.io/badge/Download-Datasets-brightgreen.svg)](#dataset-downloads)
 
 Due to the large size of our datasets, we provide access through download links rather than storing them directly in the repository.
 
@@ -134,25 +133,19 @@ Due to the large size of our datasets, we provide access through download links 
 
 ## 📁 File Structure
 
+```text
+UDA-Bench/
+|-- Data/             # local unstructured inputs used by adapters
+|-- Dataset/          # dataset copies/metadata used by selected systems
+|-- Query/            # SQL workloads, attributes and ground-truth CSVs
+|-- evaluation/       # shared single-query evaluator (evaluation.run_eval)
+|-- orchestrator/     # unified runner, adapters, run tracking and reports
+|-- systems/          # DQL, DocETL, Evaporate, Lotus, QUEST and UQE code
+|-- download.py       # dataset downloader
+`-- generate_config.py
 ```
-unstractured_analysis_benchmark/
-├── README.md          # Project documentation
-├── img/              # Project-related images
-├── Queries/          # Benchmark queries
-├── systems/          # Evaluation systems
-│   ├── evaporate/    # Evaporate system adaptation
-│   ├── palimpzest/   # Palimpzest system adaptation
-│   ├── lotus/        # LOTUS system wrapper
-│   ├── docetl/       # DocETL system usage examples
-│   ├── quest/        # QUEST system extension
-│   ├── zendb/        # ZenDB system implementation
-│   └── uqe/          # UQE system implementation
-└── evaluation/       # Evaluation scripts
-    ├── evaluate.py
-    ├── evaluate_healthcare.py
-    ├── evaluate_agg.py
-    └── attr_types.json
-```
+
+The unified orchestrator currently registers DocETL, Evaporate, Lotus, QUEST and DQL. UQE is available as a standalone implementation and is not registered in `orchestrator/registry.py`.
 
 ## 🔧 Benchmark Construction Process
 
@@ -200,8 +193,8 @@ The benchmark supports the following query types:
 
 ## 🚀 Usage Instructions
 
-[![Quick Start](https://img.shields.io/badge/Quick_Start-Guide-blue.svg)](https://github.com/example/quickstart)
-[![Examples](https://img.shields.io/badge/Examples-240_Queries-orange.svg)](https://github.com/example/queries)
+[![Quick Start](https://img.shields.io/badge/Quick_Start-Guide-blue.svg)](#repository-quick-start)
+[![Examples](https://img.shields.io/badge/Examples-SQL_Queries-orange.svg)](Query)
 
 1. **📥 Download Datasets**: Use the provided download links to obtain the datasets you need
 2. **📂 Extract Files**: Unzip the downloaded files to your local directory
@@ -211,19 +204,19 @@ The benchmark supports the following query types:
 
 ## 🧪 Systems for Evaluation
 
-[![Evaluation](https://img.shields.io/badge/Evaluation-Systems-yellow.svg)](https://github.com/example/systems)
-[![Open Source](https://img.shields.io/badge/Open_Source-5/7-green.svg)](https://github.com/example/systems)
+[![Evaluation](https://img.shields.io/badge/Evaluation-Systems-yellow.svg)](#systems-for-evaluation)
+[![Open Source](https://img.shields.io/badge/Open_Source-5/7-green.svg)](#systems-for-evaluation)
 
 Our benchmark evaluates 7 existing unstructured data analysis systems:
 
 | System | Open Source | Repository | Modifications |
 |--------|-------------|------------|---------------|
 | 📋 Evaporate | ✅ | [GitHub](https://github.com/HazyResearch/evaporate) | [Adaptation](systems/Evaporate) |
-| 🐍 Palimpzest (PZ) | ✅ | [GitHub](https://github.com/mitdbg/palimpzest) | [Adaptation](systems/PZ) |
+| 🐍 Palimpzest (PZ) | ✅ | [GitHub](https://github.com/mitdbg/palimpzest) | Not included in this checkout |
 | 🌸 LOTUS | ✅ | [GitHub](https://github.com/lotus-data/lotus) | [Adaptation](systems/Lotus) |
 | 🤖 DocETL | ✅ | [GitHub](https://github.com/ucbepic/docetl) | [Direct Usage](systems/DocETL) |
-| ❓ QUEST | ✅ | [GitHub](https://github.com/qiyandeng/QUEST) | [Adaptation](https://github.com/example/quest-extension) |
-| 🎯 ZenDB | ❌ | [Paper](https://arxiv.org/abs/2405.04674) | [Implementation](systems/ZenDB) |
+| ❓ QUEST | ✅ | [GitHub](https://github.com/qiyandeng/QUEST) | [Adaptation](systems/quest) |
+| 🎯 ZenDB | ❌ | [Paper](https://arxiv.org/abs/2405.04674) | Not included in this checkout |
 | 🔍 UQE | ❌ | [Paper](https://arxiv.org/abs/2407.09522) | [Implementation](systems/UQE) |
 
 ### System Descriptions:
@@ -309,8 +302,7 @@ If you use this benchmark in your research, please cite our paper:
 
 For questions or suggestions, please contact us through:
 - Submit GitHub Issues
-- Send email to: [Email to be added]
 
 ---
 
-*Last updated: 2025*
+*Last updated: 2026*

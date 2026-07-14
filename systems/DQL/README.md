@@ -3,7 +3,7 @@
 This folder contains the DQL runner used by the root orchestrator.
 
 - Entry script: `systems/DQL/main.py`
-- Dependencies: `systems/DQL/requirements.txt`
+- Runtime dependency for the standalone client: `requests` (this folder does not currently ship a dedicated requirements file)
 - Outputs (canonical, flat like DocETL/Evaporate):
   - query CSVs: `systems/DQL/outputs/<dataset>/csv/<query_name>.csv`
   - evaluation: `systems/DQL/outputs/<dataset>/evaluation/<query_name>/...`
@@ -18,6 +18,8 @@ This folder contains the DQL runner used by the root orchestrator.
 ```powershell
 .\.venv-DQL\Scripts\python.exe systems/DQL/main.py --user-id Finance --queries "SELECT earnings_per_share FROM finance" --api-url http://127.0.0.1:8000/api/v2/chat --out_dir systems/DQL/outputs/finan/_runtime/select/query_1
 ```
+
+If `--api-url` is omitted, the client uses `DQL_API_URL` from the root `.env`/environment, then falls back to `http://127.0.0.1:9000/api/answer`.
 
 ### Recommended: run via root orchestrator
 

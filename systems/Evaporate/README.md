@@ -31,8 +31,9 @@ Da root repo:
 ```powershell
 python -m venv .venv-evaporate
 .\.venv-evaporate\Scripts\Activate.ps1
-pip install -r systems/Evaporate/requirements_evaporate.txt
 ```
+
+Questa checkout non contiene un file `requirements_evaporate.txt`: installa le dipendenze dell'implementazione Evaporate usata dal progetto nell'ambiente `.venv-evaporate` prima di avviare la pipeline. Il comando con `-r systems/Evaporate/requirements_evaporate.txt`, presente in versioni precedenti della documentazione, non è valido in questa repository.
 
 API key (se usi provider LLM che la richiede):
 
@@ -47,7 +48,7 @@ Dataset in:
 - `Data/<Dataset>/txt/` documenti `.txt` (uno per file)
 - `Data/<Dataset>/table.json` schema/ground truth tabellare (se assente, viene generato da CSV quando possibile)
 
-Query SQL benchmark in `queries/` (gestite via loader orchestrator).
+Query SQL benchmark in `Query/<Dataset>/<Tipo>/*.sql` dalla root della repository (caricate da `orchestrator/query_loader.py`).
 
 ## Comandi principali
 
@@ -108,6 +109,8 @@ Valori supportati per `--query-type`:
 - `join`
 
 Per forcing reale del rebuild estrazione usa `--rebuild-extract` (propaga `--overwrite_cache` internamente).
+
+Il modello predefinito è risolto in quest'ordine: `EVAPORATE_MODEL`, `AZURE_OPENAI_DEPLOYMENT`, `AZURE_OPENAI_MODEL`, quindi `gemini-2.5-flash`.
 
 ## Output prodotti
 
