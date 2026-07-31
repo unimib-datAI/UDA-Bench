@@ -19,6 +19,7 @@
 !*.yaml
 !*.yml
 !Dockerfile
+!**/requirements.txt
 
 
 # (NOTA: niente !*.txt e niente !*.json globali)
@@ -48,6 +49,7 @@ venv/
 venv-evaporate/
 venv-docetl/
 venv-DQL/
+venv-quest/
 **/.venv/
 **/.venv-evaporate/
 **/.venv-docetl/
@@ -56,6 +58,7 @@ venv-DQL/
 **/venv-evaporate/
 **/venv-docetl/
 **/venv-DQL/
+**/venv-quest/
 
 # =========================
 # UDA-Bench specific ignores
