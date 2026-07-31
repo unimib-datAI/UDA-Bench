@@ -2,6 +2,8 @@
 
 ## Repository Quick Start
 
+Requires Python 3.11.9.
+
 This repository contains:
 
 - `Query/`: SQL workloads and ground-truth tables per dataset
@@ -47,7 +49,7 @@ start .\orchestrator\analysis\finance_outputs_report_llm.html
 
 
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
-[![Python](https://img.shields.io/badge/Python-3.10+-blue.svg)](https://www.python.org/)
+[![Python](https://img.shields.io/badge/Python-3.11.9-blue.svg)](https://www.python.org/)
 [![Dataset](https://img.shields.io/badge/Datasets-6-orange.svg)](#dataset-statistics)
 [![Systems](https://img.shields.io/badge/Integrated_systems-5-purple.svg)](#systems-for-evaluation)
 

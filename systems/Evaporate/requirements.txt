@@ -1,0 +1,10 @@
+# Tested with Python 3.11.9
+
+beautifulsoup4==4.15.0
+duckdb==1.5.4
+numpy==2.4.6
+openai==2.43.0
+pandas==3.0.3
+python-dotenv==1.2.2
+sqlglot==30.11.0
+tqdm==4.68.3
