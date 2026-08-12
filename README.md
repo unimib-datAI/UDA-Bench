@@ -1,5 +1,18 @@
 # <img src="img/UDA.png" alt="UDA" width="80" height="80" style="vertical-align: middle; margin-right: 8px;" /> Unstructured Data Analysis Benchmark
 
+## Attribution
+
+This repository is a fork of [BIT-DataLab/Bench-U](https://github.com/BIT-DataLab/Bench-U),
+released under the MIT License, Copyright (c) 2025 DB-121. The original license
+is preserved in [LICENSE](LICENSE).
+
+Changes introduced in this fork:
+
+- unified meta-orchestrator for cross-system, cross-dataset runs (`orchestrator/`)
+- adapters for DocETL, Evaporate, LOTUS, QUEST and DQL behind a single entrypoint
+- shared evaluation pipeline and cross-run reporting
+- macOS/Apple Silicon compatibility fixes
+
 ## Repository Quick Start
 
 Requires Python 3.11.9.
@@ -284,27 +297,5 @@ Our benchmark evaluates 7 existing unstructured data analysis systems:
 
 
 
-## 🤝 Contributing
 
-We welcome issue reports, feature requests, or code contributions. Please ensure to follow the project's coding standards and testing requirements.
 
-<!-- ## 📄 License
-
-[License information to be added] -->
-
-<!-- ## 📚 Citation
-
-If you use this benchmark in your research, please cite our paper:
-
-```bibtex
-[Citation format to be added]
-``` -->
-
-## 📧 Contact
-
-For questions or suggestions, please contact us through:
-- Submit GitHub Issues
-
----
-
-*Last updated: 2026*
