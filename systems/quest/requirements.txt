@@ -140,9 +140,14 @@ thinc==8.2.5
 threadpoolctl==3.6.0
 tiktoken==0.9.0
 tokenizers==0.19.1
-torch==2.1.2+cu121
-torchaudio==2.1.2+cu121
-torchvision==0.16.2+cu121
+# CUDA builds on Linux/Windows (require --index-url https://download.pytorch.org/whl/cu121),
+# plain CPU/MPS builds from PyPI on macOS, where CUDA is not available.
+torch==2.1.2+cu121; sys_platform != "darwin"
+torch==2.1.2; sys_platform == "darwin"
+torchaudio==2.1.2+cu121; sys_platform != "darwin"
+torchaudio==2.1.2; sys_platform == "darwin"
+torchvision==0.16.2+cu121; sys_platform != "darwin"
+torchvision==0.16.2; sys_platform == "darwin"
 tqdm==4.67.1
 transformers==4.41.0
 typer==0.16.0

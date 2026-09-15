@@ -27,11 +27,18 @@ OPENAI_API_VERSION=2024-12-01-preview
 
 HOST=localhost
 DATABASE=quest
+DB_USER=quest
 USER=quest
 PASSWORD=quest_password
 DB_PORT_EXTERNAL=5433
 DB_PORT_INTERNAL=5432
 ```
+
+`DB_USER` is the DB role and is read before `USER`. On macOS/Linux the shell
+exports `USER` (the login name), and both Docker Compose and `load_dotenv()`
+prefer the ambient value over this file, so `USER` alone would silently create
+the database with your login name. Existing setups that only define `USER`
+keep working through the fallback.
 
 Use `--env-file .env` with Docker Compose, because the compose file lives under `systems/quest`.
 

@@ -134,3 +134,6 @@ orchestrator/analysis/*.html
 
 .env
 .env.local
+
+# Template with no secrets: must stay tracked (rule `*` on line 4 hides it).
+!.env.example

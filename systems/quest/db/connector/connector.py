@@ -67,7 +67,9 @@ def create_opengauss_engine(db_config=None, config_file=None):
                 "host": os.getenv("HOST"),
                 "port": int(os.getenv("DB_PORT_EXTERNAL")),
                 "database": os.getenv("DATABASE"),
-                "user": os.getenv("USER"),
+                # DB_USER first: on macOS/Linux the shell exports USER (the login
+                # name), which load_dotenv() does not override.
+                "user": os.getenv("DB_USER") or os.getenv("USER"),
                 "password": os.getenv("PASSWORD")
             }
             logger.info("使用默认数据库配置")

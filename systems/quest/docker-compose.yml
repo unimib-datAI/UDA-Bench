@@ -4,7 +4,9 @@ services:
     container_name: quest_pgvector
     restart: unless-stopped
     environment:
-      - POSTGRES_USER=${USER}
+      # DB_USER takes precedence over the legacy USER: on macOS/Linux the shell
+      # exports USER (the login name) and Compose prefers it over --env-file.
+      - POSTGRES_USER=${DB_USER:-${USER}}
       - POSTGRES_PASSWORD=${PASSWORD}
       - POSTGRES_DB=${DATABASE}
     ports:
@@ -13,7 +15,7 @@ services:
       - pgvector_data:/var/lib/postgresql/data
       - ./init_db.sql:/docker-entrypoint-initdb.d/init_db.sql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${USER} -d ${DATABASE}"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-${USER}} -d ${DATABASE}"]
       interval: 5s
       timeout: 5s
       retries: 5

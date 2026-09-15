@@ -22,7 +22,9 @@ TOKEN_CHUNKER = TokenTextChunker(chunk_size=20000, chunk_overlap=128)
 
 RECURSIVE_TOKEN_CHUNKER = RecursiveTokenTextChunker(chunk_size=512, chunk_overlap=128)
 
-USED_EMBEDDING_MODEL = batchedE5Embeddings(device="cpu")  # o "cpu"
+# "cpu", "cuda" (NVIDIA) or "mps" (Apple Silicon GPU). Defaults to "cpu" so
+# existing setups keep their behaviour.
+USED_EMBEDDING_MODEL = batchedE5Embeddings(device=os.getenv("QUEST_EMBEDDING_DEVICE", "cpu"))
 
 GRAMMAR_SEMANTIC_CHUNKER = GrammarSemanticChunker(USED_EMBEDDING_MODEL, min_chunk_size=128, max_chunk_size=512)
 
