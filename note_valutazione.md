@@ -1,7 +1,15 @@
 # Note sulla valutazione dei risultati Finance
 
-Appunti del 2026-09-17, ricavati dall'analisi della cartella `UDA outputs backup` e del codice del repo.
-Spiegano le due cose che fanno variare i punteggi a parità di risposte dei modelli: il **giudice** e la **versione dell'evaluator**.
+## Contesto
+
+L'esperimento confronta quattro sistemi (DocETL, RVCL, Evaporate, QUEST) sulle 86 query SQL del dataset Finance: ogni risposta è confrontata con il ground truth (GT) e riceve precision, recall e F1.
+
+**I punteggi non sono stati calcolati tutti allo stesso modo.** A parità di risposte, cambiano con due scelte di valutazione: l'uso di un giudice LLM e la versione dell'evaluator che costruisce il GT. Le sorgenti del viewer, e anche i numeri della tesi, mescolano queste scelte. Per questo:
+
+- confronta tra loro solo sorgenti con la stessa etichetta tra parentesi, per esempio tutte `exact match · string`;
+- una differenza di punteggio tra etichette diverse non va attribuita al modello: può dipendere solo dalla valutazione.
+
+Le sezioni seguenti spiegano le due scelte con esempi e riassumono chi usa cosa. Appunti del 2026-09-17, ricavati dall'analisi della cartella `UDA outputs backup` e del codice del repo.
 
 ## 1. Il giudice: quanto è tollerante il confronto, a parità di dati
 
