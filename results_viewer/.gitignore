@@ -1,0 +1,4 @@
+# Archivio dei risultati: committato. La cartella scompattata resta locale.
+!.gitignore
+!data/uda_outputs.zip
+data/uda_outputs/
