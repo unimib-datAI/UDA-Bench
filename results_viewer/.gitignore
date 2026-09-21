@@ -1,4 +1,5 @@
 # Archivio dei risultati: committato. La cartella scompattata resta locale.
 !.gitignore
+!Dockerfile.dockerignore
 !data/uda_outputs.zip
 data/uda_outputs/

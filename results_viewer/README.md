@@ -5,19 +5,21 @@ La vista Note dell'app mostra questo file e `note_valutazione.md` letti dal disc
 
 ## Avvio
 
-Dalla root del repo:
+Solo via Docker, dalla root del repo:
 
 ```bash
-python3 -m venv results_viewer/.venv
-results_viewer/.venv/bin/pip install -r results_viewer/requirements.txt
-unzip -q results_viewer/data/uda_outputs.zip -d results_viewer/data
-results_viewer/.venv/bin/streamlit run results_viewer/app.py
+git pull
+docker compose -f results_viewer/docker-compose.yml up -d --build
 ```
+
+- Si rilancia con `--build` dopo ogni modifica al codice o allo zip: l'immagine contiene codice e dati.
+- Log: `docker compose -f results_viewer/docker-compose.yml logs -f`; stop: `... down`.
+- L'app ascolta solo su `127.0.0.1:8501`, perché Streamlit non ha login. In locale si apre http://localhost:8501; da un server remoto prima `ssh -L 8501:localhost:8501 <server>`.
 
 ## Dati
 
 - Query: `Query/Finan/*/*.sql`.
-- Risultati: archiviati in `data/uda_outputs.zip` (output completi dei sistemi, circa 360 MB scompattati) e letti in sola lettura da `data/uda_outputs/`, che non è versionata; per un'altra cartella imposta `UDA_BACKUP_DIR`. Dopo un pull che aggiorna lo zip, cancella `data/uda_outputs/` e scompatta di nuovo.
+- Risultati: archiviati in `data/uda_outputs.zip` (output completi dei sistemi, circa 360 MB scompattati). La build ne scompatta solo `evaluation/` e `csv/` in `data/uda_outputs/` dentro l'immagine, e l'app li legge in sola lettura.
 - Nomi delle sorgenti: `exact match` o `LLM match` dice se la valutazione ha usato il giudice LLM; `string` o `number` dice se il GT confronta i numeri come testo o come numeri, cioè evaluator prima o dopo il commit `047aea3`.
 - Sorgenti: dizionario `MODELS` in `config.py`. Ogni voce ha la cartella `root` e due template di percorso: `eval` (cartella con `acc.json`) e `answer` (CSV della risposta), con i segnaposto `{cat}`, `{n}` e `{stem}` (nome del file SQL della categoria).
 

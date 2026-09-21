@@ -9,7 +9,7 @@ DIFF_STYLE = "background-color: rgba(255, 75, 75, 0.3)"
 st.set_page_config(page_title="UDA-Bench results", layout="wide")
 
 if not BACKUP.is_dir():
-    st.error(f"Cartella dei risultati non trovata: `{BACKUP}`. Scompatta `{ARCHIVE}` nella sua cartella, vedi README.")
+    st.error(f"Cartella dei risultati non trovata: `{BACKUP}`. Viene estratta da `{ARCHIVE}` durante la build dell'immagine: rilancia `docker compose ... up -d --build`, vedi README.")
     st.stop()
 
 queries = data.load_queries().set_index("query")
