@@ -1,9 +1,9 @@
 services:
-  results-viewer:
+  uda-results-viewer:
     build:
       context: ..
       dockerfile: results_viewer/Dockerfile
     # Solo localhost: Streamlit non ha login, dal proprio pc si usa un tunnel SSH.
     ports:
-      - "127.0.0.1:8501:8501"
+      - "127.0.0.1:8502:8501"
     restart: unless-stopped
